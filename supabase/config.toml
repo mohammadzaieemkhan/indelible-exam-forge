@@ -1,1 +1,8 @@
+
 project_id = "lgiwtlodhacxqbhzrewe"
+
+[functions.send-whatsapp-notification]
+verify_jwt = true
+
+[functions.gemini-ai]
+verify_jwt = true

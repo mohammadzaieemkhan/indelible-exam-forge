@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   BarChart, LineChart, Calendar, FileText, 
-  BookOpen, Settings, Plus, Filter, Download 
+  BookOpen, Settings, Plus, Filter, Download, Bell 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,9 +16,108 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { sendWhatsAppNotification, useGeminiAI } from "@/utils/apiService";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<string>("generate");
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [isNotifying, setIsNotifying] = useState<boolean>(false);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState<boolean>(false);
+  const [generatedQuestions, setGeneratedQuestions] = useState<string>("");
+  const { toast } = useToast();
+  
+  // Handle WhatsApp notification sending
+  const handleSendReminder = async () => {
+    if (!phoneNumber) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid phone number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsNotifying(true);
+    
+    try {
+      // Format phone number if needed (add country code if missing)
+      let formattedNumber = phoneNumber;
+      if (!formattedNumber.startsWith('+')) {
+        formattedNumber = `+1${formattedNumber}`; // Default to US if no country code
+      }
+      
+      await sendWhatsAppNotification(
+        formattedNumber,
+        "Reminder: Your Indelible AI test is scheduled to begin soon. Good luck!"
+      );
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send WhatsApp reminder",
+        variant: "destructive",
+      });
+    } finally {
+      setIsNotifying(false);
+    }
+  };
+  
+  // Handle exam generation with Gemini AI
+  const handleGenerateExam = async () => {
+    setIsGeneratingQuestions(true);
+    setGeneratedQuestions("");
+    
+    try {
+      // Get the selected topics from the UI
+      const topicElements = document.querySelectorAll('.bg-primary\\/20.text-primary');
+      const topics = Array.from(topicElements).map(el => el.textContent?.replace('×', '').trim() || "");
+      
+      // Get difficulty level
+      const difficultyLevels = [];
+      if ((document.getElementById('easy') as HTMLInputElement)?.checked) difficultyLevels.push('easy');
+      if ((document.getElementById('medium') as HTMLInputElement)?.checked) difficultyLevels.push('medium');
+      if ((document.getElementById('hard') as HTMLInputElement)?.checked) difficultyLevels.push('hard');
+      const difficulty = difficultyLevels.join(', ');
+      
+      // Call Gemini API via our edge function
+      const result = await useGeminiAI({
+        task: "generate_questions",
+        topics: topics.length > 0 ? topics : ["General Knowledge"],
+        difficulty: difficulty || "medium",
+      });
+      
+      if (result.success && result.response) {
+        setGeneratedQuestions(result.response);
+        toast({
+          title: "Success",
+          description: "Exam questions generated successfully",
+        });
+      } else {
+        throw new Error(result.error || "Failed to generate questions");
+      }
+    } catch (error) {
+      console.error("Error generating exam:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate exam questions",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
+  };
   
   return (
     <div className="container mx-auto py-6 px-4 md:px-6 space-y-8">
@@ -181,10 +279,23 @@ const DashboardPage = () => {
               
               {/* Generate Button */}
               <div className="flex justify-center pt-4">
-                <Button size="lg" className="animate-pulse">
-                  Generate Exam
+                <Button 
+                  size="lg" 
+                  className={isGeneratingQuestions ? "" : "animate-pulse"}
+                  onClick={handleGenerateExam}
+                  disabled={isGeneratingQuestions}
+                >
+                  {isGeneratingQuestions ? "Generating..." : "Generate Exam"}
                 </Button>
               </div>
+              
+              {/* Display generated questions if available */}
+              {generatedQuestions && (
+                <div className="mt-6 p-4 border rounded-md bg-muted/30">
+                  <h4 className="font-medium mb-2">Generated Exam Questions:</h4>
+                  <div className="whitespace-pre-line">{generatedQuestions}</div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -299,7 +410,7 @@ const DashboardPage = () => {
           </Card>
         </TabsContent>
         
-        {/* Upcoming Exams Tab */}
+        {/* Upcoming Exams Tab - Enhanced with WhatsApp notifications */}
         <TabsContent value="upcoming" className="space-y-6 animate-fade-in">
           <Card>
             <CardHeader>
@@ -343,7 +454,7 @@ const DashboardPage = () => {
                   </div>
                 </div>
                 
-                {/* Details Side */}
+                {/* Details Side - Enhanced with WhatsApp notification */}
                 <div className="md:col-span-2">
                   <div className="space-y-4">
                     <div>
@@ -383,8 +494,49 @@ const DashboardPage = () => {
                           </span>
                         </div>
                       </div>
-                      <div className="pt-2">
+                      <div className="pt-2 flex space-x-2">
                         <Button size="sm">View Details</Button>
+                        
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline">
+                              <Bell className="h-4 w-4 mr-1" /> Send Reminder
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Send WhatsApp Reminder</DialogTitle>
+                              <DialogDescription>
+                                Send a WhatsApp notification to remind about the upcoming exam.
+                              </DialogDescription>
+                            </DialogHeader>
+                            
+                            <div className="grid gap-4 py-4">
+                              <div className="grid gap-2">
+                                <Label htmlFor="phone-number">WhatsApp Number</Label>
+                                <Input
+                                  id="phone-number"
+                                  placeholder="+1234567890"
+                                  value={phoneNumber}
+                                  onChange={(e) => setPhoneNumber(e.target.value)}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Include the country code (e.g., +1 for US)
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <DialogFooter>
+                              <Button 
+                                onClick={handleSendReminder}
+                                disabled={isNotifying}
+                              >
+                                {isNotifying ? "Sending..." : "Send Reminder"}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                        
                       </div>
                     </div>
                   </div>
