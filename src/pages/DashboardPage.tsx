@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { 
@@ -29,6 +30,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<string>("generate");
@@ -36,6 +39,23 @@ const DashboardPage = () => {
   const [isNotifying, setIsNotifying] = useState<boolean>(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState<boolean>(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<string>("");
+  const [showNewExamDialog, setShowNewExamDialog] = useState<boolean>(false);
+  
+  // Form states for exam generation
+  const [examDate, setExamDate] = useState<string>("");
+  const [examDuration, setExamDuration] = useState<string>("60");
+  const [questionType, setQuestionType] = useState<string>("mcq");
+  const [topics, setTopics] = useState<string[]>(["Algebra", "Calculus"]);
+  const [newTopic, setNewTopic] = useState<string>("");
+  const [difficulty, setDifficulty] = useState({
+    easy: true,
+    medium: true,
+    hard: false
+  });
+
+  // For upcoming exams section
+  const [upcomingExams, setUpcomingExams] = useState<any[]>([]);
+  
   const { toast } = useToast();
   
   // Handle WhatsApp notification sending
@@ -74,28 +94,60 @@ const DashboardPage = () => {
     }
   };
   
+  // Handle adding a new topic
+  const handleAddTopic = () => {
+    if (newTopic && !topics.includes(newTopic)) {
+      setTopics([...topics, newTopic]);
+      setNewTopic("");
+    }
+  };
+
+  // Handle removing a topic
+  const handleRemoveTopic = (topicToRemove: string) => {
+    setTopics(topics.filter(topic => topic !== topicToRemove));
+  };
+
+  // Handle creating a new exam
+  const handleCreateExam = () => {
+    const newExam = {
+      name: "New Exam",
+      date: examDate || "2025-05-15",
+      time: "10:00 AM",
+      duration: examDuration,
+      topics: topics,
+      difficulty: Object.entries(difficulty)
+        .filter(([_, value]) => value)
+        .map(([key, _]) => key)
+        .join(", ")
+    };
+    
+    setUpcomingExams([...upcomingExams, newExam]);
+    setShowNewExamDialog(false);
+    
+    toast({
+      title: "Success",
+      description: "New exam created successfully",
+    });
+  };
+  
   // Handle exam generation with Gemini AI
   const handleGenerateExam = async () => {
     setIsGeneratingQuestions(true);
     setGeneratedQuestions("");
     
     try {
-      // Get the selected topics from the UI
-      const topicElements = document.querySelectorAll('.bg-primary\\/20.text-primary');
-      const topics = Array.from(topicElements).map(el => el.textContent?.replace('×', '').trim() || "");
-      
       // Get difficulty level
       const difficultyLevels = [];
-      if ((document.getElementById('easy') as HTMLInputElement)?.checked) difficultyLevels.push('easy');
-      if ((document.getElementById('medium') as HTMLInputElement)?.checked) difficultyLevels.push('medium');
-      if ((document.getElementById('hard') as HTMLInputElement)?.checked) difficultyLevels.push('hard');
-      const difficulty = difficultyLevels.join(', ');
+      if (difficulty.easy) difficultyLevels.push('easy');
+      if (difficulty.medium) difficultyLevels.push('medium'); 
+      if (difficulty.hard) difficultyLevels.push('hard');
+      const difficultyString = difficultyLevels.join(', ');
       
       // Call Gemini API via our edge function
       const result = await useGeminiAI({
         task: "generate_questions",
         topics: topics.length > 0 ? topics : ["General Knowledge"],
-        difficulty: difficulty || "medium",
+        difficulty: difficultyString || "medium",
       });
       
       if (result.success && result.response) {
@@ -130,9 +182,86 @@ const DashboardPage = () => {
           <Button variant="outline" size="sm">
             <Settings className="h-4 w-4 mr-2" /> Settings
           </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" /> New Exam
-          </Button>
+          <Dialog open={showNewExamDialog} onOpenChange={setShowNewExamDialog}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" /> New Exam
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Create New Exam</DialogTitle>
+                <DialogDescription>
+                  Set up a new exam with custom date, topics, and difficulty.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="exam-name" className="text-right">
+                    Name
+                  </Label>
+                  <Input id="exam-name" defaultValue="New Exam" className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="exam-date" className="text-right">
+                    Date
+                  </Label>
+                  <Input 
+                    id="exam-date" 
+                    type="date"
+                    value={examDate}
+                    onChange={(e) => setExamDate(e.target.value)}
+                    className="col-span-3" 
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="exam-duration" className="text-right">
+                    Duration
+                  </Label>
+                  <Input 
+                    id="exam-duration" 
+                    type="number" 
+                    value={examDuration}
+                    onChange={(e) => setExamDuration(e.target.value)}
+                    min="15" 
+                    max="180"
+                    className="col-span-3" 
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Topics</Label>
+                  <div className="col-span-3 space-y-2">
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Add topic..." 
+                        value={newTopic}
+                        onChange={(e) => setNewTopic(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTopic())}
+                      />
+                      <Button type="button" onClick={handleAddTopic}>Add</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {topics.map((topic, index) => (
+                        <div key={index} className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
+                          {topic}
+                          <button 
+                            type="button"
+                            onClick={() => handleRemoveTopic(topic)}
+                            className="hover:text-destructive"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" onClick={handleCreateExam}>Create Exam</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       
@@ -169,16 +298,21 @@ const DashboardPage = () => {
                     <div>
                       <label className="text-sm font-medium">Topics</label>
                       <div className="flex flex-wrap gap-2 p-2 border rounded-md mt-1 min-h-[100px]">
-                        <div className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
-                          Algebra
-                          <button className="hover:text-destructive">×</button>
-                        </div>
-                        <div className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
-                          Calculus
-                          <button className="hover:text-destructive">×</button>
-                        </div>
+                        {topics.map((topic, index) => (
+                          <div key={index} className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
+                            {topic}
+                            <button 
+                              type="button" 
+                              onClick={() => handleRemoveTopic(topic)} 
+                              className="hover:text-destructive"
+                            >×</button>
+                          </div>
+                        ))}
                         <input 
                           type="text" 
+                          value={newTopic}
+                          onChange={(e) => setNewTopic(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTopic())}
                           className="flex-1 min-w-[100px] outline-none bg-transparent" 
                           placeholder="Add topic..." 
                         />
@@ -215,6 +349,8 @@ const DashboardPage = () => {
                       <label className="text-sm font-medium">Exam Date</label>
                       <input 
                         type="date" 
+                        value={examDate}
+                        onChange={(e) => setExamDate(e.target.value)}
                         className="w-full rounded-md border border-input bg-transparent px-3 py-2 mt-1" 
                       />
                     </div>
@@ -226,12 +362,13 @@ const DashboardPage = () => {
                         min={15} 
                         max={180} 
                         step={5} 
-                        defaultValue={60} 
+                        value={examDuration}
+                        onChange={(e) => setExamDuration(e.target.value)}
                         className="w-full mt-1" 
                       />
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>15 mins</span>
-                        <span>60 mins</span>
+                        <span>{examDuration} mins</span>
                         <span>180 mins</span>
                       </div>
                     </div>
@@ -240,36 +377,58 @@ const DashboardPage = () => {
                   <div className="space-y-4">
                     <div>
                       <label className="text-sm font-medium">Question Type</label>
-                      <div className="flex gap-4 mt-2">
+                      <RadioGroup 
+                        value={questionType} 
+                        onValueChange={setQuestionType}
+                        className="flex gap-4 mt-2"
+                      >
                         <div className="flex items-center space-x-2">
-                          <input type="radio" id="mcq" name="question_type" defaultChecked />
-                          <label htmlFor="mcq">Multiple Choice</label>
+                          <RadioGroupItem value="mcq" id="mcq" />
+                          <Label htmlFor="mcq">Multiple Choice</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <input type="radio" id="essay" name="question_type" />
-                          <label htmlFor="essay">Essay</label>
+                          <RadioGroupItem value="essay" id="essay" />
+                          <Label htmlFor="essay">Essay</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <input type="radio" id="mixed" name="question_type" />
-                          <label htmlFor="mixed">Mixed</label>
+                          <RadioGroupItem value="mixed" id="mixed" />
+                          <Label htmlFor="mixed">Mixed</Label>
                         </div>
-                      </div>
+                      </RadioGroup>
                     </div>
                     
                     <div>
                       <label className="text-sm font-medium">Difficulty</label>
                       <div className="flex gap-4 mt-2">
                         <div className="flex items-center space-x-2">
-                          <input type="checkbox" id="easy" defaultChecked />
-                          <label htmlFor="easy">Easy</label>
+                          <Checkbox 
+                            id="easy" 
+                            checked={difficulty.easy}
+                            onCheckedChange={(checked) => 
+                              setDifficulty({...difficulty, easy: !!checked})
+                            }
+                          />
+                          <Label htmlFor="easy">Easy</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <input type="checkbox" id="medium" defaultChecked />
-                          <label htmlFor="medium">Medium</label>
+                          <Checkbox 
+                            id="medium" 
+                            checked={difficulty.medium}
+                            onCheckedChange={(checked) => 
+                              setDifficulty({...difficulty, medium: !!checked})
+                            }
+                          />
+                          <Label htmlFor="medium">Medium</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <input type="checkbox" id="hard" />
-                          <label htmlFor="hard">Hard</label>
+                          <Checkbox 
+                            id="hard" 
+                            checked={difficulty.hard}
+                            onCheckedChange={(checked) => 
+                              setDifficulty({...difficulty, hard: !!checked})
+                            }
+                          />
+                          <Label htmlFor="hard">Hard</Label>
                         </div>
                       </div>
                     </div>
@@ -373,36 +532,31 @@ const DashboardPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b hover:bg-muted/20">
-                      <td className="p-2">Midterm Exam</td>
-                      <td className="p-2">May 5, 2025</td>
-                      <td className="p-2">
-                        <span className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                          Algebra
-                        </span>
-                      </td>
-                      <td className="p-2">Medium</td>
-                      <td className="p-2">
-                        <Button variant="ghost" size="sm">
-                          View
-                        </Button>
-                      </td>
-                    </tr>
-                    <tr className="border-b hover:bg-muted/20">
-                      <td className="p-2">Final Exam</td>
-                      <td className="p-2">Apr 20, 2025</td>
-                      <td className="p-2">
-                        <span className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                          Calculus
-                        </span>
-                      </td>
-                      <td className="p-2">Hard</td>
-                      <td className="p-2">
-                        <Button variant="ghost" size="sm">
-                          View
-                        </Button>
-                      </td>
-                    </tr>
+                    {upcomingExams.length > 0 ? upcomingExams.map((exam, index) => (
+                      <tr key={index} className="border-b hover:bg-muted/20">
+                        <td className="p-2">{exam.name}</td>
+                        <td className="p-2">{exam.date}</td>
+                        <td className="p-2">
+                          {exam.topics.map((topic, i) => (
+                            <span key={i} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full mr-1">
+                              {topic}
+                            </span>
+                          ))}
+                        </td>
+                        <td className="p-2">{exam.difficulty}</td>
+                        <td className="p-2">
+                          <Button variant="ghost" size="sm">
+                            View
+                          </Button>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                          No previous exams found.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -438,19 +592,34 @@ const DashboardPage = () => {
                     ))}
                     
                     {/* Actual days */}
-                    {Array(31).fill(null).map((_, i) => (
-                      <div 
-                        key={`day-${i+1}`}
-                        className={`p-1 border rounded-md h-16 ${i+1 === 8 ? 'bg-primary/10 border-primary' : ''}`}
-                      >
-                        <div className="text-right text-sm">{i+1}</div>
-                        {i+1 === 8 && (
-                          <div className="text-xs p-1 mt-1 bg-primary/20 text-primary rounded">
-                            Midterm Exam
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                    {Array(31).fill(null).map((_, i) => {
+                      // Check if any exams are scheduled for this day
+                      const dayExams = upcomingExams.filter(exam => {
+                        const examDate = new Date(exam.date);
+                        return examDate.getDate() === i + 1 && 
+                               examDate.getMonth() === 4 && // May is month 4 (0-indexed)
+                               examDate.getFullYear() === 2025;
+                      });
+                      
+                      const hasExam = dayExams.length > 0;
+                      
+                      return (
+                        <div 
+                          key={`day-${i+1}`}
+                          className={`p-1 border rounded-md h-16 ${hasExam ? 'bg-primary/10 border-primary' : ''}`}
+                        >
+                          <div className="text-right text-sm">{i+1}</div>
+                          {dayExams.map((exam, examIndex) => (
+                            <div 
+                              key={examIndex}
+                              className="text-xs p-1 mt-1 bg-primary/20 text-primary rounded"
+                            >
+                              {exam.name}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
                 
@@ -459,86 +628,99 @@ const DashboardPage = () => {
                   <div className="space-y-4">
                     <div>
                       <h3 className="font-medium text-lg">Exam Details</h3>
-                      <Select defaultValue="midterm">
-                        <SelectTrigger className="w-full mt-2">
-                          <SelectValue placeholder="Select exam" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Upcoming Exams</SelectLabel>
-                            <SelectItem value="midterm">Midterm Exam</SelectItem>
-                            <SelectItem value="final">Final Exam</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      {upcomingExams.length > 0 ? (
+                        <Select defaultValue="0">
+                          <SelectTrigger className="w-full mt-2">
+                            <SelectValue placeholder="Select exam" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Upcoming Exams</SelectLabel>
+                              {upcomingExams.map((exam, index) => (
+                                <SelectItem key={index} value={index.toString()}>
+                                  {exam.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          No upcoming exams scheduled. Click "New Exam" to create one.
+                        </p>
+                      )}
                     </div>
                     
-                    <div className="border rounded-md p-4 space-y-3">
-                      <div>
-                        <span className="text-sm text-muted-foreground">Name:</span>
-                        <p>Midterm Exam</p>
-                      </div>
-                      <div>
-                        <span className="text-sm text-muted-foreground">Date:</span>
-                        <p>May 8, 2025 at 10:00 AM</p>
-                      </div>
-                      <div>
-                        <span className="text-sm text-muted-foreground">Duration:</span>
-                        <p>60 minutes</p>
-                      </div>
-                      <div>
-                        <span className="text-sm text-muted-foreground">Topics:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          <span className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                            Algebra
-                          </span>
+                    {upcomingExams.length > 0 && (
+                      <div className="border rounded-md p-4 space-y-3">
+                        <div>
+                          <span className="text-sm text-muted-foreground">Name:</span>
+                          <p>{upcomingExams[0].name}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-muted-foreground">Date:</span>
+                          <p>{upcomingExams[0].date} at {upcomingExams[0].time}</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-muted-foreground">Duration:</span>
+                          <p>{upcomingExams[0].duration} minutes</p>
+                        </div>
+                        <div>
+                          <span className="text-sm text-muted-foreground">Topics:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {upcomingExams[0].topics.map((topic, i) => (
+                              <span key={i} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
+                                {topic}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="pt-2 flex space-x-2">
+                          <Button size="sm">View Details</Button>
+                          
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button size="sm" variant="outline">
+                                <Bell className="h-4 w-4 mr-1" /> Send Reminder
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Send WhatsApp Reminder</DialogTitle>
+                                <DialogDescription>
+                                  Send a WhatsApp notification to remind about the upcoming exam.
+                                </DialogDescription>
+                              </DialogHeader>
+                              
+                              <div className="grid gap-4 py-4">
+                                <div className="grid gap-2">
+                                  <Label htmlFor="phone-number">WhatsApp Number</Label>
+                                  <Input
+                                    id="phone-number"
+                                    placeholder="+1234567890"
+                                    value={phoneNumber}
+                                    onChange={(e) => setPhoneNumber(e.target.value)}
+                                  />
+                                  <p className="text-xs text-muted-foreground">
+                                    Include the country code (e.g., +1 for US)
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <DialogFooter>
+                                <Button 
+                                  onClick={handleSendReminder}
+                                  disabled={isNotifying}
+                                >
+                                  {isNotifying ? "Sending..." : "Send Reminder"}
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                          
                         </div>
                       </div>
-                      <div className="pt-2 flex space-x-2">
-                        <Button size="sm">View Details</Button>
-                        
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              <Bell className="h-4 w-4 mr-1" /> Send Reminder
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Send WhatsApp Reminder</DialogTitle>
-                              <DialogDescription>
-                                Send a WhatsApp notification to remind about the upcoming exam.
-                              </DialogDescription>
-                            </DialogHeader>
-                            
-                            <div className="grid gap-4 py-4">
-                              <div className="grid gap-2">
-                                <Label htmlFor="phone-number">WhatsApp Number</Label>
-                                <Input
-                                  id="phone-number"
-                                  placeholder="+1234567890"
-                                  value={phoneNumber}
-                                  onChange={(e) => setPhoneNumber(e.target.value)}
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  Include the country code (e.g., +1 for US)
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <DialogFooter>
-                              <Button 
-                                onClick={handleSendReminder}
-                                disabled={isNotifying}
-                              >
-                                {isNotifying ? "Sending..." : "Send Reminder"}
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                        
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
