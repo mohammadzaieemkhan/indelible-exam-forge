@@ -9,15 +9,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const LoginPage = () => {
+const SignupPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   
-  // Handle Google Sign-In
-  const handleGoogleSignIn = async () => {
+  // Handle Google Sign Up
+  const handleGoogleSignUp = async () => {
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.signInWithOAuth({
@@ -31,46 +32,60 @@ const LoginPage = () => {
         throw error;
       }
     } catch (error) {
-      console.error("Error with Google sign-in:", error);
+      console.error("Error with Google signup:", error);
       toast({
         title: "Authentication Error",
-        description: error.message || "Failed to sign in with Google",
+        description: error.message || "Failed to sign up with Google",
         variant: "destructive",
       });
       setIsLoading(false);
     }
   };
   
-  // Handle Email Sign-In
-  const handleEmailSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Handle Email Sign Up
+  const handleEmailSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Validate password match
+    if (password !== confirmPassword) {
+      toast({
+        title: "Password Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       setIsLoading(true);
       
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`
+        }
       });
       
       if (error) {
         throw error;
       }
       
-      // If login successful
+      // If signup successful
       if (data.user) {
         toast({
-          title: "Welcome back",
-          description: "You have successfully signed in",
+          title: "Account created",
+          description: "Please check your email to confirm your account",
         });
         
+        // For development, you may want to automatically redirect
         navigate("/dashboard");
       }
     } catch (error) {
-      console.error("Error signing in with email:", error);
+      console.error("Error signing up with email:", error);
       toast({
         title: "Authentication Error",
-        description: error.message || "Failed to sign in",
+        description: error.message || "Failed to sign up",
         variant: "destructive",
       });
     } finally {
@@ -82,8 +97,8 @@ const LoginPage = () => {
     <div className="flex items-center justify-center min-h-[80vh] px-4">
       <div className="w-full max-w-md space-y-8 animate-fade-in">
         <div className="text-center">
-          <h1 className="text-3xl font-bold">Welcome to Indelible AI</h1>
-          <p className="text-muted-foreground mt-2">Sign in to access your dashboard</p>
+          <h1 className="text-3xl font-bold">Create an Account</h1>
+          <p className="text-muted-foreground mt-2">Sign up to get started with Indelible AI</p>
         </div>
         
         <Card>
@@ -97,11 +112,11 @@ const LoginPage = () => {
             
             <CardContent>
               <TabsContent value="email">
-                <form onSubmit={handleEmailSignIn} className="space-y-4">
+                <form onSubmit={handleEmailSignUp} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="signup-email">Email</Label>
                     <Input 
-                      id="email" 
+                      id="signup-email" 
                       placeholder="name@example.com" 
                       type="email" 
                       value={email}
@@ -110,22 +125,27 @@ const LoginPage = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Password</Label>
-                      <Link to="/forgot-password" className="text-sm text-primary hover:underline">
-                        Forgot password?
-                      </Link>
-                    </div>
+                    <Label htmlFor="signup-password">Password</Label>
                     <Input 
-                      id="password" 
+                      id="signup-password" 
                       type="password" 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required 
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+                    <Input 
+                      id="signup-confirm-password" 
+                      type="password" 
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required 
+                    />
+                  </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Signing in..." : "Sign In"}
+                    {isLoading ? "Creating Account..." : "Sign Up"}
                   </Button>
                 </form>
               </TabsContent>
@@ -135,10 +155,10 @@ const LoginPage = () => {
                   <Button 
                     variant="outline" 
                     className="w-full" 
-                    onClick={handleGoogleSignIn}
+                    onClick={handleGoogleSignUp}
                     disabled={isLoading}
                   >
-                    {isLoading ? "Connecting..." : "Sign in with Google"}
+                    {isLoading ? "Connecting..." : "Sign up with Google"}
                   </Button>
                   <p className="text-sm text-muted-foreground text-center">
                     We'll never post to your account without permission.
@@ -150,9 +170,9 @@ const LoginPage = () => {
           
           <CardFooter className="flex flex-col">
             <div className="text-sm text-muted-foreground text-center">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:underline">
-                Sign up
+              Already have an account?{" "}
+              <Link to="/login" className="text-primary hover:underline">
+                Sign in
               </Link>
             </div>
           </CardFooter>
@@ -162,4 +182,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default SignupPage;

@@ -49,6 +49,8 @@ export const useGeminiAI = async (
   }
 ): Promise<{ success: boolean; response?: string; error?: string }> => {
   try {
+    console.log("Calling Gemini AI with params:", params);
+    
     const { data, error } = await supabase.functions.invoke('gemini-ai', {
       body: params
     });
@@ -58,6 +60,7 @@ export const useGeminiAI = async (
       return { success: false, error: error.message };
     }
     
+    console.log("Gemini AI response:", data);
     return { success: true, response: data.response };
   } catch (error) {
     console.error("Error invoking gemini-ai function:", error);

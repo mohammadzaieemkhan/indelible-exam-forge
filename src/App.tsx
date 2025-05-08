@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
 import AboutPage from "./pages/AboutPage";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
