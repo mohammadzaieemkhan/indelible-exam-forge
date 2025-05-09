@@ -19,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, task, syllabus, topics, difficulty, questionTypes, numberOfQuestions } = await req.json();
+    const { prompt, task, syllabus, syllabusContent, topics, difficulty, questionTypes, numberOfQuestions, sections } = await req.json();
 
     // Choose the appropriate system prompt based on the task
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
@@ -28,12 +28,31 @@ serve(async (req) => {
     // Enhance the prompt based on task type
     switch (task) {
       case "generate_questions":
-        systemPrompt = "You are an AI specialized in creating educational exam questions. Generate challenging but fair questions based on the provided topics and difficulty level.";
-        userPrompt = `Generate ${numberOfQuestions || 10} exam questions about the following topics: ${Array.isArray(topics) ? topics.join(", ") : topics || "General Knowledge"}. 
+        systemPrompt = "You are an AI specialized in creating educational exam questions. Generate challenging but fair questions based on the provided topics, sections and difficulty level. For MCQs, include 4 options with one correct answer. For essay questions, include a question with appropriate word count guidance.";
+        
+        // Check if we have sections defined
+        if (sections && sections.length > 0) {
+          // Build a structured prompt for sections
+          let sectionsPrompt = "Create the following sections:\n";
+          
+          sections.forEach((section, index) => {
+            sectionsPrompt += `\nSECTION ${index + 1}: ${section.title || 'Untitled Section'}\n`;
+            sectionsPrompt += `- ${section.numberOfQuestions || 5} questions\n`;
+            sectionsPrompt += `- Question types: ${section.questionTypes.join(", ")}\n`;
+            sectionsPrompt += `- Topics: ${section.topics.join(", ")}\n`;
+            sectionsPrompt += `- Difficulty: ${section.difficulty || "medium"}\n`;
+          });
+          
+          userPrompt = sectionsPrompt + "\n" + (userPrompt || "");
+        } else {
+          // Use the traditional approach
+          userPrompt = `Generate ${numberOfQuestions || 10} exam questions about the following topics: ${Array.isArray(topics) ? topics.join(", ") : topics || "General Knowledge"}. 
                      Difficulty level: ${difficulty || "medium"}.
                      Question types: ${Array.isArray(questionTypes) ? questionTypes.join(", ") : questionTypes || "multiple choice"}.
                      ${syllabus ? "Based on this syllabus: " + syllabus : ""}
+                     ${syllabusContent ? "Based on this extracted syllabus content: " + syllabusContent : ""}
                      ${prompt || ""}`;
+        }
         break;
       case "evaluate_answer":
         systemPrompt = "You are an AI specialized in evaluating and grading student answers. Provide constructive feedback and suggestions for improvement.";
@@ -41,9 +60,14 @@ serve(async (req) => {
       case "performance_insights":
         systemPrompt = "You are an AI specialized in analyzing educational performance data and providing actionable insights to help students improve.";
         break;
+      case "parse_syllabus":
+        systemPrompt = "You are an AI specialized in extracting structured information from educational syllabi. Extract the main topics, subtopics, and key concepts that would be important for exam questions.";
+        userPrompt = `Please analyze the following syllabus and extract the main topics that would be relevant for creating exam questions: ${syllabusContent}`;
+        break;
     }
 
     console.log("Making request to Gemini API with prompt:", userPrompt);
+    console.log("Using task:", task);
 
     // Make the request to Gemini API using the gemini-1.5-flash model
     const geminiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", {
@@ -95,7 +119,7 @@ serve(async (req) => {
     });
 
     const geminiData = await geminiResponse.json();
-    console.log("Gemini API raw response:", geminiData);
+    console.log("Gemini API raw response:", JSON.stringify(geminiData, null, 2));
     
     // Safely extract the AI response text with better error handling
     let aiResponse = "";
