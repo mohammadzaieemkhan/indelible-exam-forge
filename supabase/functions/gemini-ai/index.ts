@@ -45,8 +45,8 @@ serve(async (req) => {
 
     console.log("Making request to Gemini API with prompt:", userPrompt);
 
-    // Make the request to Gemini API
-    const geminiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", {
+    // Make the request to Gemini API using the gemini-1.5-flash model
+    const geminiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
