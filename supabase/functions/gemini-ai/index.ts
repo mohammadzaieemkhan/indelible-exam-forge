@@ -19,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, task, syllabus, topics, difficulty } = await req.json();
+    const { prompt, task, syllabus, topics, difficulty, questionTypes, numberOfQuestions } = await req.json();
 
     // Choose the appropriate system prompt based on the task
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
@@ -29,8 +29,9 @@ serve(async (req) => {
     switch (task) {
       case "generate_questions":
         systemPrompt = "You are an AI specialized in creating educational exam questions. Generate challenging but fair questions based on the provided topics and difficulty level.";
-        userPrompt = `Generate exam questions about the following topics: ${topics.join(", ")}. 
-                     Difficulty level: ${difficulty}.
+        userPrompt = `Generate ${numberOfQuestions || 10} exam questions about the following topics: ${Array.isArray(topics) ? topics.join(", ") : topics || "General Knowledge"}. 
+                     Difficulty level: ${difficulty || "medium"}.
+                     Question types: ${Array.isArray(questionTypes) ? questionTypes.join(", ") : questionTypes || "multiple choice"}.
                      ${syllabus ? "Based on this syllabus: " + syllabus : ""}
                      ${prompt || ""}`;
         break;
@@ -41,6 +42,8 @@ serve(async (req) => {
         systemPrompt = "You are an AI specialized in analyzing educational performance data and providing actionable insights to help students improve.";
         break;
     }
+
+    console.log("Making request to Gemini API with prompt:", userPrompt);
 
     // Make the request to Gemini API
     const geminiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", {
@@ -92,13 +95,30 @@ serve(async (req) => {
     });
 
     const geminiData = await geminiResponse.json();
+    console.log("Gemini API raw response:", geminiData);
     
-    // Extract the AI response text
+    // Safely extract the AI response text with better error handling
     let aiResponse = "";
     try {
-      aiResponse = geminiData.candidates[0].content.parts[0].text;
+      // Check if the expected structure exists
+      if (geminiData.candidates && 
+          geminiData.candidates[0] && 
+          geminiData.candidates[0].content && 
+          geminiData.candidates[0].content.parts && 
+          geminiData.candidates[0].content.parts[0]) {
+        
+        aiResponse = geminiData.candidates[0].content.parts[0].text;
+      } else if (geminiData.error) {
+        // Handle API error
+        console.error("Gemini API returned an error:", geminiData.error);
+        aiResponse = `Error from Gemini API: ${geminiData.error.message || JSON.stringify(geminiData.error)}`;
+      } else {
+        // Handle unexpected response format
+        console.error("Unexpected Gemini API response format:", geminiData);
+        aiResponse = "The AI model returned an unexpected response format. Please try again.";
+      }
     } catch (e) {
-      console.error("Error parsing Gemini API response:", e);
+      console.error("Error parsing Gemini API response:", e, "Response:", geminiData);
       aiResponse = "Sorry, I couldn't process your request at this time.";
     }
 

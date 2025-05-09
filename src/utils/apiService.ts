@@ -53,19 +53,61 @@ export const useGeminiAI = async (
   try {
     console.log("Calling Gemini AI with params:", params);
     
+    // Ensure all required parameters are provided
+    if (!params.task) {
+      return { 
+        success: false, 
+        error: "Task parameter is required" 
+      };
+    }
+    
+    // Add validation and defaults
+    if (params.task === "generate_questions") {
+      if (!params.topics || params.topics.length === 0) {
+        params.topics = ["General Knowledge"];
+      }
+      
+      if (!params.numberOfQuestions || params.numberOfQuestions <= 0) {
+        params.numberOfQuestions = 10;
+      }
+    }
+    
     const { data, error } = await supabase.functions.invoke('gemini-ai', {
       body: params
     });
 
     if (error) {
       console.error("Error using Gemini AI:", error);
+      toast({
+        title: "AI Generation Error",
+        description: "Failed to generate content with AI",
+        variant: "destructive",
+      });
       return { success: false, error: error.message };
     }
     
     console.log("Gemini AI response:", data);
+    
+    if (!data || !data.response) {
+      toast({
+        title: "AI Response Error",
+        description: "Received an empty response from AI",
+        variant: "destructive",
+      });
+      return { 
+        success: false, 
+        error: "Received an empty response from AI" 
+      };
+    }
+    
     return { success: true, response: data.response };
   } catch (error) {
     console.error("Error invoking gemini-ai function:", error);
+    toast({
+      title: "AI Generation Error",
+      description: "An unexpected error occurred",
+      variant: "destructive",
+    });
     return { success: false, error: error.message };
   }
 };
