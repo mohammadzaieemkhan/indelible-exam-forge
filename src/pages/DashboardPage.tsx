@@ -32,6 +32,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<string>("generate");
@@ -42,10 +44,13 @@ const DashboardPage = () => {
   const [showNewExamDialog, setShowNewExamDialog] = useState<boolean>(false);
   
   // Form states for exam generation
+  const [examName, setExamName] = useState<string>("New Exam");
   const [examDate, setExamDate] = useState<string>("");
+  const [examTime, setExamTime] = useState<string>("10:00");
   const [examDuration, setExamDuration] = useState<string>("60");
   const [questionType, setQuestionType] = useState<string>("mcq");
-  const [topics, setTopics] = useState<string[]>(["Algebra", "Calculus"]);
+  const [numberOfQuestions, setNumberOfQuestions] = useState<string>("10");
+  const [topics, setTopics] = useState<string[]>([]);
   const [newTopic, setNewTopic] = useState<string>("");
   const [difficulty, setDifficulty] = useState({
     easy: true,
@@ -53,8 +58,17 @@ const DashboardPage = () => {
     hard: false
   });
 
+  // Question type preferences
+  const [questionTypes, setQuestionTypes] = useState({
+    mcq: true,
+    truefalse: false,
+    shortanswer: false,
+    essay: false
+  });
+
   // For upcoming exams section
   const [upcomingExams, setUpcomingExams] = useState<any[]>([]);
+  const [selectedExamIndex, setSelectedExamIndex] = useState<string>("0");
   
   const { toast } = useToast();
   
@@ -110,12 +124,17 @@ const DashboardPage = () => {
   // Handle creating a new exam
   const handleCreateExam = () => {
     const newExam = {
-      name: "New Exam",
+      name: examName,
       date: examDate || "2025-05-15",
-      time: "10:00 AM",
+      time: examTime,
       duration: examDuration,
-      topics: topics,
+      numberOfQuestions,
+      topics: topics.length > 0 ? topics : ["General Knowledge"],
       difficulty: Object.entries(difficulty)
+        .filter(([_, value]) => value)
+        .map(([key, _]) => key)
+        .join(", "),
+      questionTypes: Object.entries(questionTypes)
         .filter(([_, value]) => value)
         .map(([key, _]) => key)
         .join(", ")
@@ -127,6 +146,14 @@ const DashboardPage = () => {
     toast({
       title: "Success",
       description: "New exam created successfully",
+    });
+  };
+  
+  // Handle question type toggle
+  const handleQuestionTypeChange = (type: string, checked: boolean) => {
+    setQuestionTypes({
+      ...questionTypes,
+      [type]: checked
     });
   };
   
@@ -143,11 +170,22 @@ const DashboardPage = () => {
       if (difficulty.hard) difficultyLevels.push('hard');
       const difficultyString = difficultyLevels.join(', ');
       
+      // Get selected question types
+      const selectedQuestionTypes = Object.entries(questionTypes)
+        .filter(([_, value]) => value)
+        .map(([key, _]) => key);
+      
+      if (selectedQuestionTypes.length === 0) {
+        throw new Error("Please select at least one question type");
+      }
+      
       // Call Gemini API via our edge function
       const result = await useGeminiAI({
         task: "generate_questions",
         topics: topics.length > 0 ? topics : ["General Knowledge"],
         difficulty: difficultyString || "medium",
+        questionTypes: selectedQuestionTypes,
+        numberOfQuestions: parseInt(numberOfQuestions) || 10
       });
       
       if (result.success && result.response) {
@@ -163,12 +201,17 @@ const DashboardPage = () => {
       console.error("Error generating exam:", error);
       toast({
         title: "Error",
-        description: "Failed to generate exam questions",
+        description: error.message || "Failed to generate exam questions",
         variant: "destructive",
       });
     } finally {
       setIsGeneratingQuestions(false);
     }
+  };
+
+  // Handle exam selection in upcoming exams tab
+  const handleExamSelect = (value: string) => {
+    setSelectedExamIndex(value);
   };
   
   return (
@@ -188,7 +231,7 @@ const DashboardPage = () => {
                 <Plus className="h-4 w-4 mr-2" /> New Exam
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Create New Exam</DialogTitle>
                 <DialogDescription>
@@ -200,7 +243,12 @@ const DashboardPage = () => {
                   <Label htmlFor="exam-name" className="text-right">
                     Name
                   </Label>
-                  <Input id="exam-name" defaultValue="New Exam" className="col-span-3" />
+                  <Input 
+                    id="exam-name" 
+                    value={examName}
+                    onChange={(e) => setExamName(e.target.value)}
+                    className="col-span-3" 
+                  />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="exam-date" className="text-right">
@@ -215,6 +263,18 @@ const DashboardPage = () => {
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="exam-time" className="text-right">
+                    Time
+                  </Label>
+                  <Input 
+                    id="exam-time" 
+                    type="time"
+                    value={examTime}
+                    onChange={(e) => setExamTime(e.target.value)}
+                    className="col-span-3" 
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="exam-duration" className="text-right">
                     Duration
                   </Label>
@@ -225,6 +285,20 @@ const DashboardPage = () => {
                     onChange={(e) => setExamDuration(e.target.value)}
                     min="15" 
                     max="180"
+                    className="col-span-3" 
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="number-questions" className="text-right">
+                    Questions
+                  </Label>
+                  <Input 
+                    id="number-questions" 
+                    type="number" 
+                    value={numberOfQuestions}
+                    onChange={(e) => setNumberOfQuestions(e.target.value)}
+                    min="1" 
+                    max="50"
                     className="col-span-3" 
                   />
                 </div>
@@ -308,12 +382,11 @@ const DashboardPage = () => {
                             >×</button>
                           </div>
                         ))}
-                        <input 
-                          type="text" 
+                        <Input 
                           value={newTopic}
                           onChange={(e) => setNewTopic(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTopic())}
-                          className="flex-1 min-w-[100px] outline-none bg-transparent" 
+                          className="flex-1 min-w-[100px] border-none p-0 h-8" 
                           placeholder="Add topic..." 
                         />
                       </div>
@@ -347,54 +420,122 @@ const DashboardPage = () => {
                   <div className="space-y-4">
                     <div>
                       <label className="text-sm font-medium">Exam Date</label>
-                      <input 
+                      <Input 
                         type="date" 
                         value={examDate}
                         onChange={(e) => setExamDate(e.target.value)}
-                        className="w-full rounded-md border border-input bg-transparent px-3 py-2 mt-1" 
+                        className="w-full mt-1" 
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">Exam Time</label>
+                      <Input 
+                        type="time" 
+                        value={examTime}
+                        onChange={(e) => setExamTime(e.target.value)}
+                        className="w-full mt-1" 
                       />
                     </div>
                     
                     <div>
                       <label className="text-sm font-medium">Duration (minutes)</label>
-                      <input 
-                        type="range" 
-                        min={15} 
-                        max={180} 
-                        step={5} 
-                        value={examDuration}
-                        onChange={(e) => setExamDuration(e.target.value)}
-                        className="w-full mt-1" 
-                      />
+                      <div className="flex items-center gap-4">
+                        <Slider
+                          min={15}
+                          max={180}
+                          step={5}
+                          className="flex-1"
+                          value={[parseInt(examDuration)]}
+                          onValueChange={(value) => setExamDuration(value[0].toString())}
+                        />
+                        <Input
+                          type="number"
+                          className="w-20"
+                          min={15}
+                          max={180}
+                          value={examDuration}
+                          onChange={(e) => setExamDuration(e.target.value)}
+                        />
+                      </div>
                       <div className="flex justify-between text-xs text-muted-foreground">
                         <span>15 mins</span>
-                        <span>{examDuration} mins</span>
                         <span>180 mins</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm font-medium">Number of Questions</label>
+                      <div className="flex items-center gap-4">
+                        <Slider
+                          min={1}
+                          max={50}
+                          step={1}
+                          className="flex-1"
+                          value={[parseInt(numberOfQuestions)]}
+                          onValueChange={(value) => setNumberOfQuestions(value[0].toString())}
+                        />
+                        <Input
+                          type="number"
+                          className="w-20"
+                          min={1}
+                          max={50}
+                          value={numberOfQuestions}
+                          onChange={(e) => setNumberOfQuestions(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>1 question</span>
+                        <span>50 questions</span>
                       </div>
                     </div>
                   </div>
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm font-medium">Question Type</label>
-                      <RadioGroup 
-                        value={questionType} 
-                        onValueChange={setQuestionType}
-                        className="flex gap-4 mt-2"
-                      >
+                      <label className="text-sm font-medium">Question Types</label>
+                      <div className="space-y-2 mt-2">
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="mcq" id="mcq" />
-                          <Label htmlFor="mcq">Multiple Choice</Label>
+                          <Checkbox 
+                            id="mcq" 
+                            checked={questionTypes.mcq}
+                            onCheckedChange={(checked) => 
+                              handleQuestionTypeChange('mcq', !!checked)
+                            }
+                          />
+                          <Label htmlFor="mcq">Multiple Choice Questions</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="essay" id="essay" />
-                          <Label htmlFor="essay">Essay</Label>
+                          <Checkbox 
+                            id="truefalse" 
+                            checked={questionTypes.truefalse}
+                            onCheckedChange={(checked) => 
+                              handleQuestionTypeChange('truefalse', !!checked)
+                            }
+                          />
+                          <Label htmlFor="truefalse">True/False Questions</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="mixed" id="mixed" />
-                          <Label htmlFor="mixed">Mixed</Label>
+                          <Checkbox 
+                            id="shortanswer" 
+                            checked={questionTypes.shortanswer}
+                            onCheckedChange={(checked) => 
+                              handleQuestionTypeChange('shortanswer', !!checked)
+                            }
+                          />
+                          <Label htmlFor="shortanswer">Short Answer Questions</Label>
                         </div>
-                      </RadioGroup>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="essay" 
+                            checked={questionTypes.essay}
+                            onCheckedChange={(checked) => 
+                              handleQuestionTypeChange('essay', !!checked)
+                            }
+                          />
+                          <Label htmlFor="essay">Essay Questions</Label>
+                        </div>
+                      </div>
                     </div>
                     
                     <div>
@@ -629,7 +770,10 @@ const DashboardPage = () => {
                     <div>
                       <h3 className="font-medium text-lg">Exam Details</h3>
                       {upcomingExams.length > 0 ? (
-                        <Select defaultValue="0">
+                        <Select 
+                          value={selectedExamIndex} 
+                          onValueChange={handleExamSelect}
+                        >
                           <SelectTrigger className="w-full mt-2">
                             <SelectValue placeholder="Select exam" />
                           </SelectTrigger>
@@ -655,20 +799,20 @@ const DashboardPage = () => {
                       <div className="border rounded-md p-4 space-y-3">
                         <div>
                           <span className="text-sm text-muted-foreground">Name:</span>
-                          <p>{upcomingExams[0].name}</p>
+                          <p>{upcomingExams[parseInt(selectedExamIndex) || 0]?.name}</p>
                         </div>
                         <div>
                           <span className="text-sm text-muted-foreground">Date:</span>
-                          <p>{upcomingExams[0].date} at {upcomingExams[0].time}</p>
+                          <p>{upcomingExams[parseInt(selectedExamIndex) || 0]?.date} at {upcomingExams[parseInt(selectedExamIndex) || 0]?.time}</p>
                         </div>
                         <div>
                           <span className="text-sm text-muted-foreground">Duration:</span>
-                          <p>{upcomingExams[0].duration} minutes</p>
+                          <p>{upcomingExams[parseInt(selectedExamIndex) || 0]?.duration} minutes</p>
                         </div>
                         <div>
                           <span className="text-sm text-muted-foreground">Topics:</span>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {upcomingExams[0].topics.map((topic, i) => (
+                            {upcomingExams[parseInt(selectedExamIndex) || 0]?.topics.map((topic, i) => (
                               <span key={i} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
                                 {topic}
                               </span>

@@ -46,6 +46,8 @@ export const useGeminiAI = async (
     syllabus?: string;
     topics?: string[];
     difficulty?: string;
+    questionTypes?: string[];
+    numberOfQuestions?: number;
   }
 ): Promise<{ success: boolean; response?: string; error?: string }> => {
   try {
