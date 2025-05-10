@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { sendWhatsAppNotification, useGeminiAI } from "@/utils/apiService";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -52,6 +51,19 @@ const ExamTabs = () => {
           
           if (examDateTime <= now) {
             // It's time to activate this exam!
+            // Send a WhatsApp notification if phone number is available
+            if (phoneNumber && phoneNumber.length > 5) {
+              sendWhatsAppNotification(
+                phoneNumber,
+                `Your exam "${exam.name}" is now available to take!`
+              ).catch(err => console.error("Failed to send WhatsApp notification:", err));
+            }
+            
+            toast({
+              title: "Exam Available",
+              description: `${exam.name} is now available to take`,
+            });
+            
             return { ...exam, isActive: true };
           }
         }
@@ -65,39 +77,42 @@ const ExamTabs = () => {
       
       if (hasChanges) {
         setUpcomingExams(updatedExams);
-        
-        // Show notification for newly activated exams
-        const newlyActivated = updatedExams.filter(
-          (exam, i) => exam.isActive && !upcomingExams[i].isActive
-        );
-        
-        if (newlyActivated.length > 0) {
-          toast({
-            title: "Exam Available",
-            description: `${newlyActivated[0].name} is now available to take`,
-          });
-        }
       }
     }, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [upcomingExams, toast]);
+  }, [upcomingExams, toast, phoneNumber]);
   
   // Handle tab change
   const handleTabChange = (value: string) => {
     setActiveTab(value);
+    
+    // If navigating to Generate tab, clear any generated exam
+    if (value === "generate") {
+      setGeneratedExam(null);
+    }
   };
   
   // Handle saving an exam
   const handleSaveExam = (exam: IExam) => {
+    // Set some defaults if missing
+    const currentDate = new Date();
+    const examDate = exam.date || new Date(currentDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const examTime = exam.time || currentDate.toTimeString().slice(0, 5);
+    
     const newExam = {
       ...exam,
       id: `exam-${Date.now()}`, // Simple ID for tracking
-      isActive: false // Initially not active
+      date: examDate,
+      time: examTime,
+      isActive: false // Initially not active - exams can only be taken after scheduled time
     };
     
     setUpcomingExams([...upcomingExams, newExam]);
     setGeneratedExam(null);
+    
+    // Automatically switch to upcoming tab
+    setActiveTab("upcoming");
     
     toast({
       title: "Exam Saved",
@@ -131,6 +146,11 @@ const ExamTabs = () => {
         formattedNumber,
         `Reminder: Your exam "${selectedExam.name}" is scheduled for ${selectedExam.date} at ${selectedExam.time}. The exam will be ${selectedExam.duration} minutes long. Good luck!`
       );
+      
+      toast({
+        title: "Reminder Sent",
+        description: "WhatsApp reminder sent successfully",
+      });
     } catch (error) {
       console.error("Error sending notification:", error);
       toast({
@@ -152,7 +172,7 @@ const ExamTabs = () => {
   
   return (
     <>
-      <Tabs defaultValue="generate" className="space-y-6" onValueChange={handleTabChange}>
+      <Tabs defaultValue="generate" className="space-y-6" value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid grid-cols-1 md:grid-cols-4 gap-2">
           <TabsTrigger value="generate" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <BookOpen className="h-4 w-4 mr-2" /> Generate Exam
@@ -191,7 +211,9 @@ const ExamTabs = () => {
         <TabsContent value="upcoming" className="space-y-6 animate-fade-in">
           <UpcomingExamsTab 
             exams={upcomingExams}
-            onSendReminder={openNotificationDialog} 
+            onSendReminder={openNotificationDialog}
+            phoneNumber={phoneNumber}
+            setPhoneNumber={setPhoneNumber}
           />
         </TabsContent>
       </Tabs>

@@ -4,28 +4,138 @@ import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { IExam } from "@/components/ExamTabs";
 
 interface UpcomingExamsTabProps {
   exams: IExam[];
   onSendReminder: (exam: IExam) => void;
+  phoneNumber: string;
+  setPhoneNumber: (number: string) => void;
 }
 
-const UpcomingExamsTab = ({ exams, onSendReminder }: UpcomingExamsTabProps) => {
+interface ParsedQuestionItem {
+  type: 'mcq' | 'truefalse' | 'shortanswer' | 'essay';
+  question: string;
+  options?: string[];
+  answer?: string;
+}
+
+const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }: UpcomingExamsTabProps) => {
   const [selectedExamIndex, setSelectedExamIndex] = useState<string>("0");
   const [examContentDialogOpen, setExamContentDialogOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
+  const [parsedQuestions, setParsedQuestions] = useState<ParsedQuestionItem[]>([]);
+  const [userAnswers, setUserAnswers] = useState<Record<number, string | string[]>>({});
   
   // Handle exam selection in upcoming exams tab
   const handleExamSelect = (value: string) => {
     setSelectedExamIndex(value);
   };
   
+  // Parse questions from raw content
+  const parseQuestions = (content: string): ParsedQuestionItem[] => {
+    const questions: ParsedQuestionItem[] = [];
+    const lines = content.split('\n');
+    
+    let currentQuestion: Partial<ParsedQuestionItem> | null = null;
+    let currentOptions: string[] = [];
+    
+    for (const line of lines) {
+      // Detect questions by common patterns
+      if (/^\d+[\.\)]/.test(line.trim()) || /^Question \d+:/.test(line.trim())) {
+        // Save the previous question if exists
+        if (currentQuestion?.question) {
+          questions.push({
+            ...currentQuestion as ParsedQuestionItem,
+            options: currentOptions.length > 0 ? [...currentOptions] : undefined
+          });
+        }
+        
+        // Start a new question
+        currentQuestion = {
+          question: line.trim(),
+          type: 'mcq' // Default, we'll update based on content
+        };
+        currentOptions = [];
+      } 
+      // Detect options
+      else if (/^[A-D][\.\)]/.test(line.trim()) || /^\([A-D]\)/.test(line.trim())) {
+        currentOptions.push(line.trim());
+        if (currentQuestion) currentQuestion.type = 'mcq';
+      }
+      // Detect true/false
+      else if (/true|false/i.test(line.trim()) && currentOptions.length < 2 && currentQuestion) {
+        currentOptions.push(line.trim());
+        if (currentQuestion) currentQuestion.type = 'truefalse';
+      }
+      // Detect essay questions by keywords
+      else if (/essay|explain|describe|discuss|elaborate/i.test(line.trim()) && currentQuestion) {
+        currentQuestion.type = 'essay';
+      }
+      // Add the line to the current question if it's a continuation
+      else if (currentQuestion && line.trim().length > 0) {
+        currentQuestion.question += ' ' + line.trim();
+      }
+    }
+    
+    // Add the last question
+    if (currentQuestion?.question) {
+      questions.push({
+        ...currentQuestion as ParsedQuestionItem,
+        options: currentOptions.length > 0 ? [...currentOptions] : undefined
+      });
+    }
+    
+    return questions.map(q => {
+      // If no options and not already marked as essay, mark as short answer
+      if (!q.options || q.options.length === 0) {
+        if (q.type !== 'essay') {
+          return { ...q, type: 'shortanswer' };
+        }
+      }
+      return q;
+    });
+  };
+  
   // Handle view exam content
   const handleViewExam = (exam: IExam) => {
     setSelectedExam(exam);
+    
+    if (exam.questions) {
+      // Parse the questions for proper rendering
+      const parsed = parseQuestions(exam.questions);
+      setParsedQuestions(parsed);
+    } else {
+      setParsedQuestions([]);
+    }
+    
+    // Reset user answers
+    setUserAnswers({});
     setExamContentDialogOpen(true);
+  };
+  
+  // Handle user answering a question
+  const handleAnswerChange = (questionIndex: number, value: string | string[]) => {
+    setUserAnswers({
+      ...userAnswers,
+      [questionIndex]: value
+    });
+  };
+  
+  // Handle submitting the exam
+  const handleSubmitExam = () => {
+    // Here you would save the answers and calculate score
+    // For now, just close the dialog
+    setExamContentDialogOpen(false);
+    
+    // In a real application, you'd send these answers to a backend
+    console.log("User answers:", userAnswers);
   };
   
   // Get current date for calendar view
@@ -38,6 +148,68 @@ const UpcomingExamsTab = ({ exams, onSendReminder }: UpcomingExamsTabProps) => {
   // Month names
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   
+  // Render the appropriate input for different question types
+  const renderQuestionInput = (question: ParsedQuestionItem, index: number) => {
+    switch (question.type) {
+      case 'mcq':
+        return (
+          <RadioGroup
+            value={userAnswers[index] as string || ""}
+            onValueChange={(value) => handleAnswerChange(index, value)}
+            className="mt-2 space-y-2"
+          >
+            {question.options?.map((option, optIdx) => (
+              <div key={optIdx} className="flex items-center space-x-2">
+                <RadioGroupItem value={option} id={`q${index}-opt${optIdx}`} />
+                <Label htmlFor={`q${index}-opt${optIdx}`}>{option}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+        );
+        
+      case 'truefalse':
+        return (
+          <RadioGroup
+            value={userAnswers[index] as string || ""}
+            onValueChange={(value) => handleAnswerChange(index, value)}
+            className="mt-2 space-x-4 flex"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="true" id={`q${index}-true`} />
+              <Label htmlFor={`q${index}-true`}>True</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="false" id={`q${index}-false`} />
+              <Label htmlFor={`q${index}-false`}>False</Label>
+            </div>
+          </RadioGroup>
+        );
+        
+      case 'shortanswer':
+        return (
+          <Input
+            value={userAnswers[index] as string || ""}
+            onChange={(e) => handleAnswerChange(index, e.target.value)}
+            placeholder="Your answer..."
+            className="mt-2"
+          />
+        );
+        
+      case 'essay':
+        return (
+          <Textarea
+            value={userAnswers[index] as string || ""}
+            onChange={(e) => handleAnswerChange(index, e.target.value)}
+            placeholder="Write your answer here..."
+            className="mt-2 min-h-[150px]"
+          />
+        );
+        
+      default:
+        return null;
+    }
+  };
+  
   return (
     <Card>
       <CardHeader>
@@ -45,6 +217,20 @@ const UpcomingExamsTab = ({ exams, onSendReminder }: UpcomingExamsTabProps) => {
         <CardDescription>View and manage scheduled exams</CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-4">
+          <Label htmlFor="whatsapp-number">Your WhatsApp Number (for notifications)</Label>
+          <Input
+            id="whatsapp-number"
+            placeholder="+1234567890"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            className="mt-1"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Include the country code (e.g., +1 for US)
+          </p>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
           {/* Calendar Side */}
           <div className="md:col-span-5 border rounded-lg p-4">
@@ -85,10 +271,10 @@ const UpcomingExamsTab = ({ exams, onSendReminder }: UpcomingExamsTabProps) => {
                     {dayExams.map((exam, examIndex) => (
                       <button 
                         key={examIndex}
-                        className="text-xs p-1 mt-1 bg-primary/20 text-primary rounded w-full text-left"
+                        className={`text-xs p-1 mt-1 ${exam.isActive ? 'bg-green-500/20 text-green-700' : 'bg-primary/20 text-primary'} rounded w-full text-left`}
                         onClick={() => handleViewExam(exam)}
                       >
-                        {exam.name}
+                        {exam.name} {exam.isActive ? '(Available)' : ''}
                       </button>
                     ))}
                   </div>
@@ -201,10 +387,40 @@ const UpcomingExamsTab = ({ exams, onSendReminder }: UpcomingExamsTabProps) => {
               {selectedExam?.date} at {selectedExam?.time} • {selectedExam?.duration} minutes
             </DialogDescription>
           </DialogHeader>
-          {selectedExam?.questions ? (
-            <div className="whitespace-pre-line">{selectedExam.questions}</div>
+          
+          {selectedExam?.isActive ? (
+            <>
+              {parsedQuestions.length > 0 ? (
+                <div className="space-y-8 py-4">
+                  {parsedQuestions.map((question, index) => (
+                    <div key={index} className="space-y-2">
+                      <h3 className="font-medium text-lg">Question {index + 1}</h3>
+                      <p>{question.question}</p>
+                      {renderQuestionInput(question, index)}
+                    </div>
+                  ))}
+                  
+                  <DialogFooter>
+                    <Button onClick={handleSubmitExam}>
+                      Submit Exam
+                    </Button>
+                  </DialogFooter>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">
+                  No questions found in the exam content. Please regenerate the exam.
+                </p>
+              )}
+            </>
           ) : (
-            <p className="text-muted-foreground">Exam content is not available</p>
+            <div className="py-8 text-center">
+              <p className="text-amber-600 font-medium mb-4">
+                This exam is not yet available to take
+              </p>
+              <p className="text-muted-foreground">
+                The exam will become available at the scheduled date and time.
+              </p>
+            </div>
           )}
         </DialogContent>
       </Dialog>

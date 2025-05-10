@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import ExamTabs from "@/components/ExamTabs";
 
 const DashboardPage = () => {

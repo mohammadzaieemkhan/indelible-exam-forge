@@ -28,30 +28,38 @@ serve(async (req) => {
     // Enhance the prompt based on task type
     switch (task) {
       case "generate_questions":
-        systemPrompt = "You are an AI specialized in creating educational exam questions. Generate challenging but fair questions based on the provided topics, sections and difficulty level. For MCQs, include 4 options with one correct answer. For essay questions, include a question with appropriate word count guidance.";
+        systemPrompt = "You are an AI specialized in creating educational exam questions. Generate challenging but fair questions based on the provided topics, sections and difficulty level. For MCQs, include 4 options with one correct answer clearly labeled. For essay questions, include a question with appropriate word count guidance. Format each question clearly with a number and make sure options are clearly labeled A, B, C, D for multiple choice.";
         
         // Check if we have sections defined
         if (sections && sections.length > 0) {
           // Build a structured prompt for sections
-          let sectionsPrompt = "Create the following sections:\n";
+          let sectionsPrompt = "Create the following exam sections with clearly numbered questions:\n";
           
           sections.forEach((section, index) => {
             sectionsPrompt += `\nSECTION ${index + 1}: ${section.title || 'Untitled Section'}\n`;
             sectionsPrompt += `- ${section.numberOfQuestions || 5} questions\n`;
             sectionsPrompt += `- Question types: ${section.questionTypes.join(", ")}\n`;
-            sectionsPrompt += `- Topics: ${section.topics.join(", ")}\n`;
+            sectionsPrompt += `- Topics: ${section.topics.length > 0 ? section.topics.join(", ") : "General Knowledge"}\n`;
             sectionsPrompt += `- Difficulty: ${section.difficulty || "medium"}\n`;
           });
           
           userPrompt = sectionsPrompt + "\n" + (userPrompt || "");
         } else {
-          // Use the traditional approach
-          userPrompt = `Generate ${numberOfQuestions || 10} exam questions about the following topics: ${Array.isArray(topics) ? topics.join(", ") : topics || "General Knowledge"}. 
+          // Use the traditional approach with specific formatting instructions
+          userPrompt = `Generate ${numberOfQuestions || 10} exam questions about the following topics: ${Array.isArray(topics) && topics.length > 0 ? topics.join(", ") : "General Knowledge"}. 
                      Difficulty level: ${difficulty || "medium"}.
                      Question types: ${Array.isArray(questionTypes) ? questionTypes.join(", ") : questionTypes || "multiple choice"}.
                      ${syllabus ? "Based on this syllabus: " + syllabus : ""}
                      ${syllabusContent ? "Based on this extracted syllabus content: " + syllabusContent : ""}
-                     ${prompt || ""}`;
+                     ${prompt || ""}
+                     
+                     Format Guidelines:
+                     - Number each question clearly (1, 2, 3, etc.)
+                     - For multiple choice questions, label options as A), B), C), D) and clearly indicate the correct answer
+                     - For true/false questions, provide the statement and indicate whether it's true or false
+                     - For short answer questions, include the expected answer length
+                     - For essay questions, provide guidance on word count and key points to address
+                     - Make sure questions are directly related to the specified topics`;
         }
         break;
       case "evaluate_answer":
