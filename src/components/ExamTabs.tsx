@@ -36,10 +36,11 @@ const ExamTabs = () => {
   const [isNotifying, setIsNotifying] = useState<boolean>(false);
   const [notificationDialogOpen, setNotificationDialogOpen] = useState<boolean>(false);
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
+  const [isWhatsAppSetup, setIsWhatsAppSetup] = useState<boolean>(false);
 
   const { toast } = useToast();
   
-  // Load exams from localStorage on component mount
+  // Load exams and phone number from localStorage on component mount
   useEffect(() => {
     const savedExams = localStorage.getItem('upcomingExams');
     if (savedExams) {
@@ -49,6 +50,13 @@ const ExamTabs = () => {
         console.error('Error parsing saved exams:', error);
       }
     }
+    
+    // Load phone number if saved
+    const savedPhoneNumber = localStorage.getItem('whatsappNumber');
+    if (savedPhoneNumber) {
+      setPhoneNumber(savedPhoneNumber);
+      setIsWhatsAppSetup(true);
+    }
   }, []);
   
   // Save exams to localStorage when they change
@@ -57,6 +65,14 @@ const ExamTabs = () => {
       localStorage.setItem('upcomingExams', JSON.stringify(upcomingExams));
     }
   }, [upcomingExams]);
+
+  // Save phone number to localStorage when it changes
+  useEffect(() => {
+    if (phoneNumber && phoneNumber.length > 5) {
+      localStorage.setItem('whatsappNumber', phoneNumber);
+      setIsWhatsAppSetup(true);
+    }
+  }, [phoneNumber]);
   
   // Check for exams that need to be activated
   useEffect(() => {
@@ -72,10 +88,20 @@ const ExamTabs = () => {
             // It's time to activate this exam!
             // Send a WhatsApp notification if phone number is available
             if (phoneNumber && phoneNumber.length > 5) {
+              console.log("Sending WhatsApp notification for exam activation:", exam.name);
               sendWhatsAppNotification(
                 phoneNumber,
                 `Your exam "${exam.name}" is now available to take!`
-              ).catch(err => console.error("Failed to send WhatsApp notification:", err));
+              ).then(result => {
+                console.log("WhatsApp notification result:", result);
+                if (!result.success) {
+                  toast({
+                    title: "Notification Error",
+                    description: "Could not send WhatsApp notification. Please check your phone number.",
+                    variant: "destructive",
+                  });
+                }
+              }).catch(err => console.error("Failed to send WhatsApp notification:", err));
             }
             
             toast({
@@ -138,10 +164,10 @@ const ExamTabs = () => {
   const handleSendReminder = async () => {
     if (!selectedExam) return;
     
-    if (!phoneNumber) {
+    if (!phoneNumber || phoneNumber.length < 5) {
       toast({
         title: "Error",
-        description: "Please enter a valid phone number",
+        description: "Please enter a valid phone number with country code",
         variant: "destructive",
       });
       return;
@@ -150,21 +176,28 @@ const ExamTabs = () => {
     setIsNotifying(true);
     
     try {
-      // Format phone number if needed (add country code if missing)
-      let formattedNumber = phoneNumber;
-      if (!formattedNumber.startsWith('+')) {
-        formattedNumber = `+1${formattedNumber}`; // Default to US if no country code
+      console.log("Sending WhatsApp reminder for exam:", selectedExam.name);
+      
+      // Format the message
+      const message = `Reminder: Your exam "${selectedExam.name}" is scheduled for ${selectedExam.date} at ${selectedExam.time}. The exam will be ${selectedExam.duration} minutes long. Good luck!`;
+      
+      // Send the WhatsApp notification
+      const result = await sendWhatsAppNotification(phoneNumber, message);
+      
+      if (result.success) {
+        toast({
+          title: "Reminder Sent",
+          description: "WhatsApp reminder sent successfully!",
+        });
+        setIsWhatsAppSetup(true);
+      } else {
+        console.error("Failed to send WhatsApp reminder:", result.error);
+        toast({
+          title: "Error",
+          description: "Failed to send WhatsApp reminder. Check console for details.",
+          variant: "destructive",
+        });
       }
-      
-      await sendWhatsAppNotification(
-        formattedNumber,
-        `Reminder: Your exam "${selectedExam.name}" is scheduled for ${selectedExam.date} at ${selectedExam.time}. The exam will be ${selectedExam.duration} minutes long. Good luck!`
-      );
-      
-      toast({
-        title: "Reminder Sent",
-        description: "WhatsApp reminder sent successfully",
-      });
     } catch (error) {
       console.error("Error sending notification:", error);
       toast({
@@ -228,6 +261,7 @@ const ExamTabs = () => {
             onSendReminder={openNotificationDialog}
             phoneNumber={phoneNumber}
             setPhoneNumber={setPhoneNumber}
+            isWhatsAppSetup={isWhatsAppSetup}
           />
         </TabsContent>
       </Tabs>
@@ -252,7 +286,7 @@ const ExamTabs = () => {
                 onChange={(e) => setPhoneNumber(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Include the country code (e.g., +1 for US)
+                Include the country code (e.g., +1 for US). For WhatsApp to work, you may need to send a message to the Twilio number first.
               </p>
             </div>
           </div>

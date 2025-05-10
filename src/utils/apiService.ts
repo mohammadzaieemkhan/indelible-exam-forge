@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 
 /**
  * Send WhatsApp notification
@@ -10,28 +10,66 @@ export const sendWhatsAppNotification = async (
   message: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> => {
   try {
+    // Validate phone number format
+    if (!phoneNumber || phoneNumber.trim().length < 5) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please provide a valid phone number with country code",
+        variant: "destructive",
+      });
+      return { success: false, error: "Invalid phone number" };
+    }
+    
+    // Format the phone number if needed (ensure it has a + prefix)
+    let formattedNumber = phoneNumber.trim();
+    if (!formattedNumber.startsWith('+')) {
+      // If no country code, assume US (+1)
+      formattedNumber = '+1' + formattedNumber.replace(/[^\d]/g, '');
+    }
+    
+    console.log("Sending WhatsApp notification to:", formattedNumber);
+    console.log("Message:", message);
+    
+    // Call the Supabase edge function
     const { data, error } = await supabase.functions.invoke('send-whatsapp-notification', {
-      body: { phoneNumber, message }
+      body: { phoneNumber: formattedNumber, message }
     });
 
     if (error) {
-      console.error("Error sending WhatsApp notification:", error);
+      console.error("Error invoking send-whatsapp-notification function:", error);
       toast({
         title: "Notification Error",
-        description: "Failed to send WhatsApp notification",
+        description: "Failed to send WhatsApp notification: " + error.message,
         variant: "destructive",
       });
       return { success: false, error: error.message };
     }
+    
+    console.log("WhatsApp function response:", data);
+    
+    // Check the detailed response from our function
+    if (data.error) {
+      toast({
+        title: "WhatsApp Error",
+        description: data.error || "Failed to send message. Check the phone number format and try again.",
+        variant: "destructive",
+      });
+      return { success: false, error: data.error };
+    }
 
     toast({
       title: "Notification Sent",
-      description: "WhatsApp notification sent successfully",
+      description: "WhatsApp notification sent successfully. You may need to start the WhatsApp conversation with the Twilio number first.",
     });
     
     return { success: true, messageId: data.messageId };
   } catch (error) {
-    console.error("Error invoking send-whatsapp-notification function:", error);
+    console.error("Error sending WhatsApp notification:", error);
+    toast({
+      title: "Notification Error",
+      description: "An unexpected error occurred when sending the notification",
+      variant: "destructive",
+    });
     return { success: false, error: error.message };
   }
 };

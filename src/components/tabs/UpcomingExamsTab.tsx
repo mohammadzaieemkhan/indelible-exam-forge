@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Bell, FileText, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,12 +12,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { IExam } from "@/components/ExamTabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 
 interface UpcomingExamsTabProps {
   exams: IExam[];
   onSendReminder: (exam: IExam) => void;
   phoneNumber: string;
   setPhoneNumber: (number: string) => void;
+  isWhatsAppSetup?: boolean;
 }
 
 interface ParsedQuestionItem {
@@ -29,11 +31,11 @@ interface ParsedQuestionItem {
   section?: string;
 }
 
-const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }: UpcomingExamsTabProps) => {
+const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, isWhatsAppSetup = false }: UpcomingExamsTabProps) => {
   const [selectedExamIndex, setSelectedExamIndex] = useState<string>("0");
   const [examContentDialogOpen, setExamContentDialogOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
-  const [parsedQuestions, setParsedQuestions] = useState<ParsedQuestionItem[]>([]);
+  const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<number, string | string[]>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [examSubmitted, setExamSubmitted] = useState(false);
@@ -328,16 +330,54 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
       <CardContent>
         <div className="mb-4">
           <Label htmlFor="whatsapp-number">Your WhatsApp Number (for notifications)</Label>
-          <Input
-            id="whatsapp-number"
-            placeholder="+1234567890"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            className="mt-1"
-          />
+          <div className="flex gap-2">
+            <Input
+              id="whatsapp-number"
+              placeholder="+1234567890"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="mt-1"
+            />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-1" 
+              onClick={() => {
+                if (phoneNumber && phoneNumber.length > 5) {
+                  localStorage.setItem('whatsappNumber', phoneNumber);
+                  toast({
+                    title: "WhatsApp Number Saved",
+                    description: "Your WhatsApp number has been saved for notifications"
+                  });
+                } else {
+                  toast({
+                    title: "Invalid Number",
+                    description: "Please enter a valid phone number with country code",
+                    variant: "destructive"
+                  });
+                }
+              }}
+            >
+              Save
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground mt-1">
             Include the country code (e.g., +1 for US)
           </p>
+          
+          {!isWhatsAppSetup && (
+            <Alert className="mt-3">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Important: WhatsApp Setup</AlertTitle>
+              <AlertDescription>
+                For WhatsApp notifications to work, you need to:
+                <ol className="list-decimal list-inside mt-2 ml-2 text-sm">
+                  <li>Enter your WhatsApp number with country code (like +1234567890)</li>
+                  <li>Send a message to the Twilio WhatsApp number first to opt-in</li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-7 gap-4">

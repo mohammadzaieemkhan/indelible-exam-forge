@@ -27,10 +27,26 @@ serve(async (req) => {
       );
     }
 
-    // Format the phone number for WhatsApp (should be in format: whatsapp:+1234567890)
-    const formattedRecipient = phoneNumber.startsWith("whatsapp:")
-      ? phoneNumber
-      : `whatsapp:${phoneNumber}`;
+    // Log the incoming request data for debugging
+    console.log("Received request to send WhatsApp message:", { phoneNumber, messageLength: message.length });
+
+    // Format the phone number for WhatsApp
+    // Ensure it starts with "whatsapp:" prefix and has proper country code 
+    let formattedRecipient = phoneNumber;
+    
+    // Add + if missing from the number
+    if (!formattedRecipient.startsWith('+') && !formattedRecipient.startsWith('whatsapp:+')) {
+      formattedRecipient = '+' + formattedRecipient;
+    }
+    
+    // Add whatsapp: prefix if missing
+    if (!formattedRecipient.startsWith('whatsapp:')) {
+      formattedRecipient = `whatsapp:${formattedRecipient}`;
+    }
+
+    // Log the formatted recipient number
+    console.log("Formatted recipient number:", formattedRecipient);
+    console.log("Using Twilio WhatsApp number:", TWILIO_WHATSAPP_NUMBER);
 
     // Build the Twilio API URL for sending WhatsApp messages
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -40,6 +56,9 @@ serve(async (req) => {
     formData.append("From", TWILIO_WHATSAPP_NUMBER);
     formData.append("To", formattedRecipient);
     formData.append("Body", message);
+
+    // Log what we're about to send
+    console.log("Sending request to Twilio API...");
 
     // Make the request to Twilio API
     const twilioResponse = await fetch(twilioUrl, {
@@ -52,25 +71,28 @@ serve(async (req) => {
     });
 
     const twilioData = await twilioResponse.json();
+    console.log("Twilio API response:", JSON.stringify(twilioData));
 
-    // Return success response
+    // Return success response with more details
     return new Response(
       JSON.stringify({
-        success: true,
-        messageId: twilioData.sid,
-        status: twilioData.status,
+        success: twilioData.sid ? true : false,
+        messageId: twilioData.sid || null,
+        status: twilioData.status || twilioData.code,
+        error: twilioData.message || null,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error) {
-    // Log and return error response
+    // Log and return error response with more details
     console.error("Error sending WhatsApp notification:", error);
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message,
+        stack: error.stack,
       }),
       {
         status: 500,
