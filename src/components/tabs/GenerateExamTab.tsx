@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useGeminiAI } from "@/utils/apiService";
 import ExamSection from "@/components/ExamSection";
 import SyllabusUploader from "@/components/SyllabusUploader";
@@ -30,7 +30,6 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   const [newTopic, setNewTopic] = useState<string>("");
   const [syllabusContent, setSyllabusContent] = useState<string>("");
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState<boolean>(false);
-  const [generatedQuestions, setGeneratedQuestions] = useState<string>("");
 
   // Section management
   const [sections, setSections] = useState<any[]>([]);
@@ -53,6 +52,8 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   
   // Number of questions (for non-section mode)
   const [numberOfQuestions, setNumberOfQuestions] = useState<string>("10");
+  
+  const { toast } = useToast();
   
   // Handle adding a new topic
   const handleAddTopic = () => {
@@ -114,7 +115,6 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   // Handle exam generation
   const handleGenerateExam = async () => {
     setIsGeneratingQuestions(true);
-    setGeneratedQuestions("");
     
     try {
       let params: any = {
@@ -156,12 +156,10 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         params.syllabusContent = syllabusContent;
       }
       
-      // Call Gemini API via our edge function
+      // Call Gemini AI via our edge function
       const result = await useGeminiAI(params);
       
       if (result.success && result.response) {
-        setGeneratedQuestions(result.response);
-        
         // Create exam object to save
         const newExam: IExam = {
           name: examName,
@@ -182,12 +180,18 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
           sections: useSections ? sections : []
         };
         
-        setGeneratedExam(newExam);
+        // Direct save to upcoming exams without showing preview
+        onSaveExam(newExam);
         
         toast({
           title: "Success",
-          description: "Exam questions generated successfully",
+          description: "Exam created and moved to upcoming exams",
         });
+        
+        // Reset form
+        setExamName("New Exam");
+        setExamDate("");
+        setTopics([]);
       } else {
         throw new Error(result.error || "Failed to generate questions");
       }
@@ -201,13 +205,6 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
     } finally {
       setIsGeneratingQuestions(false);
     }
-  };
-  
-  // Handle saving the generated exam
-  const handleSaveExam = () => {
-    if (!generatedExam) return;
-    
-    onSaveExam(generatedExam);
   };
   
   return (
@@ -470,7 +467,6 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         <div className="flex justify-center pt-4">
           <Button 
             size="lg" 
-            className={isGeneratingQuestions ? "" : "animate-pulse"}
             onClick={handleGenerateExam}
             disabled={isGeneratingQuestions || (useSections && sections.length === 0)}
           >
@@ -479,28 +475,10 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...
               </>
             ) : (
-              "Generate Exam"
+              "Generate & Save Exam"
             )}
           </Button>
         </div>
-        
-        {/* Display generated questions if available */}
-        {generatedQuestions && (
-          <div>
-            <h3 className="font-semibold text-lg">Generated Exam Preview</h3>
-            <Card>
-              <CardContent className="p-4 mt-2">
-                <div className="whitespace-pre-line">{generatedQuestions}</div>
-              </CardContent>
-            </Card>
-            
-            <div className="mt-4 flex justify-center">
-              <Button onClick={handleSaveExam}>
-                Save to Upcoming Exams
-              </Button>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

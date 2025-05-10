@@ -4,7 +4,7 @@ import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { sendWhatsAppNotification, useGeminiAI } from "@/utils/apiService";
+import { sendWhatsAppNotification } from "@/utils/apiService";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,25 @@ const ExamTabs = () => {
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
 
   const { toast } = useToast();
+  
+  // Load exams from localStorage on component mount
+  useEffect(() => {
+    const savedExams = localStorage.getItem('upcomingExams');
+    if (savedExams) {
+      try {
+        setUpcomingExams(JSON.parse(savedExams));
+      } catch (error) {
+        console.error('Error parsing saved exams:', error);
+      }
+    }
+  }, []);
+  
+  // Save exams to localStorage when they change
+  useEffect(() => {
+    if (upcomingExams.length > 0) {
+      localStorage.setItem('upcomingExams', JSON.stringify(upcomingExams));
+    }
+  }, [upcomingExams]);
   
   // Check for exams that need to be activated
   useEffect(() => {
@@ -86,11 +105,6 @@ const ExamTabs = () => {
   // Handle tab change
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    
-    // If navigating to Generate tab, clear any generated exam
-    if (value === "generate") {
-      setGeneratedExam(null);
-    }
   };
   
   // Handle saving an exam

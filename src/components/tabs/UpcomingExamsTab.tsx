@@ -1,15 +1,17 @@
 
 import { useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, FileText, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 import { IExam } from "@/components/ExamTabs";
 
 interface UpcomingExamsTabProps {
@@ -24,6 +26,7 @@ interface ParsedQuestionItem {
   question: string;
   options?: string[];
   answer?: string;
+  section?: string;
 }
 
 const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }: UpcomingExamsTabProps) => {
@@ -32,55 +35,83 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
   const [parsedQuestions, setParsedQuestions] = useState<ParsedQuestionItem[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<number, string | string[]>>({});
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [examSubmitted, setExamSubmitted] = useState(false);
+  const { toast } = useToast();
   
   // Handle exam selection in upcoming exams tab
   const handleExamSelect = (value: string) => {
     setSelectedExamIndex(value);
   };
   
-  // Parse questions from raw content
+  // Parse questions from raw content with improved logic for better extraction
   const parseQuestions = (content: string): ParsedQuestionItem[] => {
     const questions: ParsedQuestionItem[] = [];
     const lines = content.split('\n');
     
     let currentQuestion: Partial<ParsedQuestionItem> | null = null;
     let currentOptions: string[] = [];
+    let currentSection: string = '';
     
     for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Check for section headers
+      if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
+        currentSection = trimmedLine.replace(/\*\*/g, '');
+        continue;
+      }
+      
       // Detect questions by common patterns
-      if (/^\d+[\.\)]/.test(line.trim()) || /^Question \d+:/.test(line.trim())) {
+      const questionRegex = /^(\d+[\.\)]|Question\s+\d+:)/i;
+      if (questionRegex.test(trimmedLine)) {
         // Save the previous question if exists
         if (currentQuestion?.question) {
           questions.push({
             ...currentQuestion as ParsedQuestionItem,
-            options: currentOptions.length > 0 ? [...currentOptions] : undefined
+            options: currentOptions.length > 0 ? [...currentOptions] : undefined,
+            section: currentSection || undefined
           });
         }
         
         // Start a new question
         currentQuestion = {
-          question: line.trim(),
-          type: 'mcq' // Default, we'll update based on content
+          question: trimmedLine,
+          type: 'mcq', // Default, we'll update based on content
+          section: currentSection || undefined
         };
         currentOptions = [];
       } 
-      // Detect options
-      else if (/^[A-D][\.\)]/.test(line.trim()) || /^\([A-D]\)/.test(line.trim())) {
-        currentOptions.push(line.trim());
+      // Detect options with improved regex
+      else if (/^[A-D][\.\)]\s|^\([A-D]\)\s/i.test(trimmedLine)) {
+        // Clean the option text to remove "Correct Answer" markers
+        let optionText = trimmedLine.replace(/\*\*.*?\*\*/g, '').trim();
+        currentOptions.push(optionText);
         if (currentQuestion) currentQuestion.type = 'mcq';
       }
-      // Detect true/false
-      else if (/true|false/i.test(line.trim()) && currentOptions.length < 2 && currentQuestion) {
-        currentOptions.push(line.trim());
-        if (currentQuestion) currentQuestion.type = 'truefalse';
+      // Detect true/false questions
+      else if (/true|false/i.test(trimmedLine) && currentOptions.length < 2 && currentQuestion) {
+        if (trimmedLine.toLowerCase().includes('true') || trimmedLine.toLowerCase().includes('false')) {
+          if (currentQuestion && !currentQuestion.question.toLowerCase().includes('true or false')) {
+            currentQuestion.type = 'truefalse';
+          }
+        }
       }
       // Detect essay questions by keywords
-      else if (/essay|explain|describe|discuss|elaborate/i.test(line.trim()) && currentQuestion) {
+      else if (/essay|explain|describe|discuss|elaborate/i.test(trimmedLine) && currentQuestion) {
         currentQuestion.type = 'essay';
       }
       // Add the line to the current question if it's a continuation
-      else if (currentQuestion && line.trim().length > 0) {
-        currentQuestion.question += ' ' + line.trim();
+      else if (currentQuestion && trimmedLine.length > 0) {
+        // Check if it contains an answer
+        if (trimmedLine.toLowerCase().includes('answer:') || trimmedLine.toLowerCase().includes('*answer:')) {
+          const answerMatch = trimmedLine.match(/answer:(.+)/i);
+          if (answerMatch && currentQuestion) {
+            currentQuestion.answer = answerMatch[1].trim();
+          }
+        } else {
+          currentQuestion.question += ' ' + trimmedLine;
+        }
       }
     }
     
@@ -88,7 +119,8 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
     if (currentQuestion?.question) {
       questions.push({
         ...currentQuestion as ParsedQuestionItem,
-        options: currentOptions.length > 0 ? [...currentOptions] : undefined
+        options: currentOptions.length > 0 ? [...currentOptions] : undefined,
+        section: currentSection || undefined
       });
     }
     
@@ -99,6 +131,15 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
           return { ...q, type: 'shortanswer' };
         }
       }
+      // Look for word count guidance in essay questions
+      if (q.type === 'essay' && q.question.toLowerCase().includes('word count')) {
+        const wordCountMatch = q.question.match(/word count:?\s*(\d+)[-–](\d+)/i);
+        if (wordCountMatch) {
+          const minWords = parseInt(wordCountMatch[1]);
+          const maxWords = parseInt(wordCountMatch[2]);
+          q.question = `${q.question} (${minWords}-${maxWords} words)`;
+        }
+      }
       return q;
     });
   };
@@ -106,6 +147,7 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
   // Handle view exam content
   const handleViewExam = (exam: IExam) => {
     setSelectedExam(exam);
+    setExamSubmitted(false);
     
     if (exam.questions) {
       // Parse the questions for proper rendering
@@ -115,8 +157,9 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
       setParsedQuestions([]);
     }
     
-    // Reset user answers
+    // Reset user answers and start at first question
     setUserAnswers({});
+    setCurrentQuestionIndex(0);
     setExamContentDialogOpen(true);
   };
   
@@ -128,15 +171,57 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
     });
   };
   
+  // Navigate to next question
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < parsedQuestions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    }
+  };
+  
+  // Navigate to previous question
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+  
+  // Jump to specific question
+  const handleJumpToQuestion = (index: number) => {
+    if (index >= 0 && index < parsedQuestions.length) {
+      setCurrentQuestionIndex(index);
+    }
+  };
+  
   // Handle submitting the exam
   const handleSubmitExam = () => {
-    // Here you would save the answers and calculate score
-    // For now, just close the dialog
-    setExamContentDialogOpen(false);
+    // Check if all questions are answered
+    const totalQuestions = parsedQuestions.length;
+    const answeredQuestions = Object.keys(userAnswers).length;
+    
+    // Allow submission with confirmation if not all questions are answered
+    if (answeredQuestions < totalQuestions) {
+      const isConfirmed = window.confirm(`You've only answered ${answeredQuestions} out of ${totalQuestions} questions. Are you sure you want to submit?`);
+      if (!isConfirmed) return;
+    }
+    
+    // Save answers and calculate score
+    setExamSubmitted(true);
+    
+    // Display submission message
+    toast({
+      title: "Exam Submitted",
+      description: `Your answers have been submitted successfully.`,
+    });
     
     // In a real application, you'd send these answers to a backend
     console.log("User answers:", userAnswers);
   };
+  
+  // Count answered questions for progress tracking
+  const answeredQuestionsCount = Object.keys(userAnswers).length;
+  const completionPercentage = parsedQuestions.length > 0 
+    ? (answeredQuestionsCount / parsedQuestions.length) * 100 
+    : 0;
   
   // Get current date for calendar view
   const currentDate = new Date();
@@ -156,12 +241,15 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
           <RadioGroup
             value={userAnswers[index] as string || ""}
             onValueChange={(value) => handleAnswerChange(index, value)}
-            className="mt-2 space-y-2"
+            className="mt-4 space-y-3"
+            disabled={examSubmitted}
           >
             {question.options?.map((option, optIdx) => (
-              <div key={optIdx} className="flex items-center space-x-2">
+              <div key={optIdx} className="flex items-center space-x-2 p-2 rounded-md border hover:bg-slate-50">
                 <RadioGroupItem value={option} id={`q${index}-opt${optIdx}`} />
-                <Label htmlFor={`q${index}-opt${optIdx}`}>{option}</Label>
+                <Label htmlFor={`q${index}-opt${optIdx}`} className="flex-grow cursor-pointer">
+                  {option}
+                </Label>
               </div>
             ))}
           </RadioGroup>
@@ -172,37 +260,58 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
           <RadioGroup
             value={userAnswers[index] as string || ""}
             onValueChange={(value) => handleAnswerChange(index, value)}
-            className="mt-2 space-x-4 flex"
+            className="mt-4 space-y-3"
+            disabled={examSubmitted}
           >
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 p-2 rounded-md border hover:bg-slate-50">
               <RadioGroupItem value="true" id={`q${index}-true`} />
-              <Label htmlFor={`q${index}-true`}>True</Label>
+              <Label htmlFor={`q${index}-true`} className="flex-grow cursor-pointer">True</Label>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 p-2 rounded-md border hover:bg-slate-50">
               <RadioGroupItem value="false" id={`q${index}-false`} />
-              <Label htmlFor={`q${index}-false`}>False</Label>
+              <Label htmlFor={`q${index}-false`} className="flex-grow cursor-pointer">False</Label>
             </div>
           </RadioGroup>
         );
         
       case 'shortanswer':
         return (
-          <Input
-            value={userAnswers[index] as string || ""}
-            onChange={(e) => handleAnswerChange(index, e.target.value)}
-            placeholder="Your answer..."
-            className="mt-2"
-          />
+          <div className="mt-4">
+            <Input
+              value={userAnswers[index] as string || ""}
+              onChange={(e) => handleAnswerChange(index, e.target.value)}
+              placeholder="Your answer..."
+              className="w-full p-2"
+              disabled={examSubmitted}
+            />
+            {question.answer && examSubmitted && (
+              <p className="text-sm text-muted-foreground mt-2">
+                <span className="font-semibold">Example answer:</span> {question.answer}
+              </p>
+            )}
+          </div>
         );
         
       case 'essay':
         return (
-          <Textarea
-            value={userAnswers[index] as string || ""}
-            onChange={(e) => handleAnswerChange(index, e.target.value)}
-            placeholder="Write your answer here..."
-            className="mt-2 min-h-[150px]"
-          />
+          <div className="mt-4">
+            <Textarea
+              value={userAnswers[index] as string || ""}
+              onChange={(e) => handleAnswerChange(index, e.target.value)}
+              placeholder="Write your answer here..."
+              className="w-full p-2 min-h-[150px]"
+              disabled={examSubmitted}
+            />
+            {/* Word count display */}
+            <div className="flex justify-between text-xs text-muted-foreground mt-2">
+              <span>
+                Word count: {((userAnswers[index] as string) || "").split(/\s+/).filter(Boolean).length}
+              </span>
+              {question.answer && examSubmitted && (
+                <span className="font-semibold">Suggested answer points available</span>
+              )}
+            </div>
+          </div>
         );
         
       default:
@@ -272,7 +381,7 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
                       <button 
                         key={examIndex}
                         className={`text-xs p-1 mt-1 ${exam.isActive ? 'bg-green-500/20 text-green-700' : 'bg-primary/20 text-primary'} rounded w-full text-left`}
-                        onClick={() => handleViewExam(exam)}
+                        onClick={() => exam.isActive && handleViewExam(exam)}
                       >
                         {exam.name} {exam.isActive ? '(Available)' : ''}
                       </button>
@@ -378,38 +487,143 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber }
         </div>
       </CardContent>
       
-      {/* Exam Content Dialog */}
+      {/* Exam Content Dialog - Improved Google Forms Style */}
       <Dialog open={examContentDialogOpen} onOpenChange={setExamContentDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedExam?.name}</DialogTitle>
-            <DialogDescription>
-              {selectedExam?.date} at {selectedExam?.time} • {selectedExam?.duration} minutes
+        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center">
+              <FileText className="h-5 w-5 mr-2" /> {selectedExam?.name}
+            </DialogTitle>
+            <DialogDescription className="flex items-center justify-between">
+              <span>{selectedExam?.date} at {selectedExam?.time} • {selectedExam?.duration} minutes</span>
+              {!examSubmitted && (
+                <span className="text-sm font-medium">
+                  Question {currentQuestionIndex + 1} of {parsedQuestions.length}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           
           {selectedExam?.isActive ? (
             <>
               {parsedQuestions.length > 0 ? (
-                <div className="space-y-8 py-4">
-                  {parsedQuestions.map((question, index) => (
-                    <div key={index} className="space-y-2">
-                      <h3 className="font-medium text-lg">Question {index + 1}</h3>
-                      <p>{question.question}</p>
-                      {renderQuestionInput(question, index)}
+                <div className="flex-1 overflow-y-auto">
+                  {/* Progress bar */}
+                  <div className="py-2 px-1">
+                    <Progress value={completionPercentage} className="h-2" />
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>{answeredQuestionsCount} of {parsedQuestions.length} answered</span>
+                      <span>{completionPercentage.toFixed(0)}% complete</span>
                     </div>
-                  ))}
+                  </div>
                   
-                  <DialogFooter>
-                    <Button onClick={handleSubmitExam}>
-                      Submit Exam
-                    </Button>
-                  </DialogFooter>
+                  {/* Question area */}
+                  <div className="p-4">
+                    {examSubmitted ? (
+                      // Show all questions and answers when submitted
+                      <div className="space-y-8">
+                        <div className="text-center py-4 mb-4 bg-green-50 rounded-md">
+                          <h2 className="text-xl font-bold text-green-700">Exam Submitted</h2>
+                          <p className="text-green-600">Thank you for completing this exam.</p>
+                        </div>
+                        
+                        {parsedQuestions.map((question, index) => (
+                          <Card key={index} className="overflow-hidden">
+                            <CardHeader className="bg-slate-50 py-3">
+                              <h3 className="font-medium">Question {index + 1}{question.section ? ` (${question.section})` : ''}</h3>
+                            </CardHeader>
+                            <CardContent className="pt-4">
+                              <p className="mb-2">{question.question}</p>
+                              {renderQuestionInput(question, index)}
+                              
+                              {/* Show user's answer summary */}
+                              <div className="mt-4 pt-2 border-t">
+                                <p className="text-sm font-medium">Your answer:</p>
+                                <p className="text-muted-foreground">
+                                  {userAnswers[index] ? 
+                                    (typeof userAnswers[index] === 'string' ? 
+                                      userAnswers[index] : 
+                                      (userAnswers[index] as string[]).join(', ')) : 
+                                    'Not answered'}
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    ) : (
+                      // Show single question at a time when taking the exam
+                      <>
+                        <div className="mb-6">
+                          {parsedQuestions[currentQuestionIndex].section && (
+                            <div className="text-sm font-medium text-primary mb-2">
+                              {parsedQuestions[currentQuestionIndex].section}
+                            </div>
+                          )}
+                          <h2 className="text-lg font-medium mb-2">
+                            Question {currentQuestionIndex + 1}: {parsedQuestions[currentQuestionIndex].question}
+                          </h2>
+                          {renderQuestionInput(parsedQuestions[currentQuestionIndex], currentQuestionIndex)}
+                        </div>
+                        
+                        {/* Question navigation buttons */}
+                        <div className="flex justify-between mt-6">
+                          <Button 
+                            variant="outline" 
+                            onClick={handlePreviousQuestion}
+                            disabled={currentQuestionIndex === 0}
+                          >
+                            Previous
+                          </Button>
+                          
+                          <div className="flex space-x-2 overflow-x-auto p-1 max-w-[300px]">
+                            {parsedQuestions.map((_, index) => (
+                              <button
+                                key={index}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm
+                                  ${currentQuestionIndex === index ? 'bg-primary text-primary-foreground' : 
+                                    userAnswers[index] !== undefined ? 'bg-green-100 text-green-800 border border-green-300' : 
+                                    'border bg-background hover:bg-muted'}`}
+                                onClick={() => handleJumpToQuestion(index)}
+                              >
+                                {index + 1}
+                              </button>
+                            ))}
+                          </div>
+                          
+                          {currentQuestionIndex < parsedQuestions.length - 1 ? (
+                            <Button 
+                              onClick={handleNextQuestion}
+                            >
+                              Next
+                            </Button>
+                          ) : (
+                            <Button 
+                              onClick={handleSubmitExam}
+                              variant="default"
+                            >
+                              Submit Exam
+                            </Button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground">
-                  No questions found in the exam content. Please regenerate the exam.
-                </p>
+                <div className="py-8 text-center">
+                  <p className="text-muted-foreground">
+                    No questions found in the exam content. Please regenerate the exam.
+                  </p>
+                </div>
+              )}
+              
+              {examSubmitted && (
+                <DialogFooter className="border-t pt-4">
+                  <Button onClick={() => setExamContentDialogOpen(false)}>
+                    Close
+                  </Button>
+                </DialogFooter>
               )}
             </>
           ) : (

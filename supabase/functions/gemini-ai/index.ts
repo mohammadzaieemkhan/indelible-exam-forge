@@ -28,7 +28,7 @@ serve(async (req) => {
     // Enhance the prompt based on task type
     switch (task) {
       case "generate_questions":
-        systemPrompt = "You are an AI specialized in creating educational exam questions. Generate challenging but fair questions based on the provided topics, sections and difficulty level. For MCQs, include 4 options with one correct answer clearly labeled. For essay questions, include a question with appropriate word count guidance. Format each question clearly with a number and make sure options are clearly labeled A, B, C, D for multiple choice.";
+        systemPrompt = "You are an AI specialized in creating educational exam questions. Generate challenging but fair questions STRICTLY based on the provided topics, sections and difficulty level. For MCQs, include 4 options with one correct answer clearly labeled. For essay questions, include a question with appropriate word count guidance. Format each question clearly with a number and make sure options are clearly labeled A, B, C, D for multiple choice.";
         
         // Check if we have sections defined
         if (sections && sections.length > 0) {
@@ -43,10 +43,12 @@ serve(async (req) => {
             sectionsPrompt += `- Difficulty: ${section.difficulty || "medium"}\n`;
           });
           
+          sectionsPrompt += "\nIMPORTANT: ALL questions MUST be related to the specified topics. Do NOT include questions on any other topics. Format the questions clearly and ensure that each question is properly labeled with its section.";
+          
           userPrompt = sectionsPrompt + "\n" + (userPrompt || "");
         } else {
           // Use the traditional approach with specific formatting instructions
-          userPrompt = `Generate ${numberOfQuestions || 10} exam questions about the following topics: ${Array.isArray(topics) && topics.length > 0 ? topics.join(", ") : "General Knowledge"}. 
+          userPrompt = `Generate ${numberOfQuestions || 10} exam questions STRICTLY about the following topics: ${Array.isArray(topics) && topics.length > 0 ? topics.join(", ") : "General Knowledge"}. 
                      Difficulty level: ${difficulty || "medium"}.
                      Question types: ${Array.isArray(questionTypes) ? questionTypes.join(", ") : questionTypes || "multiple choice"}.
                      ${syllabus ? "Based on this syllabus: " + syllabus : ""}
@@ -59,7 +61,7 @@ serve(async (req) => {
                      - For true/false questions, provide the statement and indicate whether it's true or false
                      - For short answer questions, include the expected answer length
                      - For essay questions, provide guidance on word count and key points to address
-                     - Make sure questions are directly related to the specified topics`;
+                     - IMPORTANT: ALL questions MUST be directly related to the specified topics. DO NOT generate questions on unrelated topics.`;
         }
         break;
       case "evaluate_answer":
@@ -92,7 +94,7 @@ serve(async (req) => {
           },
           {
             role: "model",
-            parts: [{ text: "I understand. I'll help with this educational task." }]
+            parts: [{ text: "I understand. I'll help with this educational task and ensure questions are strictly relevant to the provided topics." }]
           },
           {
             role: "user",
