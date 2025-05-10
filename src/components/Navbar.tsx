@@ -18,27 +18,27 @@ const Navbar = () => {
 
   return (
     <nav className="sticky top-0 z-40 w-full backdrop-blur-lg bg-background/80 border-b border-border">
-      <div className="container mx-auto px-4 sm:px-6">
-        <div className="flex justify-between items-center h-16">
+      <div className="container mx-auto px-3 sm:px-4 md:px-6">
+        <div className="flex justify-between items-center h-14 md:h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex gap-2 items-center">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <span className="text-xl font-semibold">Indelible AI</span>
+            <Link to="/" className="flex gap-1.5 md:gap-2 items-center">
+              <BookOpen className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+              <span className="text-lg md:text-xl font-semibold">Indelible AI</span>
             </Link>
           </div>
           
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-4 md:space-x-6">
             {navItems.map((item) => (
               <Link
                 key={item.name}
                 to={item.path}
-                className="nav-link px-3 py-2 text-sm font-medium"
+                className="nav-link px-2 md:px-3 py-2 text-sm font-medium"
               >
                 {item.name}
               </Link>
             ))}
             
-            <div className="ml-6 flex items-center gap-4">
+            <div className="ml-4 md:ml-6 flex items-center gap-3 md:gap-4">
               <ThemeToggle />
               
               {isAuthenticated ? (
@@ -50,7 +50,7 @@ const Navbar = () => {
                 </Link>
               ) : (
                 <Link to="/login">
-                  <Button className="rounded-full">Sign In</Button>
+                  <Button className="rounded-full text-xs md:text-sm py-1 md:py-2 px-3 md:px-4">Sign In</Button>
                 </Link>
               )}
             </div>
@@ -60,13 +60,13 @@ const Navbar = () => {
             <ThemeToggle />
             <Button
               variant="ghost"
-              className="ml-2"
+              className="ml-1"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5" />
               ) : (
-                <Menu className="h-6 w-6" />
+                <Menu className="h-5 w-5" />
               )}
             </Button>
           </div>
