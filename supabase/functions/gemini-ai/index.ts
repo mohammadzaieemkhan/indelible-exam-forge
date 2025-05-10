@@ -47,8 +47,13 @@ serve(async (req) => {
           
           userPrompt = sectionsPrompt + "\n" + (userPrompt || "");
         } else {
+          // Validate topics array
+          const examTopics = Array.isArray(topics) && topics.length > 0 
+            ? topics.join(", ") 
+            : "General Knowledge";
+          
           // Use the traditional approach with specific formatting instructions
-          userPrompt = `Generate ${numberOfQuestions || 10} exam questions STRICTLY about the following topics: ${Array.isArray(topics) && topics.length > 0 ? topics.join(", ") : "General Knowledge"}. 
+          userPrompt = `Generate ${numberOfQuestions || 10} exam questions STRICTLY about the following topics: ${examTopics}. 
                      Difficulty level: ${difficulty || "medium"}.
                      Question types: ${Array.isArray(questionTypes) ? questionTypes.join(", ") : questionTypes || "multiple choice"}.
                      ${syllabus ? "Based on this syllabus: " + syllabus : ""}

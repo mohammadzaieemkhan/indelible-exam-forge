@@ -117,6 +117,17 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
     setIsGeneratingQuestions(true);
     
     try {
+      // Validate that we have topics
+      if (topics.length === 0) {
+        toast({
+          title: "Missing Topics",
+          description: "Please add at least one topic for your exam",
+          variant: "destructive",
+        });
+        setIsGeneratingQuestions(false);
+        return;
+      }
+
       let params: any = {
         task: "generate_questions"
       };
@@ -144,7 +155,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         
         params = {
           ...params,
-          topics: topics.length > 0 ? topics : ["General Knowledge"],
+          topics: topics,
           difficulty: difficultyString || "medium",
           questionTypes: selectedQuestionTypes,
           numberOfQuestions: parseInt(numberOfQuestions) || 10,
@@ -155,6 +166,9 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
       if (syllabusContent) {
         params.syllabusContent = syllabusContent;
       }
+      
+      // Log the parameters for debugging
+      console.log("Generating exam with params:", params);
       
       // Call Gemini AI via our edge function
       const result = await useGeminiAI(params);
@@ -167,7 +181,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
           time: examTime,
           duration: examDuration,
           numberOfQuestions,
-          topics: topics.length > 0 ? topics : ["General Knowledge"],
+          topics: topics,
           difficulty: Object.entries(difficulty)
             .filter(([_, value]) => value)
             .map(([key, _]) => key)
@@ -468,7 +482,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
           <Button 
             size="lg" 
             onClick={handleGenerateExam}
-            disabled={isGeneratingQuestions || (useSections && sections.length === 0)}
+            disabled={isGeneratingQuestions || (useSections && sections.length === 0) || topics.length === 0}
           >
             {isGeneratingQuestions ? (
               <>
