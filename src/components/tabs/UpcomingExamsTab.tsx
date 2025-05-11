@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react";
-import { Bell, FileText, Pencil, Maximize } from "lucide-react";
+import { Bell, FileText, Pencil, Maximize, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +12,6 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { IExam } from "@/components/ExamTabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info } from "lucide-react";
 
 interface UpcomingExamsTabProps {
   exams: IExam[];
@@ -885,4 +885,39 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, 
                   <div>
                     <span className="text-sm text-muted-foreground">Topics:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {exams[parseInt(selectedExamIndex) || 0]?.topics.map((topic, i)
+                      {exams[parseInt(selectedExamIndex) || 0]?.topics.map((topic, i) => (
+                        <span key={i} className="bg-muted px-2 py-1 rounded text-xs">
+                          {topic}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-2">
+                    <Button 
+                      size="sm"
+                      onClick={() => exams[parseInt(selectedExamIndex) || 0]?.isActive && 
+                        handleViewExam(exams[parseInt(selectedExamIndex) || 0])}
+                      disabled={!exams[parseInt(selectedExamIndex) || 0]?.isActive}
+                    >
+                      {exams[parseInt(selectedExamIndex) || 0]?.isActive ? 'Take Exam' : 'Not Available Yet'}
+                    </Button>
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      className="ml-2"
+                      onClick={() => onSendReminder(exams[parseInt(selectedExamIndex) || 0])}
+                    >
+                      <Bell className="h-4 w-4 mr-1" /> Send Reminder
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default UpcomingExamsTab;
