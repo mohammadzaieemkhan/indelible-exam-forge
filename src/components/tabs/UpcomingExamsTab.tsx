@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Bell, FileText, Pencil, Trash2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -228,13 +229,59 @@ const UpcomingExamsTab = ({
     }, 1000);
   };
   
+  // Simple function to convert markdown to HTML
+  const markdownToHtml = (markdown: string): string => {
+    if (!markdown) return '';
+    
+    // Basic markdown parsing - replace markdown syntax with HTML
+    let html = markdown
+      // Headers
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      
+      // Emphasis (bold and italic)
+      .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+      .replace(/_(.*?)_/gim, '<em>$1</em>')
+      
+      // Lists - Unordered
+      .replace(/^\s*[-*+]\s+(.*$)/gim, '<ul><li>$1</li></ul>')
+      // Lists - Ordered
+      .replace(/^\s*(\d+)\.\s+(.*$)/gim, '<ol><li>$2</li></ol>')
+      
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank">$1</a>')
+      
+      // Code blocks
+      .replace(/`([^`]+)`/gim, '<code>$1</code>')
+      
+      // Paragraphs
+      .replace(/^\s*(\n)?(.+)/gim, function(m) {
+        return /^\s*(<(\/)?(h|ul|ol|li|blockquote|pre|p))/i.test(m) ? m : '<p>' + m + '</p>';
+      })
+      
+      // Line breaks
+      .replace(/\n/gim, '<br />');
+    
+    // Fix duplicate tags caused by multi-line regex
+    html = html.replace(/<\/ul>\s*<ul>/gim, '')
+               .replace(/<\/ol>\s*<ol>/gim, '')
+               .replace(/<\/p>\s*<p>/gim, '<br />');
+    
+    return html;
+  };
+  
   // Generate HTML content for the exam window
   const generateExamHtml = (exam: IExam, questions: any[]) => {
     const questionHtml = questions.map((q, index) => `
       <div class="question-container" id="question-${index}">
-        <h3>Question ${index + 1}${q.section ? ` (${q.section})` : ''}</h3>
+        <div class="question-header">
+          <h3>Question ${index + 1}</h3>
+          ${q.section ? `<div class="question-section">${q.section}</div>` : ''}
+        </div>
         <div class="question-content">
-          ${q.question}
+          ${markdownToHtml(q.question)}
         </div>
         <div class="answer-section">
           ${renderQuestionHtml(q, index)}
@@ -258,6 +305,58 @@ const UpcomingExamsTab = ({
             --background: #ffffff;
             --muted: #f1f5f9;
             --muted-foreground: #64748b;
+            --accent: #f8fafc;
+            --accent-foreground: #0f172a;
+            --destructive: #ef4444;
+            --destructive-foreground: white;
+            --warning: #f59e0b;
+            --warning-foreground: #78350f;
+            --success: #10b981;
+            --success-foreground: white;
+          }
+          
+          /* Dark mode support */
+          @media (prefers-color-scheme: dark) {
+            :root {
+              --primary: #3b82f6;
+              --primary-foreground: white;
+              --background: #0f172a;
+              --accent: #1e293b;
+              --accent-foreground: #f8fafc;
+              --muted: #1e293b;
+              --muted-foreground: #94a3b8;
+              --border: #1e293b;
+              --border-hover: #334155;
+            }
+            
+            body {
+              background-color: var(--background);
+              color: var(--accent-foreground);
+            }
+            
+            .question-container {
+              background-color: var(--accent);
+            }
+            
+            .question-number {
+              background-color: var(--muted);
+              color: var(--muted-foreground);
+            }
+            
+            .question-number.current {
+              background-color: var(--primary);
+              color: var(--primary-foreground);
+            }
+            
+            .question-number.answered {
+              background-color: var(--success);
+              color: var(--success-foreground);
+            }
+            
+            .question-number.for-review {
+              background-color: var(--warning);
+              color: var(--warning-foreground);
+            }
           }
           
           body {
@@ -269,30 +368,56 @@ const UpcomingExamsTab = ({
             padding: 0;
           }
           
+          * {
+            box-sizing: border-box;
+          }
+          
           #exam-container {
-            max-width: 800px;
-            margin: 0 auto;
+            display: flex;
+            height: 100vh;
+          }
+          
+          /* Sidebar styles */
+          .sidebar {
+            width: 250px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            background-color: var(--accent);
+            display: flex;
+            flex-direction: column;
+          }
+          
+          .sidebar-header {
             padding: 20px;
-          }
-          
-          .header {
             border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
           }
           
-          .header h1 {
+          .sidebar-header h2 {
             margin: 0;
-            font-size: 24px;
+            font-size: 18px;
+            color: var(--accent-foreground);
           }
           
-          .header p {
+          .sidebar-header p {
             margin: 5px 0 0 0;
+            font-size: 14px;
             color: var(--muted-foreground);
           }
           
-          .progress-container {
-            margin-bottom: 30px;
+          .sidebar-timer {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--accent-foreground);
+            background-color: var(--muted);
+            text-align: center;
+          }
+          
+          .sidebar-progress {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
           }
           
           .progress-bar {
@@ -300,6 +425,7 @@ const UpcomingExamsTab = ({
             background-color: var(--muted);
             border-radius: 4px;
             overflow: hidden;
+            margin-top: 10px;
           }
           
           .progress-value {
@@ -309,30 +435,160 @@ const UpcomingExamsTab = ({
             transition: width 0.3s ease;
           }
           
+          .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 12px;
+            color: var(--muted-foreground);
+          }
+          
+          .question-grid {
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+          }
+          
+          .question-number {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: var(--muted);
+            color: var(--muted-foreground);
+            transition: all 0.2s ease;
+          }
+          
+          .question-number:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 2px var(--border-hover);
+          }
+          
+          .question-number.current {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+            font-weight: 600;
+          }
+          
+          .question-number.answered {
+            background-color: var(--success);
+            color: var(--success-foreground);
+          }
+          
+          .question-number.for-review {
+            background-color: var(--warning);
+            color: var(--warning-foreground);
+          }
+          
+          .sidebar-legend {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+          }
+          
+          .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+          }
+          
+          .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 8px;
+          }
+          
+          .legend-current { background-color: var(--primary); }
+          .legend-answered { background-color: var(--success); }
+          .legend-review { background-color: var(--warning); }
+          .legend-unanswered { background-color: var(--muted); }
+          
+          .sidebar-actions {
+            padding: 15px 20px;
+            margin-top: auto;
+          }
+          
+          /* Main content styles */
+          .main-content {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+          }
+          
           .question-container {
             border: 1px solid var(--border);
             border-radius: 8px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             padding: 20px;
             background-color: white;
           }
           
-          .question-container h3 {
-            margin-top: 0;
+          .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+          }
+          
+          .question-header h3 {
+            margin: 0;
             font-size: 18px;
             font-weight: 600;
           }
           
+          .question-section {
+            background-color: var(--muted);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: var(--muted-foreground);
+          }
+          
           .question-content {
             margin-bottom: 20px;
-            white-space: pre-line;
+          }
+          
+          .question-content h1, 
+          .question-content h2, 
+          .question-content h3 {
+            margin-top: 0;
+          }
+          
+          .question-content p {
+            margin-bottom: 15px;
+          }
+          
+          .question-content ul, 
+          .question-content ol {
+            margin-bottom: 15px;
+            padding-left: 20px;
+          }
+          
+          .question-content code {
+            background-color: var(--muted);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+          }
+          
+          /* Options for MCQs */
+          .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
           }
           
           .option {
             display: flex;
-            align-items: center;
-            padding: 10px;
-            margin-bottom: 10px;
+            align-items: flex-start;
+            padding: 12px;
             border: 1px solid var(--border);
             border-radius: 6px;
             cursor: pointer;
@@ -341,18 +597,40 @@ const UpcomingExamsTab = ({
           
           .option:hover {
             border-color: var(--border-hover);
-            background-color: var(--muted);
+            background-color: var(--accent);
           }
           
-          .option input {
-            margin-right: 10px;
+          .option-radio {
+            margin-right: 12px;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            flex-shrink: 0;
+            position: relative;
+            margin-top: 2px;
           }
           
-          .option label {
+          .option-radio.selected {
+            border-color: var(--primary);
+          }
+          
+          .option-radio.selected:after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary);
+            border-radius: 50%;
+          }
+          
+          .option-text {
             flex-grow: 1;
-            cursor: pointer;
           }
           
+          /* Text inputs and textareas */
           .text-input, .essay-input {
             width: 100%;
             padding: 12px;
@@ -360,6 +638,13 @@ const UpcomingExamsTab = ({
             border-radius: 6px;
             font-size: 16px;
             box-sizing: border-box;
+            transition: border-color 0.2s ease;
+          }
+          
+          .text-input:focus, .essay-input:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
           }
           
           .essay-input {
@@ -367,10 +652,12 @@ const UpcomingExamsTab = ({
             resize: vertical;
           }
           
+          /* Navigation and actions */
           .navigation {
             display: flex;
             justify-content: space-between;
             margin-top: 30px;
+            gap: 10px;
           }
           
           .button {
@@ -390,41 +677,14 @@ const UpcomingExamsTab = ({
           }
           
           .button.secondary {
-            background-color: var(--muted);
-            color: var(--muted-foreground);
-          }
-          
-          .buttons-row {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-          }
-          
-          .question-button {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
+            background-color: var(--accent);
+            color: var(--accent-foreground);
             border: 1px solid var(--border);
-            cursor: pointer;
-            background-color: white;
           }
           
-          .question-button.current {
-            background-color: var(--primary);
-            color: var(--primary-foreground);
-            border-color: var(--primary);
-          }
-          
-          .question-button.answered {
-            background-color: #dcfce7;
-            color: #166534;
-            border-color: #86efac;
+          .button.review {
+            background-color: var(--warning);
+            color: var(--warning-foreground);
           }
           
           .fullscreen-button {
@@ -449,48 +709,96 @@ const UpcomingExamsTab = ({
             height: 24px;
           }
           
+          /* Responsive adjustments */
           @media (max-width: 768px) {
             #exam-container {
+              flex-direction: column;
+            }
+            
+            .sidebar {
+              width: 100%;
+              height: auto;
+              max-height: 40vh;
+            }
+            
+            .main-content {
               padding: 15px;
             }
             
             .question-container {
               padding: 15px;
             }
+            
+            .question-grid {
+              grid-template-columns: repeat(5, 1fr);
+            }
           }
         </style>
       </head>
       <body>
         <div id="exam-container">
-          <div class="header">
-            <h1>${exam.name}</h1>
-            <p>${exam.date} at ${exam.time} • ${exam.duration} minutes</p>
-          </div>
-          
-          <div class="progress-container">
-            <div class="progress-bar">
-              <div class="progress-value" id="progress-bar"></div>
+          <div class="sidebar">
+            <div class="sidebar-header">
+              <h2>${exam.name}</h2>
+              <p>${exam.date} • ${exam.duration} minutes</p>
             </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 14px; color: var(--muted-foreground);">
-              <span id="progress-text">0 of ${questions.length} answered</span>
-              <span id="progress-percentage">0%</span>
+            
+            <div class="sidebar-timer" id="exam-timer">
+              <span id="timer-value">00:00:00</span>
+            </div>
+            
+            <div class="sidebar-progress">
+              <div>Progress</div>
+              <div class="progress-bar">
+                <div class="progress-value" id="progress-bar"></div>
+              </div>
+              <div class="progress-stats">
+                <span id="progress-text">0 of ${questions.length} answered</span>
+                <span id="progress-percentage">0%</span>
+              </div>
+            </div>
+            
+            <div class="question-grid" id="question-grid">
+              ${questions.map((_, i) => `
+                <div class="question-number${i === 0 ? ' current' : ''}" 
+                  id="question-button-${i}" 
+                  onclick="showQuestion(${i})">${i + 1}</div>
+              `).join('')}
+            </div>
+            
+            <div class="sidebar-legend">
+              <div class="legend-title">Legend</div>
+              <div class="legend-item">
+                <div class="legend-color legend-current"></div>
+                <span>Current Question</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color legend-answered"></div>
+                <span>Answered</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color legend-review"></div>
+                <span>Marked for Review</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color legend-unanswered"></div>
+                <span>Unanswered</span>
+              </div>
+            </div>
+            
+            <div class="sidebar-actions">
+              <button class="button" id="submit-button" onclick="submitExam()">Submit Exam</button>
             </div>
           </div>
           
-          <div class="buttons-row" id="question-buttons">
-            ${questions.map((_, i) => `
-              <button class="question-button${i === 0 ? ' current' : ''}" 
-                id="button-${i}" 
-                onclick="showQuestion(${i})">${i + 1}</button>
-            `).join('')}
-          </div>
-          
-          ${questionHtml}
-          
-          <div class="navigation">
-            <button class="button secondary" id="prev-button" onclick="prevQuestion()">Previous</button>
-            <button class="button secondary" id="next-button" onclick="nextQuestion()">Next</button>
-            <button class="button" id="submit-button" onclick="submitExam()">Submit Exam</button>
+          <div class="main-content">
+            ${questionHtml}
+            
+            <div class="navigation">
+              <button class="button secondary" id="prev-button" onclick="prevQuestion()">Previous</button>
+              <button class="button review" id="review-button" onclick="markForReview()">Mark for Review</button>
+              <button class="button secondary" id="next-button" onclick="nextQuestion()">Next</button>
+            </div>
           </div>
         </div>
         
@@ -504,6 +812,9 @@ const UpcomingExamsTab = ({
           let currentQuestion = 0;
           const totalQuestions = ${questions.length};
           const answers = {};
+          const questionsForReview = new Set();
+          let startTime = Date.now();
+          let timerInterval;
           
           // Initialize the exam
           function initExam() {
@@ -518,7 +829,9 @@ const UpcomingExamsTab = ({
             // Enter fullscreen automatically
             setTimeout(() => {
               if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
+                document.documentElement.requestFullscreen().catch(err => {
+                  console.log('Error attempting to enable fullscreen:', err);
+                });
               }
             }, 1000);
             
@@ -527,6 +840,25 @@ const UpcomingExamsTab = ({
             
             // Update navigation buttons
             updateNavButtons();
+            
+            // Start the timer
+            startTimer();
+          }
+          
+          // Start the exam timer
+          function startTimer() {
+            timerInterval = setInterval(updateTimer, 1000);
+            updateTimer();
+          }
+          
+          // Update the timer display
+          function updateTimer() {
+            const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(elapsedTime / 3600).toString().padStart(2, '0');
+            const minutes = Math.floor((elapsedTime % 3600) / 60).toString().padStart(2, '0');
+            const seconds = (elapsedTime % 60).toString().padStart(2, '0');
+            
+            document.getElementById('timer-value').textContent = \`\${hours}:\${minutes}:\${seconds}\`;
           }
           
           // Show question by index
@@ -538,8 +870,8 @@ const UpcomingExamsTab = ({
             document.getElementById('question-' + index).style.display = 'block';
             
             // Update current question class in buttons
-            document.getElementById('button-' + currentQuestion).classList.remove('current');
-            document.getElementById('button-' + index).classList.add('current');
+            document.getElementById('question-button-' + currentQuestion).classList.remove('current');
+            document.getElementById('question-button-' + index).classList.add('current');
             
             // Update current question index
             currentQuestion = index;
@@ -562,26 +894,65 @@ const UpcomingExamsTab = ({
             }
           }
           
-          // Update navigation buttons state
-          function updateNavButtons() {
-            document.getElementById('prev-button').disabled = currentQuestion === 0;
+          // Mark current question for review
+          function markForReview() {
+            const questionBtn = document.getElementById('question-button-' + currentQuestion);
             
-            if (currentQuestion === totalQuestions - 1) {
-              document.getElementById('next-button').style.display = 'none';
-              document.getElementById('submit-button').style.display = 'block';
+            if (questionsForReview.has(currentQuestion)) {
+              questionsForReview.delete(currentQuestion);
+              questionBtn.classList.remove('for-review');
+              
+              // Restore the answered class if it was answered
+              if (answers['q' + currentQuestion]) {
+                questionBtn.classList.add('answered');
+              }
             } else {
-              document.getElementById('next-button').style.display = 'block';
-              document.getElementById('submit-button').style.display = 'none';
+              questionsForReview.add(currentQuestion);
+              questionBtn.classList.add('for-review');
+              questionBtn.classList.remove('answered');
+            }
+            
+            // Update the review button text
+            updateReviewButtonText();
+          }
+          
+          // Update the review button text based on current state
+          function updateReviewButtonText() {
+            const reviewButton = document.getElementById('review-button');
+            if (questionsForReview.has(currentQuestion)) {
+              reviewButton.textContent = 'Remove from Review';
+            } else {
+              reviewButton.textContent = 'Mark for Review';
             }
           }
           
-          // Setup tracking for answers
+          // Update navigation buttons state
+          function updateNavButtons() {
+            document.getElementById('prev-button').disabled = currentQuestion === 0;
+            document.getElementById('next-button').disabled = currentQuestion === totalQuestions - 1;
+            
+            // Update the review button text
+            updateReviewButtonText();
+          }
+          
+          // Setup tracking for answers with improved radio button styling
           function setupAnswerTracking() {
-            // Radio buttons (MCQ and True/False)
-            document.querySelectorAll('input[type="radio"]').forEach(radio => {
-              radio.addEventListener('change', function() {
-                const questionId = this.name.split('-')[0];
-                const value = this.value;
+            // Handle custom radio buttons for MCQs
+            document.querySelectorAll('.option').forEach(option => {
+              option.addEventListener('click', function() {
+                const questionId = this.getAttribute('data-question');
+                const value = this.getAttribute('data-value');
+                const radioButton = this.querySelector('.option-radio');
+                
+                // Remove selected class from all options in this question
+                document.querySelectorAll(\`.option[data-question="\${questionId}"]\`).forEach(opt => {
+                  opt.querySelector('.option-radio').classList.remove('selected');
+                });
+                
+                // Mark this option as selected
+                radioButton.classList.add('selected');
+                
+                // Save the answer
                 answers[questionId] = value;
                 updateProgress();
                 markQuestionAnswered(questionId.split('q')[1]);
@@ -590,30 +961,43 @@ const UpcomingExamsTab = ({
             
             // Text inputs (Short answer)
             document.querySelectorAll('input[type="text"]').forEach(input => {
-              input.addEventListener('change', function() {
-                const questionId = this.id.split('-')[0];
+              input.addEventListener('input', function() {
+                const questionId = this.getAttribute('data-question');
                 const value = this.value.trim();
+                
                 if (value) {
                   answers[questionId] = value;
                   markQuestionAnswered(questionId.split('q')[1]);
                 } else {
                   delete answers[questionId];
+                  unmarkQuestionAnswered(questionId.split('q')[1]);
                 }
+                
                 updateProgress();
               });
             });
             
             // Textareas (Essays)
             document.querySelectorAll('textarea').forEach(textarea => {
-              textarea.addEventListener('change', function() {
-                const questionId = this.id.split('-')[0];
+              textarea.addEventListener('input', function() {
+                const questionId = this.getAttribute('data-question');
                 const value = this.value.trim();
+                
                 if (value) {
                   answers[questionId] = value;
                   markQuestionAnswered(questionId.split('q')[1]);
                 } else {
                   delete answers[questionId];
+                  unmarkQuestionAnswered(questionId.split('q')[1]);
                 }
+                
+                // Update word count
+                const wordCount = value.split(/\\s+/).filter(Boolean).length;
+                const wordCountEl = document.getElementById(questionId + '-wordcount');
+                if (wordCountEl) {
+                  wordCountEl.textContent = wordCount + ' words';
+                }
+                
                 updateProgress();
               });
             });
@@ -621,7 +1005,18 @@ const UpcomingExamsTab = ({
           
           // Mark a question button as answered
           function markQuestionAnswered(index) {
-            document.getElementById('button-' + index).classList.add('answered');
+            const questionBtn = document.getElementById('question-button-' + index);
+            if (!questionsForReview.has(Number(index))) {
+              questionBtn.classList.add('answered');
+            }
+          }
+          
+          // Unmark a question as answered
+          function unmarkQuestionAnswered(index) {
+            const questionBtn = document.getElementById('question-button-' + index);
+            if (!questionsForReview.has(Number(index))) {
+              questionBtn.classList.remove('answered');
+            }
           }
           
           // Update progress display
@@ -637,34 +1032,57 @@ const UpcomingExamsTab = ({
           // Submit the exam
           function submitExam() {
             const answeredCount = Object.keys(answers).length;
+            const unansweredCount = totalQuestions - answeredCount;
             
-            if (answeredCount < totalQuestions) {
-              const confirm = window.confirm('You have only answered ' + answeredCount + ' out of ' + totalQuestions + ' questions. Are you sure you want to submit?');
+            if (unansweredCount > 0 || questionsForReview.size > 0) {
+              let message = '';
+              
+              if (unansweredCount > 0) {
+                message += 'You have ' + unansweredCount + ' unanswered questions. ';
+              }
+              
+              if (questionsForReview.size > 0) {
+                message += 'You have ' + questionsForReview.size + ' questions marked for review. ';
+              }
+              
+              message += 'Are you sure you want to submit?';
+              
+              const confirm = window.confirm(message);
               if (!confirm) return;
             }
             
+            // Stop the timer
+            clearInterval(timerInterval);
+            
             // Disable all inputs
-            document.querySelectorAll('input, textarea').forEach(input => {
-              input.disabled = true;
+            document.querySelectorAll('input, textarea, .option').forEach(input => {
+              if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA') {
+                input.disabled = true;
+              } else {
+                input.style.pointerEvents = 'none';
+                input.style.opacity = '0.7';
+              }
             });
             
             // Show completion message
-            const examContainer = document.getElementById('exam-container');
+            const examContainer = document.querySelector('.main-content');
             const completionMessage = document.createElement('div');
             completionMessage.className = 'question-container';
             completionMessage.innerHTML = \`
               <h3 style="text-align: center; color: #16a34a;">Exam Submitted!</h3>
               <p style="text-align: center;">Thank you for completing this exam.</p>
-              <p style="text-align: center;">You can now close this window.</p>
+              <p style="text-align: center;">You answered \${Object.keys(answers).length} out of \${totalQuestions} questions.</p>
               <div style="text-align: center; margin-top: 20px;">
                 <button class="button" onclick="window.close()">Close Window</button>
               </div>
             \`;
             
+            examContainer.innerHTML = '';
             examContainer.appendChild(completionMessage);
             
-            // Hide the navigation buttons
+            // Hide the navigation buttons and question grid
             document.querySelector('.navigation').style.display = 'none';
+            document.querySelector('.sidebar-actions').style.display = 'none';
             
             // Save answers to localStorage (for demo purposes)
             localStorage.setItem('examAnswers-${exam.id}', JSON.stringify(answers));
@@ -701,9 +1119,9 @@ const UpcomingExamsTab = ({
         return `
           <div class="options">
             ${question.options?.map((option: string, optIdx: number) => `
-              <div class="option">
-                <input type="radio" name="q${index}-option" id="q${index}-opt${optIdx}" value="${option}">
-                <label for="q${index}-opt${optIdx}">${option}</label>
+              <div class="option" data-question="q${index}" data-value="${option}">
+                <div class="option-radio"></div>
+                <div class="option-text">${markdownToHtml(option)}</div>
               </div>
             `).join('') || ''}
           </div>
@@ -712,25 +1130,25 @@ const UpcomingExamsTab = ({
       case 'truefalse':
         return `
           <div class="options">
-            <div class="option">
-              <input type="radio" name="q${index}-option" id="q${index}-true" value="true">
-              <label for="q${index}-true">True</label>
+            <div class="option" data-question="q${index}" data-value="true">
+              <div class="option-radio"></div>
+              <div class="option-text">True</div>
             </div>
-            <div class="option">
-              <input type="radio" name="q${index}-option" id="q${index}-false" value="false">
-              <label for="q${index}-false">False</label>
+            <div class="option" data-question="q${index}" data-value="false">
+              <div class="option-radio"></div>
+              <div class="option-text">False</div>
             </div>
           </div>
         `;
         
       case 'shortanswer':
         return `
-          <input type="text" class="text-input" id="q${index}-answer" placeholder="Your answer...">
+          <input type="text" class="text-input" data-question="q${index}" placeholder="Your answer...">
         `;
         
       case 'essay':
         return `
-          <textarea class="essay-input" id="q${index}-essay" placeholder="Write your answer here..."></textarea>
+          <textarea class="essay-input" data-question="q${index}" placeholder="Write your answer here..."></textarea>
           <div style="display: flex; justify-content: flex-end; margin-top: 5px; font-size: 14px; color: var(--muted-foreground);">
             <span id="q${index}-wordcount">0 words</span>
           </div>
