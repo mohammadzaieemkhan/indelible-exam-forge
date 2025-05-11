@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -384,7 +383,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
           </div>
           
           {useSections && sections.length === 0 && (
-            <Alert variant="warning" className="bg-yellow-500/10 border-yellow-500/20 text-yellow-700">
+            <Alert variant="destructive" className="bg-yellow-500/10 border-yellow-500/20 text-yellow-700">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 When sections are enabled, you need to add at least one section
