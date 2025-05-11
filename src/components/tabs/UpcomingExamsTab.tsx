@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { Bell, FileText, Pencil, Maximize, Info } from "lucide-react";
+import { Bell, FileText, Pencil, Trash2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { IExam } from "@/components/ExamTabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogTitle, DialogContent, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 interface UpcomingExamsTabProps {
   exams: IExam[];
@@ -19,6 +19,7 @@ interface UpcomingExamsTabProps {
   phoneNumber: string;
   setPhoneNumber: (number: string) => void;
   isWhatsAppSetup?: boolean;
+  onDeleteExam?: (examId: string) => void;
 }
 
 interface ParsedQuestionItem {
@@ -29,7 +30,14 @@ interface ParsedQuestionItem {
   section?: string;
 }
 
-const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, isWhatsAppSetup = false }: UpcomingExamsTabProps) => {
+const UpcomingExamsTab = ({ 
+  exams, 
+  onSendReminder, 
+  phoneNumber, 
+  setPhoneNumber, 
+  isWhatsAppSetup = false,
+  onDeleteExam 
+}: UpcomingExamsTabProps) => {
   const [selectedExamIndex, setSelectedExamIndex] = useState<string>("0");
   const { toast } = useToast();
   
@@ -39,10 +47,36 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, 
   const [userAnswers, setUserAnswers] = useState<Record<number, string | string[]>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [examSubmitted, setExamSubmitted] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [examToDelete, setExamToDelete] = useState<IExam | null>(null);
   
   // Handle exam selection in upcoming exams tab
   const handleExamSelect = (value: string) => {
     setSelectedExamIndex(value);
+  };
+  
+  // Handle delete exam button click
+  const handleDeleteClick = (exam: IExam) => {
+    setExamToDelete(exam);
+    setDeleteConfirmOpen(true);
+  };
+  
+  // Handle confirmed deletion
+  const handleConfirmDelete = () => {
+    if (examToDelete && examToDelete.id && onDeleteExam) {
+      onDeleteExam(examToDelete.id);
+      toast({
+        title: "Exam Deleted",
+        description: `${examToDelete.name} has been deleted successfully.`
+      });
+      
+      // If the deleted exam was selected, reset selection to the first exam
+      if (parseInt(selectedExamIndex) === exams.findIndex(e => e.id === examToDelete.id)) {
+        setSelectedExamIndex("0");
+      }
+    }
+    setDeleteConfirmOpen(false);
+    setExamToDelete(null);
   };
   
   // Parse questions from raw content with improved logic for better extraction
@@ -484,9 +518,7 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, 
             // Enter fullscreen automatically
             setTimeout(() => {
               if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(err => {
-                  console.log('Error attempting to enable fullscreen:', err);
-                });
+                document.documentElement.requestFullscreen();
               }
             }, 1000);
             
@@ -778,144 +810,116 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, 
           )}
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-          {/* Calendar Side */}
-          <div className="md:col-span-5 border rounded-lg p-4">
-            <div className="text-center mb-4">
-              <h3 className="font-medium">{monthNames[currentMonth]} {currentYear}</h3>
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {/* Day labels */}
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                <div key={i} className="text-center text-muted-foreground text-sm p-2">
-                  {day}
-                </div>
-              ))}
-              
-              {/* Empty days from previous month */}
-              {Array(firstDay).fill(null).map((_, i) => (
-                <div key={`empty-${i}`} className="p-2 h-16" />
-              ))}
-              
-              {/* Actual days */}
-              {Array(daysInMonth).fill(null).map((_, i) => {
-                // Check if any exams are scheduled for this day
-                const dayExams = exams.filter(exam => {
-                  const examDate = new Date(exam.date);
-                  return examDate.getDate() === i + 1 && 
-                         examDate.getMonth() === currentMonth && 
-                         examDate.getFullYear() === currentYear;
-                });
-                
-                const hasExam = dayExams.length > 0;
-                
-                return (
-                  <div 
-                    key={`day-${i+1}`}
-                    className={`p-1 border rounded-md h-16 ${hasExam ? 'bg-primary/10 border-primary' : ''}`}
-                  >
-                    <div className="text-right text-sm">{i+1}</div>
-                    {dayExams.map((exam, examIndex) => (
-                      <button 
-                        key={examIndex}
-                        className={`text-xs p-1 mt-1 ${exam.isActive ? 'bg-green-500/20 text-green-700' : 'bg-primary/20 text-primary'} rounded w-full text-left`}
-                        onClick={() => exam.isActive && handleViewExam(exam)}
-                      >
-                        {exam.name} {exam.isActive ? '(Available)' : ''}
-                      </button>
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-medium text-lg">Exam Details</h3>
+            {exams.length > 0 ? (
+              <Select 
+                value={selectedExamIndex} 
+                onValueChange={handleExamSelect}
+              >
+                <SelectTrigger className="w-full mt-2">
+                  <SelectValue placeholder="Select exam" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Upcoming Exams</SelectLabel>
+                    {exams.map((exam, index) => (
+                      <SelectItem key={index} value={index.toString()}>
+                        {exam.name}
+                      </SelectItem>
                     ))}
-                  </div>
-                );
-              })}
-            </div>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-2">
+                No upcoming exams scheduled. Generate and save an exam first.
+              </p>
+            )}
           </div>
           
-          {/* Details Side */}
-          <div className="md:col-span-2">
-            <div className="space-y-4">
+          {exams.length > 0 && (
+            <div className="border rounded-md p-4 space-y-3">
               <div>
-                <h3 className="font-medium text-lg">Exam Details</h3>
-                {exams.length > 0 ? (
-                  <Select 
-                    value={selectedExamIndex} 
-                    onValueChange={handleExamSelect}
-                  >
-                    <SelectTrigger className="w-full mt-2">
-                      <SelectValue placeholder="Select exam" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Upcoming Exams</SelectLabel>
-                        {exams.map((exam, index) => (
-                          <SelectItem key={index} value={index.toString()}>
-                            {exam.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    No upcoming exams scheduled. Generate and save an exam first.
-                  </p>
-                )}
+                <span className="text-sm text-muted-foreground">Name:</span>
+                <p className="font-medium">{exams[parseInt(selectedExamIndex) || 0]?.name}</p>
               </div>
-              
-              {exams.length > 0 && (
-                <div className="border rounded-md p-4 space-y-3">
-                  <div>
-                    <span className="text-sm text-muted-foreground">Name:</span>
-                    <p>{exams[parseInt(selectedExamIndex) || 0]?.name}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Date:</span>
-                    <p>{exams[parseInt(selectedExamIndex) || 0]?.date} at {exams[parseInt(selectedExamIndex) || 0]?.time}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Duration:</span>
-                    <p>{exams[parseInt(selectedExamIndex) || 0]?.duration} minutes</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Status:</span>
-                    <p>{exams[parseInt(selectedExamIndex) || 0]?.isActive ? 
-                      <span className="text-green-600 font-medium">Available</span> : 
-                      <span className="text-amber-600 font-medium">Scheduled</span>}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-muted-foreground">Topics:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {exams[parseInt(selectedExamIndex) || 0]?.topics.map((topic, i) => (
-                        <span key={i} className="bg-muted px-2 py-1 rounded text-xs">
-                          {topic}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="pt-2">
-                    <Button 
-                      size="sm"
-                      onClick={() => exams[parseInt(selectedExamIndex) || 0]?.isActive && 
-                        handleViewExam(exams[parseInt(selectedExamIndex) || 0])}
-                      disabled={!exams[parseInt(selectedExamIndex) || 0]?.isActive}
-                    >
-                      {exams[parseInt(selectedExamIndex) || 0]?.isActive ? 'Take Exam' : 'Not Available Yet'}
-                    </Button>
-                    <Button 
-                      size="sm"
-                      variant="outline"
-                      className="ml-2"
-                      onClick={() => onSendReminder(exams[parseInt(selectedExamIndex) || 0])}
-                    >
-                      <Bell className="h-4 w-4 mr-1" /> Send Reminder
-                    </Button>
-                  </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Date:</span>
+                <p>{exams[parseInt(selectedExamIndex) || 0]?.date} at {exams[parseInt(selectedExamIndex) || 0]?.time}</p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Duration:</span>
+                <p>{exams[parseInt(selectedExamIndex) || 0]?.duration} minutes</p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Number of Questions:</span>
+                <p>{exams[parseInt(selectedExamIndex) || 0]?.numberOfQuestions}</p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Difficulty:</span>
+                <p>{exams[parseInt(selectedExamIndex) || 0]?.difficulty}</p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Status:</span>
+                <p>{exams[parseInt(selectedExamIndex) || 0]?.isActive ? 
+                  <span className="text-green-600 font-medium">Available</span> : 
+                  <span className="text-amber-600 font-medium">Scheduled</span>}
+                </p>
+              </div>
+              <div>
+                <span className="text-sm text-muted-foreground">Topics:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {exams[parseInt(selectedExamIndex) || 0]?.topics?.map((topic, i) => (
+                    <span key={i} className="bg-muted px-2 py-1 rounded text-xs">
+                      {topic}
+                    </span>
+                  ))}
                 </div>
-              )}
+              </div>
+              <div className="pt-3 flex flex-wrap gap-2">
+                <Button 
+                  size="sm"
+                  onClick={() => exams[parseInt(selectedExamIndex) || 0]?.isActive && 
+                    handleViewExam(exams[parseInt(selectedExamIndex) || 0])}
+                  disabled={!exams[parseInt(selectedExamIndex) || 0]?.isActive}
+                >
+                  {exams[parseInt(selectedExamIndex) || 0]?.isActive ? 'Take Exam' : 'Not Available Yet'}
+                </Button>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onSendReminder(exams[parseInt(selectedExamIndex) || 0])}
+                >
+                  <Bell className="h-4 w-4 mr-1" /> Send Reminder
+                </Button>
+                <Button 
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => handleDeleteClick(exams[parseInt(selectedExamIndex) || 0])}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Delete Exam
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </CardContent>
+      
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogTitle>Delete Exam</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete "{examToDelete?.name}"? This action cannot be undone.
+          </DialogDescription>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

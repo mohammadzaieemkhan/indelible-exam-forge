@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -217,6 +216,16 @@ const ExamTabs = () => {
     setNotificationDialogOpen(true);
   };
   
+  // Add delete exam functionality
+  const handleDeleteExam = (examId: string) => {
+    // Filter out the exam with the specified ID
+    const updatedExams = upcomingExams.filter(exam => exam.id !== examId);
+    setUpcomingExams(updatedExams);
+    
+    // Save the updated exams to localStorage
+    localStorage.setItem('upcomingExams', JSON.stringify(updatedExams));
+  };
+  
   return (
     <>
       <Tabs defaultValue="generate" className="space-y-6" value={activeTab} onValueChange={handleTabChange}>
@@ -262,6 +271,7 @@ const ExamTabs = () => {
             phoneNumber={phoneNumber}
             setPhoneNumber={setPhoneNumber}
             isWhatsAppSetup={isWhatsAppSetup}
+            onDeleteExam={handleDeleteExam}
           />
         </TabsContent>
       </Tabs>
