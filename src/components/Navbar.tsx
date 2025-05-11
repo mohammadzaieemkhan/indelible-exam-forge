@@ -1,14 +1,58 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
-import { Menu, X, BookOpen, User } from "lucide-react";
+import { Menu, X, BookOpen, User, LogOut } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  // Mock auth state - in a real application, this would come from your auth context
-  const isAuthenticated = false;
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userProfile, setUserProfile] = useState<{name?: string; email?: string} | null>(null);
+  const navigate = useNavigate();
+  
+  // Check if user is authenticated on mount
+  useEffect(() => {
+    const checkAuth = () => {
+      // For now we'll use localStorage until we have a real auth system
+      const userJson = localStorage.getItem('userData');
+      if (userJson) {
+        try {
+          const userData = JSON.parse(userJson);
+          setIsAuthenticated(true);
+          setUserProfile(userData);
+        } catch (e) {
+          setIsAuthenticated(false);
+          setUserProfile(null);
+        }
+      }
+    };
+    
+    checkAuth();
+    
+    // Listen for auth changes
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
+  }, []);
+  
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('userData');
+    setIsAuthenticated(false);
+    setUserProfile(null);
+    navigate('/');
+    
+    // Show a temporary toast (using alert for now)
+    alert("You have been logged out successfully");
+  };
   
   const navItems = [
     { name: "Home", path: "/" },
@@ -42,12 +86,29 @@ const Navbar = () => {
               <ThemeToggle />
               
               {isAuthenticated ? (
-                <Link to="/profile">
-                  <Button variant="ghost" size="icon" className="rounded-full">
-                    <User className="h-5 w-5" />
-                    <span className="sr-only">Profile</span>
-                  </Button>
-                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full">
+                      <User className="h-5 w-5" />
+                      <span className="sr-only">Profile</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to="/profile">Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/dashboard">Dashboard</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-red-500" onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Logout</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
                 <Link to="/login">
                   <Button className="rounded-full text-xs md:text-sm py-1 md:py-2 px-3 md:px-4">Sign In</Button>
@@ -58,6 +119,11 @@ const Navbar = () => {
           
           <div className="md:hidden flex items-center">
             <ThemeToggle />
+            {isAuthenticated && (
+              <Button variant="ghost" size="icon" className="ml-1">
+                <User className="h-5 w-5" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               className="ml-1"
@@ -88,7 +154,19 @@ const Navbar = () => {
               </Link>
             ))}
             
-            {!isAuthenticated && (
+            {isAuthenticated ? (
+              <>
+                <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium hover:bg-accent">
+                  Profile
+                </Link>
+                <button 
+                  className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-500 hover:bg-accent mt-2"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
               <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
                 <Button className="w-full mt-4">Sign In</Button>
               </Link>

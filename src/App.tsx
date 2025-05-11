@@ -10,10 +10,29 @@ import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import AboutPage from "./pages/AboutPage";
+import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 
 // Create a new QueryClient instance
 const queryClient = new QueryClient();
+
+// Mock login for demo purposes
+const setupMockLogin = () => {
+  // Check if we already have mock user data
+  if (!localStorage.getItem("userData")) {
+    // Create default user data for demo
+    const mockUserData = {
+      name: "Test User",
+      email: "user@example.com",
+      phone: "+1234567890",
+      role: "Student"
+    };
+    localStorage.setItem("userData", JSON.stringify(mockUserData));
+  }
+};
+
+// Setup mock login for development
+setupMockLogin();
 
 const App = () => {
   return (
@@ -27,6 +46,7 @@ const App = () => {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

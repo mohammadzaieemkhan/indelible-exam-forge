@@ -1,14 +1,12 @@
-import { useState } from "react";
-import { Bell, FileText, Pencil } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, FileText, Pencil, Maximize } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { IExam } from "@/components/ExamTabs";
@@ -33,13 +31,14 @@ interface ParsedQuestionItem {
 
 const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, isWhatsAppSetup = false }: UpcomingExamsTabProps) => {
   const [selectedExamIndex, setSelectedExamIndex] = useState<string>("0");
+  const { toast } = useToast();
+  
   const [examContentDialogOpen, setExamContentDialogOpen] = useState(false);
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
   const [parsedQuestions, setParsedQuestions] = useState<any[]>([]);
   const [userAnswers, setUserAnswers] = useState<Record<number, string | string[]>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [examSubmitted, setExamSubmitted] = useState(false);
-  const { toast } = useToast();
   
   // Handle exam selection in upcoming exams tab
   const handleExamSelect = (value: string) => {
@@ -146,84 +145,569 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, 
     });
   };
   
-  // Handle view exam content
+  // Open exam in a new window
   const handleViewExam = (exam: IExam) => {
-    setSelectedExam(exam);
-    setExamSubmitted(false);
-    
-    if (exam.questions) {
-      // Parse the questions for proper rendering
-      const parsed = parseQuestions(exam.questions);
-      setParsedQuestions(parsed);
-    } else {
-      setParsedQuestions([]);
+    if (!exam.isActive) {
+      toast({
+        title: "Exam Not Available",
+        description: "This exam is not yet available to take.",
+        variant: "destructive"
+      });
+      return;
     }
     
-    // Reset user answers and start at first question
-    setUserAnswers({});
-    setCurrentQuestionIndex(0);
-    setExamContentDialogOpen(true);
-  };
-  
-  // Handle user answering a question
-  const handleAnswerChange = (questionIndex: number, value: string | string[]) => {
-    setUserAnswers({
-      ...userAnswers,
-      [questionIndex]: value
-    });
-  };
-  
-  // Navigate to next question
-  const handleNextQuestion = () => {
-    if (currentQuestionIndex < parsedQuestions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    }
-  };
-  
-  // Navigate to previous question
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
-    }
-  };
-  
-  // Jump to specific question
-  const handleJumpToQuestion = (index: number) => {
-    if (index >= 0 && index < parsedQuestions.length) {
-      setCurrentQuestionIndex(index);
-    }
-  };
-  
-  // Handle submitting the exam
-  const handleSubmitExam = () => {
-    // Check if all questions are answered
-    const totalQuestions = parsedQuestions.length;
-    const answeredQuestions = Object.keys(userAnswers).length;
+    // Create a new window for the exam
+    const examWindow = window.open('', '_blank', 'width=1024,height=768,scrollbars=yes');
     
-    // Allow submission with confirmation if not all questions are answered
-    if (answeredQuestions < totalQuestions) {
-      const isConfirmed = window.confirm(`You've only answered ${answeredQuestions} out of ${totalQuestions} questions. Are you sure you want to submit?`);
-      if (!isConfirmed) return;
+    if (!examWindow) {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site to take the exam.",
+        variant: "destructive"
+      });
+      return;
     }
     
-    // Save answers and calculate score
-    setExamSubmitted(true);
+    // Generate the HTML content for the exam window
+    const parsedQuestions = parseQuestions(exam.questions || "");
     
-    // Display submission message
-    toast({
-      title: "Exam Submitted",
-      description: `Your answers have been submitted successfully.`,
-    });
+    // Generate HTML content for exam
+    const examContent = generateExamHtml(exam, parsedQuestions);
     
-    // In a real application, you'd send these answers to a backend
-    console.log("User answers:", userAnswers);
+    // Write the content to the new window
+    examWindow.document.open();
+    examWindow.document.write(examContent);
+    examWindow.document.close();
+    
+    // Request fullscreen after a short delay to ensure the window is fully loaded
+    setTimeout(() => {
+      try {
+        const examElement = examWindow.document.getElementById('exam-container');
+        if (examElement && examElement.requestFullscreen) {
+          examElement.requestFullscreen().catch(err => {
+            console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+          });
+        }
+      } catch (error) {
+        console.error("Could not enter fullscreen mode:", error);
+      }
+    }, 1000);
   };
   
-  // Count answered questions for progress tracking
-  const answeredQuestionsCount = Object.keys(userAnswers).length;
-  const completionPercentage = parsedQuestions.length > 0 
-    ? (answeredQuestionsCount / parsedQuestions.length) * 100 
-    : 0;
+  // Generate HTML content for the exam window
+  const generateExamHtml = (exam: IExam, questions: any[]) => {
+    const questionHtml = questions.map((q, index) => `
+      <div class="question-container" id="question-${index}">
+        <h3>Question ${index + 1}${q.section ? ` (${q.section})` : ''}</h3>
+        <div class="question-content">
+          ${q.question}
+        </div>
+        <div class="answer-section">
+          ${renderQuestionHtml(q, index)}
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${exam.name}</title>
+        <style>
+          :root {
+            --primary: #2563eb;
+            --primary-foreground: white;
+            --border: #e2e8f0;
+            --border-hover: #cbd5e1;
+            --background: #ffffff;
+            --muted: #f1f5f9;
+            --muted-foreground: #64748b;
+          }
+          
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+            background-color: var(--background);
+            margin: 0;
+            padding: 0;
+          }
+          
+          #exam-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          
+          .header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+          }
+          
+          .header p {
+            margin: 5px 0 0 0;
+            color: var(--muted-foreground);
+          }
+          
+          .progress-container {
+            margin-bottom: 30px;
+          }
+          
+          .progress-bar {
+            height: 8px;
+            background-color: var(--muted);
+            border-radius: 4px;
+            overflow: hidden;
+          }
+          
+          .progress-value {
+            height: 100%;
+            background-color: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+          }
+          
+          .question-container {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: white;
+          }
+          
+          .question-container h3 {
+            margin-top: 0;
+            font-size: 18px;
+            font-weight: 600;
+          }
+          
+          .question-content {
+            margin-bottom: 20px;
+            white-space: pre-line;
+          }
+          
+          .option {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+          }
+          
+          .option:hover {
+            border-color: var(--border-hover);
+            background-color: var(--muted);
+          }
+          
+          .option input {
+            margin-right: 10px;
+          }
+          
+          .option label {
+            flex-grow: 1;
+            cursor: pointer;
+          }
+          
+          .text-input, .essay-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box;
+          }
+          
+          .essay-input {
+            min-height: 150px;
+            resize: vertical;
+          }
+          
+          .navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+          }
+          
+          .button {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.1s ease;
+          }
+          
+          .button:hover {
+            opacity: 0.9;
+          }
+          
+          .button.secondary {
+            background-color: var(--muted);
+            color: var(--muted-foreground);
+          }
+          
+          .buttons-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+          }
+          
+          .question-button {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            background-color: white;
+          }
+          
+          .question-button.current {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+            border-color: var(--primary);
+          }
+          
+          .question-button.answered {
+            background-color: #dcfce7;
+            color: #166534;
+            border-color: #86efac;
+          }
+          
+          .fullscreen-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+          }
+          
+          .fullscreen-icon {
+            width: 24px;
+            height: 24px;
+          }
+          
+          @media (max-width: 768px) {
+            #exam-container {
+              padding: 15px;
+            }
+            
+            .question-container {
+              padding: 15px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div id="exam-container">
+          <div class="header">
+            <h1>${exam.name}</h1>
+            <p>${exam.date} at ${exam.time} • ${exam.duration} minutes</p>
+          </div>
+          
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div class="progress-value" id="progress-bar"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 14px; color: var(--muted-foreground);">
+              <span id="progress-text">0 of ${questions.length} answered</span>
+              <span id="progress-percentage">0%</span>
+            </div>
+          </div>
+          
+          <div class="buttons-row" id="question-buttons">
+            ${questions.map((_, i) => `
+              <button class="question-button${i === 0 ? ' current' : ''}" 
+                id="button-${i}" 
+                onclick="showQuestion(${i})">${i + 1}</button>
+            `).join('')}
+          </div>
+          
+          ${questionHtml}
+          
+          <div class="navigation">
+            <button class="button secondary" id="prev-button" onclick="prevQuestion()">Previous</button>
+            <button class="button secondary" id="next-button" onclick="nextQuestion()">Next</button>
+            <button class="button" id="submit-button" onclick="submitExam()">Submit Exam</button>
+          </div>
+        </div>
+        
+        <button class="fullscreen-button" id="fullscreen-button" title="Toggle fullscreen">
+          <svg class="fullscreen-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
+          </svg>
+        </button>
+        
+        <script>
+          let currentQuestion = 0;
+          const totalQuestions = ${questions.length};
+          const answers = {};
+          
+          // Initialize the exam
+          function initExam() {
+            // Hide all questions except the first one
+            for (let i = 1; i < totalQuestions; i++) {
+              document.getElementById('question-' + i).style.display = 'none';
+            }
+            
+            // Setup fullscreen button
+            document.getElementById('fullscreen-button').addEventListener('click', toggleFullScreen);
+            
+            // Enter fullscreen automatically
+            setTimeout(() => {
+              if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err => {
+                  console.log('Error attempting to enable fullscreen:', err);
+                });
+              }
+            }, 1000);
+            
+            // Setup answer tracking
+            setupAnswerTracking();
+            
+            // Update navigation buttons
+            updateNavButtons();
+          }
+          
+          // Show question by index
+          function showQuestion(index) {
+            // Hide current question
+            document.getElementById('question-' + currentQuestion).style.display = 'none';
+            
+            // Show the requested question
+            document.getElementById('question-' + index).style.display = 'block';
+            
+            // Update current question class in buttons
+            document.getElementById('button-' + currentQuestion).classList.remove('current');
+            document.getElementById('button-' + index).classList.add('current');
+            
+            // Update current question index
+            currentQuestion = index;
+            
+            // Update navigation buttons
+            updateNavButtons();
+          }
+          
+          // Go to next question
+          function nextQuestion() {
+            if (currentQuestion < totalQuestions - 1) {
+              showQuestion(currentQuestion + 1);
+            }
+          }
+          
+          // Go to previous question
+          function prevQuestion() {
+            if (currentQuestion > 0) {
+              showQuestion(currentQuestion - 1);
+            }
+          }
+          
+          // Update navigation buttons state
+          function updateNavButtons() {
+            document.getElementById('prev-button').disabled = currentQuestion === 0;
+            
+            if (currentQuestion === totalQuestions - 1) {
+              document.getElementById('next-button').style.display = 'none';
+              document.getElementById('submit-button').style.display = 'block';
+            } else {
+              document.getElementById('next-button').style.display = 'block';
+              document.getElementById('submit-button').style.display = 'none';
+            }
+          }
+          
+          // Setup tracking for answers
+          function setupAnswerTracking() {
+            // Radio buttons (MCQ and True/False)
+            document.querySelectorAll('input[type="radio"]').forEach(radio => {
+              radio.addEventListener('change', function() {
+                const questionId = this.name.split('-')[0];
+                const value = this.value;
+                answers[questionId] = value;
+                updateProgress();
+                markQuestionAnswered(questionId.split('q')[1]);
+              });
+            });
+            
+            // Text inputs (Short answer)
+            document.querySelectorAll('input[type="text"]').forEach(input => {
+              input.addEventListener('change', function() {
+                const questionId = this.id.split('-')[0];
+                const value = this.value.trim();
+                if (value) {
+                  answers[questionId] = value;
+                  markQuestionAnswered(questionId.split('q')[1]);
+                } else {
+                  delete answers[questionId];
+                }
+                updateProgress();
+              });
+            });
+            
+            // Textareas (Essays)
+            document.querySelectorAll('textarea').forEach(textarea => {
+              textarea.addEventListener('change', function() {
+                const questionId = this.id.split('-')[0];
+                const value = this.value.trim();
+                if (value) {
+                  answers[questionId] = value;
+                  markQuestionAnswered(questionId.split('q')[1]);
+                } else {
+                  delete answers[questionId];
+                }
+                updateProgress();
+              });
+            });
+          }
+          
+          // Mark a question button as answered
+          function markQuestionAnswered(index) {
+            document.getElementById('button-' + index).classList.add('answered');
+          }
+          
+          // Update progress display
+          function updateProgress() {
+            const answeredCount = Object.keys(answers).length;
+            const percentage = Math.round((answeredCount / totalQuestions) * 100);
+            
+            document.getElementById('progress-bar').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = answeredCount + ' of ' + totalQuestions + ' answered';
+            document.getElementById('progress-percentage').textContent = percentage + '%';
+          }
+          
+          // Submit the exam
+          function submitExam() {
+            const answeredCount = Object.keys(answers).length;
+            
+            if (answeredCount < totalQuestions) {
+              const confirm = window.confirm('You have only answered ' + answeredCount + ' out of ' + totalQuestions + ' questions. Are you sure you want to submit?');
+              if (!confirm) return;
+            }
+            
+            // Disable all inputs
+            document.querySelectorAll('input, textarea').forEach(input => {
+              input.disabled = true;
+            });
+            
+            // Show completion message
+            const examContainer = document.getElementById('exam-container');
+            const completionMessage = document.createElement('div');
+            completionMessage.className = 'question-container';
+            completionMessage.innerHTML = \`
+              <h3 style="text-align: center; color: #16a34a;">Exam Submitted!</h3>
+              <p style="text-align: center;">Thank you for completing this exam.</p>
+              <p style="text-align: center;">You can now close this window.</p>
+              <div style="text-align: center; margin-top: 20px;">
+                <button class="button" onclick="window.close()">Close Window</button>
+              </div>
+            \`;
+            
+            examContainer.appendChild(completionMessage);
+            
+            // Hide the navigation buttons
+            document.querySelector('.navigation').style.display = 'none';
+            
+            // Save answers to localStorage (for demo purposes)
+            localStorage.setItem('examAnswers-${exam.id}', JSON.stringify(answers));
+            
+            // You would typically send the answers to a server here
+            console.log('Exam submitted:', answers);
+          }
+          
+          // Toggle fullscreen
+          function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+              if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+              }
+            } else {
+              if (document.exitFullscreen) {
+                document.exitFullscreen();
+              }
+            }
+          }
+          
+          // Initialize when page loads
+          window.onload = initExam;
+        </script>
+      </body>
+      </html>
+    `;
+  };
+  
+  // Render HTML version of questions for the popup window
+  const renderQuestionHtml = (question: any, index: number) => {
+    switch (question.type) {
+      case 'mcq':
+        return `
+          <div class="options">
+            ${question.options?.map((option: string, optIdx: number) => `
+              <div class="option">
+                <input type="radio" name="q${index}-option" id="q${index}-opt${optIdx}" value="${option}">
+                <label for="q${index}-opt${optIdx}">${option}</label>
+              </div>
+            `).join('') || ''}
+          </div>
+        `;
+        
+      case 'truefalse':
+        return `
+          <div class="options">
+            <div class="option">
+              <input type="radio" name="q${index}-option" id="q${index}-true" value="true">
+              <label for="q${index}-true">True</label>
+            </div>
+            <div class="option">
+              <input type="radio" name="q${index}-option" id="q${index}-false" value="false">
+              <label for="q${index}-false">False</label>
+            </div>
+          </div>
+        `;
+        
+      case 'shortanswer':
+        return `
+          <input type="text" class="text-input" id="q${index}-answer" placeholder="Your answer...">
+        `;
+        
+      case 'essay':
+        return `
+          <textarea class="essay-input" id="q${index}-essay" placeholder="Write your answer here..."></textarea>
+          <div style="display: flex; justify-content: flex-end; margin-top: 5px; font-size: 14px; color: var(--muted-foreground);">
+            <span id="q${index}-wordcount">0 words</span>
+          </div>
+        `;
+        
+      default:
+        return '';
+    }
+  };
   
   // Get current date for calendar view
   const currentDate = new Date();
@@ -234,92 +718,6 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, 
   
   // Month names
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  
-  // Render the appropriate input for different question types
-  const renderQuestionInput = (question: ParsedQuestionItem, index: number) => {
-    switch (question.type) {
-      case 'mcq':
-        return (
-          <RadioGroup
-            value={userAnswers[index] as string || ""}
-            onValueChange={(value) => handleAnswerChange(index, value)}
-            className="mt-4 space-y-3"
-            disabled={examSubmitted}
-          >
-            {question.options?.map((option, optIdx) => (
-              <div key={optIdx} className="flex items-center space-x-2 p-2 rounded-md border hover:bg-slate-50">
-                <RadioGroupItem value={option} id={`q${index}-opt${optIdx}`} />
-                <Label htmlFor={`q${index}-opt${optIdx}`} className="flex-grow cursor-pointer">
-                  {option}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        );
-        
-      case 'truefalse':
-        return (
-          <RadioGroup
-            value={userAnswers[index] as string || ""}
-            onValueChange={(value) => handleAnswerChange(index, value)}
-            className="mt-4 space-y-3"
-            disabled={examSubmitted}
-          >
-            <div className="flex items-center space-x-2 p-2 rounded-md border hover:bg-slate-50">
-              <RadioGroupItem value="true" id={`q${index}-true`} />
-              <Label htmlFor={`q${index}-true`} className="flex-grow cursor-pointer">True</Label>
-            </div>
-            <div className="flex items-center space-x-2 p-2 rounded-md border hover:bg-slate-50">
-              <RadioGroupItem value="false" id={`q${index}-false`} />
-              <Label htmlFor={`q${index}-false`} className="flex-grow cursor-pointer">False</Label>
-            </div>
-          </RadioGroup>
-        );
-        
-      case 'shortanswer':
-        return (
-          <div className="mt-4">
-            <Input
-              value={userAnswers[index] as string || ""}
-              onChange={(e) => handleAnswerChange(index, e.target.value)}
-              placeholder="Your answer..."
-              className="w-full p-2"
-              disabled={examSubmitted}
-            />
-            {question.answer && examSubmitted && (
-              <p className="text-sm text-muted-foreground mt-2">
-                <span className="font-semibold">Example answer:</span> {question.answer}
-              </p>
-            )}
-          </div>
-        );
-        
-      case 'essay':
-        return (
-          <div className="mt-4">
-            <Textarea
-              value={userAnswers[index] as string || ""}
-              onChange={(e) => handleAnswerChange(index, e.target.value)}
-              placeholder="Write your answer here..."
-              className="w-full p-2 min-h-[150px]"
-              disabled={examSubmitted}
-            />
-            {/* Word count display */}
-            <div className="flex justify-between text-xs text-muted-foreground mt-2">
-              <span>
-                Word count: {((userAnswers[index] as string) || "").split(/\s+/).filter(Boolean).length}
-              </span>
-              {question.answer && examSubmitted && (
-                <span className="font-semibold">Suggested answer points available</span>
-              )}
-            </div>
-          </div>
-        );
-        
-      default:
-        return null;
-    }
-  };
   
   return (
     <Card>
@@ -487,199 +885,4 @@ const UpcomingExamsTab = ({ exams, onSendReminder, phoneNumber, setPhoneNumber, 
                   <div>
                     <span className="text-sm text-muted-foreground">Topics:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {exams[parseInt(selectedExamIndex) || 0]?.topics.map((topic, i) => (
-                        <span key={i} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                          {topic}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="pt-2 flex space-x-2">
-                    <Button 
-                      size="sm"
-                      disabled={!exams[parseInt(selectedExamIndex) || 0]?.isActive}
-                      onClick={() => {
-                        if (exams[parseInt(selectedExamIndex) || 0]) {
-                          handleViewExam(exams[parseInt(selectedExamIndex) || 0]);
-                        }
-                      }}
-                    >
-                      {exams[parseInt(selectedExamIndex) || 0]?.isActive ? 
-                        "Take Exam" : "Available Soon"}
-                    </Button>
-                    
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => {
-                        if (exams[parseInt(selectedExamIndex) || 0]) {
-                          onSendReminder(exams[parseInt(selectedExamIndex) || 0]);
-                        }
-                      }}
-                    >
-                      <Bell className="h-4 w-4 mr-1" /> Send Reminder
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-      
-      {/* Exam Content Dialog - Improved Google Forms Style */}
-      <Dialog open={examContentDialogOpen} onOpenChange={setExamContentDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle className="flex items-center">
-              <FileText className="h-5 w-5 mr-2" /> {selectedExam?.name}
-            </DialogTitle>
-            <DialogDescription className="flex items-center justify-between">
-              <span>{selectedExam?.date} at {selectedExam?.time} • {selectedExam?.duration} minutes</span>
-              {!examSubmitted && (
-                <span className="text-sm font-medium">
-                  Question {currentQuestionIndex + 1} of {parsedQuestions.length}
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedExam?.isActive ? (
-            <>
-              {parsedQuestions.length > 0 ? (
-                <div className="flex-1 overflow-y-auto">
-                  {/* Progress bar */}
-                  <div className="py-2 px-1">
-                    <Progress value={completionPercentage} className="h-2" />
-                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>{answeredQuestionsCount} of {parsedQuestions.length} answered</span>
-                      <span>{completionPercentage.toFixed(0)}% complete</span>
-                    </div>
-                  </div>
-                  
-                  {/* Question area */}
-                  <div className="p-4">
-                    {examSubmitted ? (
-                      // Show all questions and answers when submitted
-                      <div className="space-y-8">
-                        <div className="text-center py-4 mb-4 bg-green-50 rounded-md">
-                          <h2 className="text-xl font-bold text-green-700">Exam Submitted</h2>
-                          <p className="text-green-600">Thank you for completing this exam.</p>
-                        </div>
-                        
-                        {parsedQuestions.map((question, index) => (
-                          <Card key={index} className="overflow-hidden">
-                            <CardHeader className="bg-slate-50 py-3">
-                              <h3 className="font-medium">Question {index + 1}{question.section ? ` (${question.section})` : ''}</h3>
-                            </CardHeader>
-                            <CardContent className="pt-4">
-                              <p className="mb-2">{question.question}</p>
-                              {renderQuestionInput(question, index)}
-                              
-                              {/* Show user's answer summary */}
-                              <div className="mt-4 pt-2 border-t">
-                                <p className="text-sm font-medium">Your answer:</p>
-                                <p className="text-muted-foreground">
-                                  {userAnswers[index] ? 
-                                    (typeof userAnswers[index] === 'string' ? 
-                                      userAnswers[index] : 
-                                      (userAnswers[index] as string[]).join(', ')) : 
-                                    'Not answered'}
-                                </p>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      // Show single question at a time when taking the exam
-                      <>
-                        <div className="mb-6">
-                          {parsedQuestions[currentQuestionIndex].section && (
-                            <div className="text-sm font-medium text-primary mb-2">
-                              {parsedQuestions[currentQuestionIndex].section}
-                            </div>
-                          )}
-                          <h2 className="text-lg font-medium mb-2">
-                            Question {currentQuestionIndex + 1}: {parsedQuestions[currentQuestionIndex].question}
-                          </h2>
-                          {renderQuestionInput(parsedQuestions[currentQuestionIndex], currentQuestionIndex)}
-                        </div>
-                        
-                        {/* Question navigation buttons */}
-                        <div className="flex justify-between mt-6">
-                          <Button 
-                            variant="outline" 
-                            onClick={handlePreviousQuestion}
-                            disabled={currentQuestionIndex === 0}
-                          >
-                            Previous
-                          </Button>
-                          
-                          <div className="flex space-x-2 overflow-x-auto p-1 max-w-[300px]">
-                            {parsedQuestions.map((_, index) => (
-                              <button
-                                key={index}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm
-                                  ${currentQuestionIndex === index ? 'bg-primary text-primary-foreground' : 
-                                    userAnswers[index] !== undefined ? 'bg-green-100 text-green-800 border border-green-300' : 
-                                    'border bg-background hover:bg-muted'}`}
-                                onClick={() => handleJumpToQuestion(index)}
-                              >
-                                {index + 1}
-                              </button>
-                            ))}
-                          </div>
-                          
-                          {currentQuestionIndex < parsedQuestions.length - 1 ? (
-                            <Button 
-                              onClick={handleNextQuestion}
-                            >
-                              Next
-                            </Button>
-                          ) : (
-                            <Button 
-                              onClick={handleSubmitExam}
-                              variant="default"
-                            >
-                              Submit Exam
-                            </Button>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="py-8 text-center">
-                  <p className="text-muted-foreground">
-                    No questions found in the exam content. Please regenerate the exam.
-                  </p>
-                </div>
-              )}
-              
-              {examSubmitted && (
-                <DialogFooter className="border-t pt-4">
-                  <Button onClick={() => setExamContentDialogOpen(false)}>
-                    Close
-                  </Button>
-                </DialogFooter>
-              )}
-            </>
-          ) : (
-            <div className="py-8 text-center">
-              <p className="text-amber-600 font-medium mb-4">
-                This exam is not yet available to take
-              </p>
-              <p className="text-muted-foreground">
-                The exam will become available at the scheduled date and time.
-              </p>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </Card>
-  );
-};
-
-export default UpcomingExamsTab;
+                      {exams[parseInt(selectedExamIndex) || 0]?.topics.map((topic, i)

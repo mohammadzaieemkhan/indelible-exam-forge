@@ -1,162 +1,119 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 const LoginPage = () => {
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
   
-  // Handle Google Sign-In
-  const handleGoogleSignIn = async () => {
-    try {
-      setIsLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      });
-      
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error("Error with Google sign-in:", error);
-      toast({
-        title: "Authentication Error",
-        description: error.message || "Failed to sign in with Google",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-    }
-  };
-  
-  // Handle Email Sign-In
-  const handleEmailSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Check if already logged in
+  if (localStorage.getItem("userData")) {
+    navigate("/dashboard");
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
     try {
-      setIsLoading(true);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) {
-        throw error;
-      }
-      
-      // If login successful
-      if (data.user) {
+      // In a real app, this would be an API call
+      // For now, we'll just simulate a login
+      setTimeout(() => {
+        // Mock user data
+        const userData = {
+          name: "Test User",
+          email: email,
+          phone: "+1234567890", 
+          role: "Student"
+        };
+        
+        // Save to localStorage
+        localStorage.setItem("userData", JSON.stringify(userData));
+        
+        // Trigger storage event for other components
+        window.dispatchEvent(new Event("storage"));
+        
         toast({
-          title: "Welcome back",
-          description: "You have successfully signed in",
+          title: "Login Successful",
+          description: "Welcome back! You have successfully logged in."
         });
         
+        // Navigate to dashboard
         navigate("/dashboard");
-      }
+      }, 1000);
     } catch (error) {
-      console.error("Error signing in with email:", error);
       toast({
-        title: "Authentication Error",
-        description: error.message || "Failed to sign in",
-        variant: "destructive",
+        title: "Login Failed",
+        description: "Invalid email or password. Please try again.",
+        variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[80vh] px-4">
-      <div className="w-full max-w-md space-y-8 animate-fade-in">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Welcome to Indelible AI</h1>
-          <p className="text-muted-foreground mt-2">Sign in to access your dashboard</p>
+    <div className="container flex items-center justify-center min-h-[80vh] px-4 py-8">
+      <div className="w-full max-w-md space-y-6">
+        <div className="space-y-2 text-center">
+          <h1 className="text-3xl font-bold">Welcome back</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Enter your credentials to sign in to your account
+          </p>
         </div>
-        
-        <Card>
-          <Tabs defaultValue="email">
-            <CardHeader>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="email">Email</TabsTrigger>
-                <TabsTrigger value="google">Google</TabsTrigger>
-              </TabsList>
-            </CardHeader>
-            
-            <CardContent>
-              <TabsContent value="email">
-                <form onSubmit={handleEmailSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input 
-                      id="email" 
-                      placeholder="name@example.com" 
-                      type="email" 
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="password">Password</Label>
-                      <Link to="/forgot-password" className="text-sm text-primary hover:underline">
-                        Forgot password?
-                      </Link>
-                    </div>
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required 
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Signing in..." : "Sign In"}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="google">
-                <div className="space-y-4 py-4">
-                  <Button 
-                    variant="outline" 
-                    className="w-full" 
-                    onClick={handleGoogleSignIn}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Connecting..." : "Sign in with Google"}
-                  </Button>
-                  <p className="text-sm text-muted-foreground text-center">
-                    We'll never post to your account without permission.
-                  </p>
-                </div>
-              </TabsContent>
-            </CardContent>
-          </Tabs>
-          
-          <CardFooter className="flex flex-col">
-            <div className="text-sm text-muted-foreground text-center">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:underline">
-                Sign up
-              </Link>
+        <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                placeholder="your.email@example.com" 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
-          </CardFooter>
-        </Card>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link 
+                  to="#"
+                  className="text-sm text-primary underline-offset-4 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <Input 
+                id="password" 
+                placeholder="••••••••" 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
+          <div className="text-center text-sm">
+            Don't have an account?{" "}
+            <Link 
+              to="/signup"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Sign up
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

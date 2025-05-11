@@ -1,182 +1,145 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 const SignupPage = () => {
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
   
-  // Handle Google Sign Up
-  const handleGoogleSignUp = async () => {
-    try {
-      setIsLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
-      });
-      
-      if (error) {
-        throw error;
-      }
-    } catch (error) {
-      console.error("Error with Google signup:", error);
-      toast({
-        title: "Authentication Error",
-        description: error.message || "Failed to sign up with Google",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-    }
-  };
-  
-  // Handle Email Sign Up
-  const handleEmailSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Check if already logged in
+  if (localStorage.getItem("userData")) {
+    navigate("/dashboard");
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate password match
+    // Basic validation
     if (password !== confirmPassword) {
       toast({
-        title: "Password Error",
-        description: "Passwords do not match",
-        variant: "destructive",
+        title: "Passwords don't match",
+        description: "Please make sure your passwords match.",
+        variant: "destructive"
       });
       return;
     }
     
+    setLoading(true);
+    
     try {
-      setIsLoading(true);
-      
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`
-        }
-      });
-      
-      if (error) {
-        throw error;
-      }
-      
-      // If signup successful
-      if (data.user) {
+      // In a real app, this would be an API call
+      // For now, we'll just simulate a signup
+      setTimeout(() => {
+        // Create user data
+        const userData = {
+          name: name,
+          email: email,
+          phone: "", 
+          role: "Student"
+        };
+        
+        // Save to localStorage
+        localStorage.setItem("userData", JSON.stringify(userData));
+        
+        // Trigger storage event for other components
+        window.dispatchEvent(new Event("storage"));
+        
         toast({
-          title: "Account created",
-          description: "Please check your email to confirm your account",
+          title: "Account Created",
+          description: "Your account has been created successfully."
         });
         
-        // For development, you may want to automatically redirect
+        // Navigate to dashboard
         navigate("/dashboard");
-      }
+      }, 1000);
     } catch (error) {
-      console.error("Error signing up with email:", error);
       toast({
-        title: "Authentication Error",
-        description: error.message || "Failed to sign up",
-        variant: "destructive",
+        title: "Signup Failed",
+        description: "There was a problem creating your account.",
+        variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[80vh] px-4">
-      <div className="w-full max-w-md space-y-8 animate-fade-in">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold">Create an Account</h1>
-          <p className="text-muted-foreground mt-2">Sign up to get started with Indelible AI</p>
+    <div className="container flex items-center justify-center min-h-[80vh] px-4 py-8">
+      <div className="w-full max-w-md space-y-6">
+        <div className="space-y-2 text-center">
+          <h1 className="text-3xl font-bold">Create an account</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            Enter your details to create a new account
+          </p>
         </div>
-        
-        <Card>
-          <Tabs defaultValue="email">
-            <CardHeader>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="email">Email</TabsTrigger>
-                <TabsTrigger value="google">Google</TabsTrigger>
-              </TabsList>
-            </CardHeader>
-            
-            <CardContent>
-              <TabsContent value="email">
-                <form onSubmit={handleEmailSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input 
-                      id="signup-email" 
-                      placeholder="name@example.com" 
-                      type="email" 
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input 
-                      id="signup-password" 
-                      type="password" 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-confirm-password">Confirm Password</Label>
-                    <Input 
-                      id="signup-confirm-password" 
-                      type="password" 
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required 
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Creating Account..." : "Sign Up"}
-                  </Button>
-                </form>
-              </TabsContent>
-              
-              <TabsContent value="google">
-                <div className="space-y-4 py-4">
-                  <Button 
-                    variant="outline" 
-                    className="w-full" 
-                    onClick={handleGoogleSignUp}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Connecting..." : "Sign up with Google"}
-                  </Button>
-                  <p className="text-sm text-muted-foreground text-center">
-                    We'll never post to your account without permission.
-                  </p>
-                </div>
-              </TabsContent>
-            </CardContent>
-          </Tabs>
-          
-          <CardFooter className="flex flex-col">
-            <div className="text-sm text-muted-foreground text-center">
-              Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline">
-                Sign in
-              </Link>
+        <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input 
+                id="name" 
+                placeholder="Your name" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
             </div>
-          </CardFooter>
-        </Card>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input 
+                id="email" 
+                placeholder="your.email@example.com" 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input 
+                id="password" 
+                placeholder="••••••••" 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input 
+                id="confirm-password" 
+                placeholder="••••••••" 
+                type="password" 
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Creating account..." : "Sign Up"}
+            </Button>
+          </form>
+          <div className="text-center text-sm">
+            Already have an account?{" "}
+            <Link 
+              to="/login"
+              className="text-primary underline-offset-4 hover:underline"
+            >
+              Sign in
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
