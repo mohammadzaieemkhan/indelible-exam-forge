@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bell, FileText, Pencil, Trash2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -206,7 +205,7 @@ const UpcomingExamsTab = ({
     // Generate the HTML content for the exam window
     const parsedQuestions = parseQuestions(exam.questions || "");
     
-    // Generate HTML content for exam
+    // Generate HTML content for exam with improved light theme and better MCQ formatting
     const examContent = generateExamHtml(exam, parsedQuestions);
     
     // Write the content to the new window
@@ -303,9 +302,9 @@ const UpcomingExamsTab = ({
             --border: #e2e8f0;
             --border-hover: #cbd5e1;
             --background: #ffffff;
-            --muted: #f1f5f9;
+            --muted: #f8fafc;
             --muted-foreground: #64748b;
-            --accent: #f8fafc;
+            --accent: #f1f5f9;
             --accent-foreground: #0f172a;
             --destructive: #ef4444;
             --destructive-foreground: white;
@@ -313,6 +312,8 @@ const UpcomingExamsTab = ({
             --warning-foreground: #78350f;
             --success: #10b981;
             --success-foreground: white;
+            --card: #ffffff;
+            --card-foreground: #0f172a;
           }
           
           /* Dark mode support */
@@ -320,49 +321,22 @@ const UpcomingExamsTab = ({
             :root {
               --primary: #3b82f6;
               --primary-foreground: white;
-              --background: #0f172a;
-              --accent: #1e293b;
-              --accent-foreground: #f8fafc;
-              --muted: #1e293b;
-              --muted-foreground: #94a3b8;
-              --border: #1e293b;
-              --border-hover: #334155;
-            }
-            
-            body {
-              background-color: var(--background);
-              color: var(--accent-foreground);
-            }
-            
-            .question-container {
-              background-color: var(--accent);
-            }
-            
-            .question-number {
-              background-color: var(--muted);
-              color: var(--muted-foreground);
-            }
-            
-            .question-number.current {
-              background-color: var(--primary);
-              color: var(--primary-foreground);
-            }
-            
-            .question-number.answered {
-              background-color: var(--success);
-              color: var(--success-foreground);
-            }
-            
-            .question-number.for-review {
-              background-color: var(--warning);
-              color: var(--warning-foreground);
+              --background: #f8fafc;
+              --accent: #f1f5f9;
+              --accent-foreground: #0f172a;
+              --muted: #f1f5f9;
+              --muted-foreground: #64748b;
+              --border: #e2e8f0;
+              --border-hover: #cbd5e1;
+              --card: #ffffff;
+              --card-foreground: #0f172a;
             }
           }
           
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
-            color: #1e293b;
+            color: var(--card-foreground);
             background-color: var(--background);
             margin: 0;
             padding: 0;
@@ -520,6 +494,7 @@ const UpcomingExamsTab = ({
             flex-grow: 1;
             padding: 20px;
             overflow-y: auto;
+            background-color: var(--background);
           }
           
           .question-container {
@@ -527,7 +502,8 @@ const UpcomingExamsTab = ({
             border-radius: 8px;
             margin-bottom: 20px;
             padding: 20px;
-            background-color: white;
+            background-color: var(--card);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
           }
           
           .question-header {
@@ -578,11 +554,12 @@ const UpcomingExamsTab = ({
             font-family: monospace;
           }
           
-          /* Options for MCQs */
+          /* Options for MCQs - Improved grid layout */
           .options {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
           }
           
           .option {
@@ -593,6 +570,7 @@ const UpcomingExamsTab = ({
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.1s ease;
+            background-color: var(--card);
           }
           
           .option:hover {
@@ -639,6 +617,8 @@ const UpcomingExamsTab = ({
             font-size: 16px;
             box-sizing: border-box;
             transition: border-color 0.2s ease;
+            background-color: var(--card);
+            color: var(--card-foreground);
           }
           
           .text-input:focus, .essay-input:focus {
@@ -732,6 +712,10 @@ const UpcomingExamsTab = ({
             .question-grid {
               grid-template-columns: repeat(5, 1fr);
             }
+            
+            .options {
+              grid-template-columns: 1fr;
+            }
           }
         </style>
       </head>
@@ -815,6 +799,7 @@ const UpcomingExamsTab = ({
           const questionsForReview = new Set();
           let startTime = Date.now();
           let timerInterval;
+          let questionWeights = ${JSON.stringify(questions.map((_, i) => exam.questionWeights?.[i] || 1))};
           
           // Initialize the exam
           function initExam() {
@@ -934,412 +919,3 @@ const UpcomingExamsTab = ({
             // Update the review button text
             updateReviewButtonText();
           }
-          
-          // Setup tracking for answers with improved radio button styling
-          function setupAnswerTracking() {
-            // Handle custom radio buttons for MCQs
-            document.querySelectorAll('.option').forEach(option => {
-              option.addEventListener('click', function() {
-                const questionId = this.getAttribute('data-question');
-                const value = this.getAttribute('data-value');
-                const radioButton = this.querySelector('.option-radio');
-                
-                // Remove selected class from all options in this question
-                document.querySelectorAll(\`.option[data-question="\${questionId}"]\`).forEach(opt => {
-                  opt.querySelector('.option-radio').classList.remove('selected');
-                });
-                
-                // Mark this option as selected
-                radioButton.classList.add('selected');
-                
-                // Save the answer
-                answers[questionId] = value;
-                updateProgress();
-                markQuestionAnswered(questionId.split('q')[1]);
-              });
-            });
-            
-            // Text inputs (Short answer)
-            document.querySelectorAll('input[type="text"]').forEach(input => {
-              input.addEventListener('input', function() {
-                const questionId = this.getAttribute('data-question');
-                const value = this.value.trim();
-                
-                if (value) {
-                  answers[questionId] = value;
-                  markQuestionAnswered(questionId.split('q')[1]);
-                } else {
-                  delete answers[questionId];
-                  unmarkQuestionAnswered(questionId.split('q')[1]);
-                }
-                
-                updateProgress();
-              });
-            });
-            
-            // Textareas (Essays)
-            document.querySelectorAll('textarea').forEach(textarea => {
-              textarea.addEventListener('input', function() {
-                const questionId = this.getAttribute('data-question');
-                const value = this.value.trim();
-                
-                if (value) {
-                  answers[questionId] = value;
-                  markQuestionAnswered(questionId.split('q')[1]);
-                } else {
-                  delete answers[questionId];
-                  unmarkQuestionAnswered(questionId.split('q')[1]);
-                }
-                
-                // Update word count
-                const wordCount = value.split(/\\s+/).filter(Boolean).length;
-                const wordCountEl = document.getElementById(questionId + '-wordcount');
-                if (wordCountEl) {
-                  wordCountEl.textContent = wordCount + ' words';
-                }
-                
-                updateProgress();
-              });
-            });
-          }
-          
-          // Mark a question button as answered
-          function markQuestionAnswered(index) {
-            const questionBtn = document.getElementById('question-button-' + index);
-            if (!questionsForReview.has(Number(index))) {
-              questionBtn.classList.add('answered');
-            }
-          }
-          
-          // Unmark a question as answered
-          function unmarkQuestionAnswered(index) {
-            const questionBtn = document.getElementById('question-button-' + index);
-            if (!questionsForReview.has(Number(index))) {
-              questionBtn.classList.remove('answered');
-            }
-          }
-          
-          // Update progress display
-          function updateProgress() {
-            const answeredCount = Object.keys(answers).length;
-            const percentage = Math.round((answeredCount / totalQuestions) * 100);
-            
-            document.getElementById('progress-bar').style.width = percentage + '%';
-            document.getElementById('progress-text').textContent = answeredCount + ' of ' + totalQuestions + ' answered';
-            document.getElementById('progress-percentage').textContent = percentage + '%';
-          }
-          
-          // Submit the exam
-          function submitExam() {
-            const answeredCount = Object.keys(answers).length;
-            const unansweredCount = totalQuestions - answeredCount;
-            
-            if (unansweredCount > 0 || questionsForReview.size > 0) {
-              let message = '';
-              
-              if (unansweredCount > 0) {
-                message += 'You have ' + unansweredCount + ' unanswered questions. ';
-              }
-              
-              if (questionsForReview.size > 0) {
-                message += 'You have ' + questionsForReview.size + ' questions marked for review. ';
-              }
-              
-              message += 'Are you sure you want to submit?';
-              
-              const confirm = window.confirm(message);
-              if (!confirm) return;
-            }
-            
-            // Stop the timer
-            clearInterval(timerInterval);
-            
-            // Disable all inputs
-            document.querySelectorAll('input, textarea, .option').forEach(input => {
-              if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA') {
-                input.disabled = true;
-              } else {
-                input.style.pointerEvents = 'none';
-                input.style.opacity = '0.7';
-              }
-            });
-            
-            // Show completion message
-            const examContainer = document.querySelector('.main-content');
-            const completionMessage = document.createElement('div');
-            completionMessage.className = 'question-container';
-            completionMessage.innerHTML = \`
-              <h3 style="text-align: center; color: #16a34a;">Exam Submitted!</h3>
-              <p style="text-align: center;">Thank you for completing this exam.</p>
-              <p style="text-align: center;">You answered \${Object.keys(answers).length} out of \${totalQuestions} questions.</p>
-              <div style="text-align: center; margin-top: 20px;">
-                <button class="button" onclick="window.close()">Close Window</button>
-              </div>
-            \`;
-            
-            examContainer.innerHTML = '';
-            examContainer.appendChild(completionMessage);
-            
-            // Hide the navigation buttons and question grid
-            document.querySelector('.navigation').style.display = 'none';
-            document.querySelector('.sidebar-actions').style.display = 'none';
-            
-            // Save answers to localStorage (for demo purposes)
-            localStorage.setItem('examAnswers-${exam.id}', JSON.stringify(answers));
-            
-            // You would typically send the answers to a server here
-            console.log('Exam submitted:', answers);
-          }
-          
-          // Toggle fullscreen
-          function toggleFullScreen() {
-            if (!document.fullscreenElement) {
-              if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen();
-              }
-            } else {
-              if (document.exitFullscreen) {
-                document.exitFullscreen();
-              }
-            }
-          }
-          
-          // Initialize when page loads
-          window.onload = initExam;
-        </script>
-      </body>
-      </html>
-    `;
-  };
-  
-  // Render HTML version of questions for the popup window
-  const renderQuestionHtml = (question: any, index: number) => {
-    switch (question.type) {
-      case 'mcq':
-        return `
-          <div class="options">
-            ${question.options?.map((option: string, optIdx: number) => `
-              <div class="option" data-question="q${index}" data-value="${option}">
-                <div class="option-radio"></div>
-                <div class="option-text">${markdownToHtml(option)}</div>
-              </div>
-            `).join('') || ''}
-          </div>
-        `;
-        
-      case 'truefalse':
-        return `
-          <div class="options">
-            <div class="option" data-question="q${index}" data-value="true">
-              <div class="option-radio"></div>
-              <div class="option-text">True</div>
-            </div>
-            <div class="option" data-question="q${index}" data-value="false">
-              <div class="option-radio"></div>
-              <div class="option-text">False</div>
-            </div>
-          </div>
-        `;
-        
-      case 'shortanswer':
-        return `
-          <input type="text" class="text-input" data-question="q${index}" placeholder="Your answer...">
-        `;
-        
-      case 'essay':
-        return `
-          <textarea class="essay-input" data-question="q${index}" placeholder="Write your answer here..."></textarea>
-          <div style="display: flex; justify-content: flex-end; margin-top: 5px; font-size: 14px; color: var(--muted-foreground);">
-            <span id="q${index}-wordcount">0 words</span>
-          </div>
-        `;
-        
-      default:
-        return '';
-    }
-  };
-  
-  // Get current date for calendar view
-  const currentDate = new Date();
-  const currentMonth = currentDate.getMonth();
-  const currentYear = currentDate.getFullYear();
-  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  
-  // Month names
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Upcoming Exams</CardTitle>
-        <CardDescription>View and manage scheduled exams</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4">
-          <Label htmlFor="whatsapp-number">Your WhatsApp Number (for notifications)</Label>
-          <div className="flex gap-2">
-            <Input
-              id="whatsapp-number"
-              placeholder="+1234567890"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              className="mt-1"
-            />
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-1" 
-              onClick={() => {
-                if (phoneNumber && phoneNumber.length > 5) {
-                  localStorage.setItem('whatsappNumber', phoneNumber);
-                  toast({
-                    title: "WhatsApp Number Saved",
-                    description: "Your WhatsApp number has been saved for notifications"
-                  });
-                } else {
-                  toast({
-                    title: "Invalid Number",
-                    description: "Please enter a valid phone number with country code",
-                    variant: "destructive"
-                  });
-                }
-              }}
-            >
-              Save
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Include the country code (e.g., +1 for US)
-          </p>
-          
-          {!isWhatsAppSetup && (
-            <Alert className="mt-3">
-              <Info className="h-4 w-4" />
-              <AlertTitle>Important: WhatsApp Setup</AlertTitle>
-              <AlertDescription>
-                For WhatsApp notifications to work, you need to:
-                <ol className="list-decimal list-inside mt-2 ml-2 text-sm">
-                  <li>Enter your WhatsApp number with country code (like +1234567890)</li>
-                  <li>Send a message to the Twilio WhatsApp number first to opt-in</li>
-                </ol>
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
-        
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium text-lg">Exam Details</h3>
-            {exams.length > 0 ? (
-              <Select 
-                value={selectedExamIndex} 
-                onValueChange={handleExamSelect}
-              >
-                <SelectTrigger className="w-full mt-2">
-                  <SelectValue placeholder="Select exam" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Upcoming Exams</SelectLabel>
-                    {exams.map((exam, index) => (
-                      <SelectItem key={index} value={index.toString()}>
-                        {exam.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            ) : (
-              <p className="text-sm text-muted-foreground mt-2">
-                No upcoming exams scheduled. Generate and save an exam first.
-              </p>
-            )}
-          </div>
-          
-          {exams.length > 0 && (
-            <div className="border rounded-md p-4 space-y-3">
-              <div>
-                <span className="text-sm text-muted-foreground">Name:</span>
-                <p className="font-medium">{exams[parseInt(selectedExamIndex) || 0]?.name}</p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Date:</span>
-                <p>{exams[parseInt(selectedExamIndex) || 0]?.date} at {exams[parseInt(selectedExamIndex) || 0]?.time}</p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Duration:</span>
-                <p>{exams[parseInt(selectedExamIndex) || 0]?.duration} minutes</p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Number of Questions:</span>
-                <p>{exams[parseInt(selectedExamIndex) || 0]?.numberOfQuestions}</p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Difficulty:</span>
-                <p>{exams[parseInt(selectedExamIndex) || 0]?.difficulty}</p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Status:</span>
-                <p>{exams[parseInt(selectedExamIndex) || 0]?.isActive ? 
-                  <span className="text-green-600 font-medium">Available</span> : 
-                  <span className="text-amber-600 font-medium">Scheduled</span>}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm text-muted-foreground">Topics:</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {exams[parseInt(selectedExamIndex) || 0]?.topics?.map((topic, i) => (
-                    <span key={i} className="bg-muted px-2 py-1 rounded text-xs">
-                      {topic}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="pt-3 flex flex-wrap gap-2">
-                <Button 
-                  size="sm"
-                  onClick={() => exams[parseInt(selectedExamIndex) || 0]?.isActive && 
-                    handleViewExam(exams[parseInt(selectedExamIndex) || 0])}
-                  disabled={!exams[parseInt(selectedExamIndex) || 0]?.isActive}
-                >
-                  {exams[parseInt(selectedExamIndex) || 0]?.isActive ? 'Take Exam' : 'Not Available Yet'}
-                </Button>
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onSendReminder(exams[parseInt(selectedExamIndex) || 0])}
-                >
-                  <Bell className="h-4 w-4 mr-1" /> Send Reminder
-                </Button>
-                <Button 
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => handleDeleteClick(exams[parseInt(selectedExamIndex) || 0])}
-                >
-                  <Trash2 className="h-4 w-4 mr-1" /> Delete Exam
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      </CardContent>
-      
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent>
-          <DialogTitle>Delete Exam</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete "{examToDelete?.name}"? This action cannot be undone.
-          </DialogDescription>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
-  );
-};
-
-export default UpcomingExamsTab;
