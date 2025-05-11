@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useGeminiAI } from "@/utils/apiService";
 import ExamSection from "@/components/ExamSection";
@@ -54,6 +55,19 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   const [numberOfQuestions, setNumberOfQuestions] = useState<string>("10");
   
   const { toast } = useToast();
+  
+  // Check if the form is valid for generation
+  const isGenerateButtonDisabled = isGeneratingQuestions || 
+    (useSections && sections.length === 0) || 
+    topics.length === 0;
+
+  // Get the reason why the button is disabled
+  const getDisabledReason = () => {
+    if (isGeneratingQuestions) return "Generating questions...";
+    if (topics.length === 0) return "At least one topic is required";
+    if (useSections && sections.length === 0) return "At least one section is required when sections are enabled";
+    return "";
+  };
   
   // Handle adding a new topic
   const handleAddTopic = () => {
@@ -284,12 +298,28 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         
         {/* Step 2: Syllabus Input */}
         <div className="space-y-4">
-          <h3 className="font-semibold text-lg">Step 2: Syllabus Input</h3>
+          <h3 className="font-semibold text-lg flex items-center gap-1">
+            Step 2: Syllabus Input 
+            <span className="text-sm font-medium text-red-500">*</span>
+          </h3>
+          
+          {topics.length === 0 && (
+            <Alert variant="destructive" className="bg-destructive/10 border-destructive/20">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                At least one topic is required to generate an exam
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left: Topic Input */}
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Topics</label>
+                <label className="text-sm font-medium flex items-center gap-1">
+                  Topics
+                  <span className="text-sm font-medium text-red-500">*</span>
+                </label>
                 <div className="flex flex-wrap gap-2 p-2 border rounded-md mt-1 min-h-[100px]">
                   {topics.map((topic, index) => (
                     <div key={index} className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
@@ -309,9 +339,21 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
                     placeholder="Add topic..." 
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Enter topics separated by commas or click enter after each one
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs text-muted-foreground">
+                    Enter topics and press Enter to add them
+                  </p>
+                  {newTopic && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleAddTopic} 
+                      className="text-xs h-7 px-2"
+                    >
+                      Add Topic
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -340,6 +382,15 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
             />
             <Label htmlFor="use-sections" className="font-medium">Enable Exam Sections</Label>
           </div>
+          
+          {useSections && sections.length === 0 && (
+            <Alert variant="warning" className="bg-yellow-500/10 border-yellow-500/20 text-yellow-700">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                When sections are enabled, you need to add at least one section
+              </AlertDescription>
+            </Alert>
+          )}
           
           {!useSections ? (
             // Non-Section Mode
@@ -478,11 +529,11 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         </div>
         
         {/* Generate Button */}
-        <div className="flex justify-center pt-4">
+        <div className="flex flex-col items-center pt-4 space-y-2">
           <Button 
             size="lg" 
             onClick={handleGenerateExam}
-            disabled={isGeneratingQuestions || (useSections && sections.length === 0) || topics.length === 0}
+            disabled={isGenerateButtonDisabled}
           >
             {isGeneratingQuestions ? (
               <>
@@ -492,6 +543,12 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
               "Generate & Save Exam"
             )}
           </Button>
+          
+          {isGenerateButtonDisabled && !isGeneratingQuestions && (
+            <p className="text-sm text-muted-foreground">
+              {getDisabledReason()}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>
