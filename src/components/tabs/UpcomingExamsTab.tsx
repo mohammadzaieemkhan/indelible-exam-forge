@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Bell, FileText, Pencil, Trash2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,7 @@ const UpcomingExamsTab = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [examToDelete, setExamToDelete] = useState<IExam | null>(null);\
+  const [examToDelete, setExamToDelete] = useState<IExam | null>(null);
   
   // Handle exam selection in upcoming exams tab
   const handleExamSelect = (value: string) => {
@@ -910,4 +911,340 @@ const UpcomingExamsTab = ({
           }
           
           // Go to next question
-          function nextQuestion()
+          function nextQuestion() {
+            if (currentQuestion < totalQuestions - 1) {
+              showQuestion(currentQuestion + 1);
+            }
+          }
+          
+          // Go to previous question
+          function prevQuestion() {
+            if (currentQuestion > 0) {
+              showQuestion(currentQuestion - 1);
+            }
+          }
+          
+          // Mark current question for review
+          function markForReview() {
+            const questionBtn = document.getElementById('question-button-' + currentQuestion);
+            
+            if (questionsForReview.has(currentQuestion)) {
+              questionsForReview.delete(currentQuestion);
+              questionBtn.classList.remove('for-review');
+              
+              // Restore the answered class if it was answered
+              if (answers['q' + currentQuestion]) {
+                questionBtn.classList.add('answered');
+              }
+            } else {
+              questionsForReview.add(currentQuestion);
+              questionBtn.classList.add('for-review');
+              questionBtn.classList.remove('answered');
+            }
+            
+            // Update the review button text
+            updateReviewButtonText();
+          }
+          
+          // Update the review button text based on current state
+          function updateReviewButtonText() {
+            const reviewButton = document.getElementById('review-button');
+            if (questionsForReview.has(currentQuestion)) {
+              reviewButton.textContent = 'Remove from Review';
+            } else {
+              reviewButton.textContent = 'Mark for Review';
+            }
+          }
+          
+          // Update navigation buttons state
+          function updateNavButtons() {
+            document.getElementById('prev-button').disabled = currentQuestion === 0;
+            document.getElementById('next-button').disabled = currentQuestion === totalQuestions - 1;
+            
+            // Update the review button text
+            updateReviewButtonText();
+          }
+          
+          // Setup answer tracking for all question types
+          function setupAnswerTracking() {
+            // For MCQs and true/false questions
+            window.selectOption = (questionIndex, optionIndex) => {
+              // Update the visual state
+              const questionOptions = document.querySelectorAll(\`#question-\${questionIndex} .option-radio\`);
+              questionOptions.forEach(option => option.classList.remove('selected'));
+              
+              const selectedOption = document.getElementById(\`option-\${questionIndex}-\${optionIndex}\`);
+              if (selectedOption) {
+                selectedOption.classList.add('selected');
+              }
+              
+              // Save the answer
+              answers['q' + questionIndex] = optionIndex.toString();
+              
+              // Update question button to show it's answered
+              document.getElementById('question-button-' + questionIndex).classList.add('answered');
+              
+              // Update progress
+              updateProgress();
+            };
+            
+            // For text inputs and essays
+            window.saveAnswer = (questionIndex, value) => {
+              answers['q' + questionIndex] = value;
+              
+              // Only mark as answered if there's content
+              const questionBtn = document.getElementById('question-button-' + questionIndex);
+              if (value && value.trim().length > 0) {
+                questionBtn.classList.add('answered');
+              } else {
+                questionBtn.classList.remove('answered');
+              }
+              
+              // Update progress
+              updateProgress();
+            };
+          }
+          
+          // Update progress bar and stats
+          function updateProgress() {
+            const answeredCount = Object.keys(answers).length;
+            const percentage = Math.round((answeredCount / totalQuestions) * 100);
+            
+            document.getElementById('progress-bar').style.width = percentage + '%';
+            document.getElementById('progress-text').textContent = \`\${answeredCount} of \${totalQuestions} answered\`;
+            document.getElementById('progress-percentage').textContent = percentage + '%';
+          }
+          
+          // Toggle fullscreen
+          function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen().catch(err => {
+                console.log('Error attempting to enable fullscreen:', err);
+              });
+            } else if (document.exitFullscreen) {
+              document.exitFullscreen();
+            }
+          }
+          
+          // Submit the exam
+          function submitExam() {
+            if (Object.keys(answers).length < totalQuestions / 2) {
+              if (!confirm('You have answered less than half of the questions. Are you sure you want to submit?')) {
+                return;
+              }
+            } else if (!confirm('Are you sure you want to submit your exam?')) {
+              return;
+            }
+            
+            // Stop the timer
+            clearInterval(timerInterval);
+            
+            // Calculate time taken
+            const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(timeElapsed / 3600).toString().padStart(2, '0');
+            const minutes = Math.floor((timeElapsed % 3600) / 60).toString().padStart(2, '0');
+            const seconds = (timeElapsed % 60).toString().padStart(2, '0');
+            const timeTaken = \`\${hours}:\${minutes}:\${seconds}\`;
+            
+            // Prepare the exam data for submission
+            const examData = {
+              type: 'examCompleted',
+              examData: {
+                examId: "${exam.id || ''}",
+                examName: "${exam.name || ''}",
+                date: new Date().toISOString(),
+                answers: answers,
+                timeTaken: timeTaken,
+                questionWeights: questionWeights,
+                questionTypes: ${JSON.stringify(questions.map(q => q.type))},
+                questions: ${JSON.stringify(questions)}
+              }
+            };
+            
+            // Store the results in localStorage as fallback
+            localStorage.setItem('lastExamResults', JSON.stringify(examData.examData));
+            localStorage.setItem('completedExamId', "${exam.id || ''}");
+            
+            // Send the data to the parent window
+            window.opener.postMessage(examData, "*");
+            
+            // Show a completion message
+            document.body.innerHTML = \`
+              <div style="max-width: 600px; margin: 100px auto; padding: 20px; text-align: center; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                <h2 style="color: #2563eb; margin-bottom: 20px;">Exam Submitted Successfully!</h2>
+                <p>You've completed the exam in \${timeTaken}.</p>
+                <p>You answered \${Object.keys(answers).length} out of \${totalQuestions} questions.</p>
+                <p>You can close this window now. Your results will be processed and will appear in the Performance tab.</p>
+                <button onclick="window.close()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 4px; margin-top: 20px; cursor: pointer;">Close Window</button>
+              </div>
+            \`;
+            
+            // Close the window after a delay
+            setTimeout(() => {
+              window.close();
+            }, 5000);
+          }
+          
+          // Initialize the exam when the page loads
+          document.addEventListener('DOMContentLoaded', initExam);
+        </script>
+      </body>
+      </html>
+    `;
+  };
+  
+  return (
+    <div className="space-y-4">
+      {exams.length === 0 ? (
+        <Alert variant="default" className="bg-muted/50">
+          <Info className="h-4 w-4" />
+          <AlertTitle>No upcoming exams</AlertTitle>
+          <AlertDescription>
+            You don't have any upcoming exams scheduled. Go to the Generate Exam tab to create a new exam.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <div className="flex-1 w-full">
+              <Select value={selectedExamIndex} onValueChange={handleExamSelect}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select an exam" />
+                </SelectTrigger>
+                <SelectContent>
+                  {exams.map((exam, index) => (
+                    <SelectItem key={index} value={index.toString()}>
+                      {exam.name} ({exam.date})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {!isWhatsAppSetup && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center w-full sm:w-auto gap-2">
+                <Input
+                  type="text"
+                  placeholder="WhatsApp number with country code"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full sm:w-auto"
+                />
+              </div>
+            )}
+          </div>
+          
+          {exams.length > 0 && parseInt(selectedExamIndex) >= 0 && parseInt(selectedExamIndex) < exams.length && (
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>{exams[parseInt(selectedExamIndex)].name}</CardTitle>
+                    <CardDescription>
+                      {exams[parseInt(selectedExamIndex)].date} at {exams[parseInt(selectedExamIndex)].time} • 
+                      {exams[parseInt(selectedExamIndex)].duration} minutes • 
+                      {exams[parseInt(selectedExamIndex)].numberOfQuestions} questions
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {exams[parseInt(selectedExamIndex)].isActive ? (
+                      <Button variant="outline" onClick={() => handleViewExam(exams[parseInt(selectedExamIndex)])} className="whitespace-nowrap">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Take Exam
+                      </Button>
+                    ) : (
+                      <Button variant="outline" disabled className="whitespace-nowrap">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Not Available Yet
+                      </Button>
+                    )}
+                    <Button variant="outline" onClick={() => onSendReminder(exams[parseInt(selectedExamIndex)])} className="whitespace-nowrap">
+                      <Bell className="h-4 w-4 mr-2" />
+                      Remind Me
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleDeleteClick(exams[parseInt(selectedExamIndex)])}
+                      className="whitespace-nowrap text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Topics</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {exams[parseInt(selectedExamIndex)].topics.map((topic, i) => (
+                        <div key={i} className="bg-accent rounded px-2 py-1 text-xs">
+                          {topic}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Difficulty</h3>
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${
+                        exams[parseInt(selectedExamIndex)].difficulty === 'Easy' 
+                          ? 'bg-green-500' 
+                          : exams[parseInt(selectedExamIndex)].difficulty === 'Medium'
+                            ? 'bg-yellow-500'
+                            : 'bg-red-500'
+                      }`} />
+                      {exams[parseInt(selectedExamIndex)].difficulty}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <h3 className="text-sm font-medium mb-2">Question Types</h3>
+                  <p className="text-sm">{exams[parseInt(selectedExamIndex)].questionTypes}</p>
+                </div>
+                
+                <div className="mt-4">
+                  <h3 className="text-sm font-medium mb-2">Exam Status</h3>
+                  <div className="flex items-center gap-2">
+                    <div className={`h-2 w-2 rounded-full ${
+                      exams[parseInt(selectedExamIndex)].isActive 
+                        ? 'bg-green-500' 
+                        : 'bg-yellow-500'
+                    }`} />
+                    {exams[parseInt(selectedExamIndex)].isActive 
+                      ? 'Available to take now' 
+                      : 'Not available yet - will be active at the scheduled time'
+                    }
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <div className="text-xs text-muted-foreground">
+                  This exam will be available to take at the scheduled time. You can take the exam anytime after it becomes available.
+                </div>
+              </CardFooter>
+            </Card>
+          )}
+        </>
+      )}
+      
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogTitle>Delete Exam</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete this exam? This action cannot be undone.
+          </DialogDescription>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default UpcomingExamsTab;
