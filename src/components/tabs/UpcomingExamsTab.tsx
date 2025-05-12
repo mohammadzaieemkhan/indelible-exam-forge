@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bell, FileText, Pencil, Trash2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -80,16 +79,19 @@ const UpcomingExamsTab = ({
     setExamToDelete(null);
   };
   
-  // Function to render different question types as HTML - FIXED: Defined before use
+  // Function to render different question types as HTML with improved checkbox rendering
   const renderQuestionHtml = (question: ParsedQuestionItem, index: number) => {
     switch (question.type) {
       case 'mcq':
-        // Ensure each option is in its own div with proper styling
+        // Ensure each option has its own checkbox with proper styling
         return `
           <div class="options">
             ${question.options?.map((option, optIndex) => `
               <div class="option" onclick="selectOption(${index}, ${optIndex})">
-                <div class="option-radio" id="option-${index}-${optIndex}"></div>
+                <div class="option-checkbox" id="option-${index}-${optIndex}">
+                  <input type="checkbox" class="checkbox-input" id="checkbox-${index}-${optIndex}" />
+                  <span class="checkbox-custom"></span>
+                </div>
                 <div class="option-text">${option}</div>
               </div>
             `).join('') || ''}
@@ -99,11 +101,17 @@ const UpcomingExamsTab = ({
         return `
           <div class="options">
             <div class="option" onclick="selectOption(${index}, 0)">
-              <div class="option-radio" id="option-${index}-0"></div>
+              <div class="option-checkbox" id="option-${index}-0">
+                <input type="checkbox" class="checkbox-input" id="checkbox-${index}-0" />
+                <span class="checkbox-custom"></span>
+              </div>
               <div class="option-text">True</div>
             </div>
             <div class="option" onclick="selectOption(${index}, 1)">
-              <div class="option-radio" id="option-${index}-1"></div>
+              <div class="option-checkbox" id="option-${index}-1">
+                <input type="checkbox" class="checkbox-input" id="checkbox-${index}-1" />
+                <span class="checkbox-custom"></span>
+              </div>
               <div class="option-text">False</div>
             </div>
           </div>
@@ -839,7 +847,7 @@ const UpcomingExamsTab = ({
         
         <button class="fullscreen-button" id="fullscreen-button" title="Toggle fullscreen">
           <svg class="fullscreen-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
           </svg>
         </button>
         
@@ -975,13 +983,22 @@ const UpcomingExamsTab = ({
           function setupAnswerTracking() {
             // For MCQs and true/false questions
             window.selectOption = (questionIndex, optionIndex) => {
-              // Update the visual state
-              const questionOptions = document.querySelectorAll(\`#question-\${questionIndex} .option-radio\`);
-              questionOptions.forEach(option => option.classList.remove('selected'));
+              // Get all checkboxes for this question
+              const questionCheckboxes = document.querySelectorAll(\`#question-\${questionIndex} .option-checkbox\`);
               
-              const selectedOption = document.getElementById(\`option-\${questionIndex}-\${optionIndex}\`);
-              if (selectedOption) {
-                selectedOption.classList.add('selected');
+              // Reset all checkboxes for this question (uncheck them)
+              questionCheckboxes.forEach(checkbox => {
+                checkbox.classList.remove('selected');
+                const input = checkbox.querySelector('input[type="checkbox"]');
+                if (input) input.checked = false;
+              });
+              
+              // Select the clicked checkbox
+              const selectedCheckbox = document.getElementById(\`option-\${questionIndex}-\${optionIndex}\`);
+              if (selectedCheckbox) {
+                selectedCheckbox.classList.add('selected');
+                const input = selectedCheckbox.querySelector('input[type="checkbox"]');
+                if (input) input.checked = true;
               }
               
               // Save the answer
