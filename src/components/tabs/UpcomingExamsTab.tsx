@@ -48,7 +48,7 @@ const UpcomingExamsTab = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [examToDelete, setExamToDelete] = useState<IExam | null>(null);
+  const [examToDelete, setExamToDelete] = useState<IExam | null>(null);\
   
   // Handle exam selection in upcoming exams tab
   const handleExamSelect = (value: string) => {
@@ -226,6 +226,50 @@ const UpcomingExamsTab = ({
         console.error("Could not enter fullscreen mode:", error);
       }
     }, 1000);
+  };
+  
+  // Function to render different question types as HTML
+  const renderQuestionHtml = (question: ParsedQuestionItem, index: number) => {
+    switch (question.type) {
+      case 'mcq':
+        return `
+          <div class="options">
+            ${question.options?.map((option, optIndex) => `
+              <div class="option" onclick="selectOption(${index}, ${optIndex})">
+                <div class="option-radio" id="option-${index}-${optIndex}"></div>
+                <div class="option-text">${option}</div>
+              </div>
+            `).join('') || ''}
+          </div>
+        `;
+      case 'truefalse':
+        return `
+          <div class="options">
+            <div class="option" onclick="selectOption(${index}, 0)">
+              <div class="option-radio" id="option-${index}-0"></div>
+              <div class="option-text">True</div>
+            </div>
+            <div class="option" onclick="selectOption(${index}, 1)">
+              <div class="option-radio" id="option-${index}-1"></div>
+              <div class="option-text">False</div>
+            </div>
+          </div>
+        `;
+      case 'shortanswer':
+        return `
+          <input type="text" class="text-input" id="answer-${index}" 
+            placeholder="Enter your answer..." 
+            onchange="saveAnswer(${index}, this.value)" />
+        `;
+      case 'essay':
+        return `
+          <textarea class="essay-input" id="answer-${index}" 
+            placeholder="Write your essay here..."
+            onchange="saveAnswer(${index}, this.value)"></textarea>
+        `;
+      default:
+        return `<p class="text-muted">Unsupported question type</p>`;
+    }
   };
   
   // Simple function to convert markdown to HTML
@@ -866,56 +910,4 @@ const UpcomingExamsTab = ({
           }
           
           // Go to next question
-          function nextQuestion() {
-            if (currentQuestion < totalQuestions - 1) {
-              showQuestion(currentQuestion + 1);
-            }
-          }
-          
-          // Go to previous question
-          function prevQuestion() {
-            if (currentQuestion > 0) {
-              showQuestion(currentQuestion - 1);
-            }
-          }
-          
-          // Mark current question for review
-          function markForReview() {
-            const questionBtn = document.getElementById('question-button-' + currentQuestion);
-            
-            if (questionsForReview.has(currentQuestion)) {
-              questionsForReview.delete(currentQuestion);
-              questionBtn.classList.remove('for-review');
-              
-              // Restore the answered class if it was answered
-              if (answers['q' + currentQuestion]) {
-                questionBtn.classList.add('answered');
-              }
-            } else {
-              questionsForReview.add(currentQuestion);
-              questionBtn.classList.add('for-review');
-              questionBtn.classList.remove('answered');
-            }
-            
-            // Update the review button text
-            updateReviewButtonText();
-          }
-          
-          // Update the review button text based on current state
-          function updateReviewButtonText() {
-            const reviewButton = document.getElementById('review-button');
-            if (questionsForReview.has(currentQuestion)) {
-              reviewButton.textContent = 'Remove from Review';
-            } else {
-              reviewButton.textContent = 'Mark for Review';
-            }
-          }
-          
-          // Update navigation buttons state
-          function updateNavButtons() {
-            document.getElementById('prev-button').disabled = currentQuestion === 0;
-            document.getElementById('next-button').disabled = currentQuestion === totalQuestions - 1;
-            
-            // Update the review button text
-            updateReviewButtonText();
-          }
+          function nextQuestion()
