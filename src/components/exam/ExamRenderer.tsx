@@ -13,18 +13,28 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
 
   // Function to render different question types as HTML
   const renderQuestionHtml = (question: ParsedQuestionItem, index: number) => {
+    const questionId = `question-${index}`;
+    
     switch (question.type) {
       case 'mcq':
-        // Ensure each option has its own checkbox with proper styling
         return `
           <div class="options">
             ${question.options?.map((option, optIndex) => `
-              <div class="option" onclick="selectOption(${index}, ${optIndex})">
-                <div class="option-checkbox" id="option-${index}-${optIndex}">
-                  <input type="checkbox" class="checkbox-input" id="checkbox-${index}-${optIndex}" />
-                  <span class="checkbox-custom"></span>
-                </div>
-                <div class="option-text">${option}</div>
+              <div class="option">
+                <label class="option-label" for="${questionId}-option-${optIndex}">
+                  <div class="radio-container">
+                    <input 
+                      type="radio" 
+                      name="${questionId}" 
+                      id="${questionId}-option-${optIndex}" 
+                      value="${optIndex}"
+                      class="radio-input"
+                      onchange="selectOption(${index}, ${optIndex})"
+                    />
+                    <div class="radio-custom"></div>
+                  </div>
+                  <div class="option-text">${option}</div>
+                </label>
               </div>
             `).join('') || ''}
           </div>
@@ -32,33 +42,55 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
       case 'truefalse':
         return `
           <div class="options">
-            <div class="option" onclick="selectOption(${index}, 0)">
-              <div class="option-checkbox" id="option-${index}-0">
-                <input type="checkbox" class="checkbox-input" id="checkbox-${index}-0" />
-                <span class="checkbox-custom"></span>
-              </div>
-              <div class="option-text">True</div>
+            <div class="option">
+              <label class="option-label" for="${questionId}-true">
+                <div class="radio-container">
+                  <input 
+                    type="radio" 
+                    name="${questionId}" 
+                    id="${questionId}-true" 
+                    value="true"
+                    class="radio-input"
+                    onchange="selectOption(${index}, 0)"
+                  />
+                  <div class="radio-custom"></div>
+                </div>
+                <div class="option-text">True</div>
+              </label>
             </div>
-            <div class="option" onclick="selectOption(${index}, 1)">
-              <div class="option-checkbox" id="option-${index}-1">
-                <input type="checkbox" class="checkbox-input" id="checkbox-${index}-1" />
-                <span class="checkbox-custom"></span>
-              </div>
-              <div class="option-text">False</div>
+            <div class="option">
+              <label class="option-label" for="${questionId}-false">
+                <div class="radio-container">
+                  <input 
+                    type="radio" 
+                    name="${questionId}" 
+                    id="${questionId}-false" 
+                    value="false"
+                    class="radio-input"
+                    onchange="selectOption(${index}, 1)"
+                  />
+                  <div class="radio-custom"></div>
+                </div>
+                <div class="option-text">False</div>
+              </label>
             </div>
           </div>
         `;
       case 'shortanswer':
         return `
-          <input type="text" class="text-input" id="answer-${index}" 
-            placeholder="Enter your answer..." 
-            onchange="saveAnswer(${index}, this.value)" />
+          <div class="text-input-container">
+            <input type="text" class="text-input" id="answer-${index}" 
+              placeholder="Enter your short answer here..." 
+              onchange="saveAnswer(${index}, this.value)" />
+          </div>
         `;
       case 'essay':
         return `
-          <textarea class="essay-input" id="answer-${index}" 
-            placeholder="Write your essay here..."
-            onchange="saveAnswer(${index}, this.value)"></textarea>
+          <div class="textarea-container">
+            <textarea class="essay-input" id="answer-${index}" 
+              placeholder="Write your essay here..."
+              onchange="saveAnswer(${index}, this.value)"></textarea>
+          </div>
         `;
       default:
         return `<p class="text-muted">Unsupported question type</p>`;
@@ -92,6 +124,7 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
         <style>
           :root {
             --primary: #2563eb;
+            --primary-hover: #1d4ed8;
             --primary-foreground: white;
             --border: #e2e8f0;
             --border-hover: #cbd5e1;
@@ -114,6 +147,7 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
           @media (prefers-color-scheme: dark) {
             :root {
               --primary: #3b82f6;
+              --primary-hover: #2563eb;
               --primary-foreground: white;
               --background: #f8fafc;
               --accent: #f1f5f9;
@@ -154,23 +188,26 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
             background-color: var(--accent);
             display: flex;
             flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
           }
           
           .sidebar-header {
             padding: 20px;
             border-bottom: 1px solid var(--border);
+            background-color: var(--primary);
+            color: var(--primary-foreground);
           }
           
           .sidebar-header h2 {
             margin: 0;
             font-size: 18px;
-            color: var(--accent-foreground);
+            color: var(--primary-foreground);
           }
           
           .sidebar-header p {
             margin: 5px 0 0 0;
             font-size: 14px;
-            color: var(--muted-foreground);
+            color: rgba(255, 255, 255, 0.9);
           }
           
           .sidebar-timer {
@@ -348,46 +385,68 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
             font-family: monospace;
           }
           
-          /* Options for MCQs - Fixed: Using grid to show options in 2 columns */
+          /* Options for MCQs */
           .options {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(1, 1fr);
             gap: 12px;
             margin-bottom: 15px;
           }
           
+          @media (min-width: 768px) {
+            .options {
+              grid-template-columns: repeat(2, 1fr);
+            }
+          }
+          
           .option {
-            display: flex;
-            align-items: flex-start;
-            padding: 12px;
+            padding: 0;
             border: 1px solid var(--border);
             border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.1s ease;
             background-color: var(--card);
           }
           
-          .option:hover {
-            border-color: var(--border-hover);
+          .option-label {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            height: 100%;
+          }
+          
+          .option-label:hover {
             background-color: var(--accent);
           }
           
-          .option-radio {
+          .radio-container {
+            position: relative;
             margin-right: 12px;
+            flex-shrink: 0;
+            margin-top: 2px;
+          }
+          
+          .radio-input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+          }
+          
+          .radio-custom {
+            display: block;
             width: 20px;
             height: 20px;
             border: 2px solid var(--border);
             border-radius: 50%;
-            flex-shrink: 0;
             position: relative;
-            margin-top: 2px;
           }
           
-          .option-radio.selected {
+          .radio-input:checked + .radio-custom {
             border-color: var(--primary);
           }
           
-          .option-radio.selected:after {
+          .radio-input:checked + .radio-custom:after {
             content: '';
             position: absolute;
             top: 4px;
@@ -399,10 +458,16 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
           }
           
           .option-text {
-            flex-grow: 1;
+            flex-grow: a2
+            margin-left: 5px;
           }
           
           /* Text inputs and textareas */
+          .text-input-container,
+          .textarea-container {
+            width: 100%;
+          }
+          
           .text-input, .essay-input {
             width: 100%;
             padding: 12px;
@@ -443,11 +508,11 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
             cursor: pointer;
             font-size: 16px;
             font-weight: 500;
-            transition: all 0.1s ease;
+            transition: all 0.2s ease;
           }
           
           .button:hover {
-            opacity: 0.9;
+            background-color: var(--primary-hover);
           }
           
           .button:disabled {
@@ -461,9 +526,17 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
             border: 1px solid var(--border);
           }
           
+          .button.secondary:hover {
+            background-color: var(--muted);
+          }
+          
           .button.review {
             background-color: var(--warning);
             color: var(--warning-foreground);
+          }
+          
+          .button.review:hover {
+            opacity: 0.9;
           }
           
           .fullscreen-button {
@@ -510,10 +583,6 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
             
             .question-grid {
               grid-template-columns: repeat(5, 1fr);
-            }
-            
-            .options {
-              grid-template-columns: 1fr;
             }
           }
         </style>
@@ -619,14 +688,11 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
               }
             }, 1000);
             
-            // Setup answer tracking
-            setupAnswerTracking();
+            // Start the timer
+            startTimer();
             
             // Update navigation buttons
             updateNavButtons();
-            
-            // Start the timer
-            startTimer();
           }
           
           // Start the exam timer
@@ -719,53 +785,35 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
             updateReviewButtonText();
           }
           
-          // Setup answer tracking for all question types
-          function setupAnswerTracking() {
-            // For MCQs and true/false questions
-            window.selectOption = (questionIndex, optionIndex) => {
-              // Get all checkboxes for this question
-              const questionCheckboxes = document.querySelectorAll(\`#question-\${questionIndex} .option-checkbox\`);
-              
-              // Reset all checkboxes for this question (uncheck them)
-              questionCheckboxes.forEach(checkbox => {
-                checkbox.classList.remove('selected');
-                const input = checkbox.querySelector('input[type="checkbox"]');
-                if (input) input.checked = false;
-              });
-              
-              // Select the clicked checkbox
-              const selectedCheckbox = document.getElementById(\`option-\${questionIndex}-\${optionIndex}\`);
-              if (selectedCheckbox) {
-                selectedCheckbox.classList.add('selected');
-                const input = selectedCheckbox.querySelector('input[type="checkbox"]');
-                if (input) input.checked = true;
-              }
-              
-              // Save the answer
-              answers['q' + questionIndex] = optionIndex.toString();
-              
-              // Update question button to show it's answered
-              document.getElementById('question-button-' + questionIndex).classList.add('answered');
-              
-              // Update progress
-              updateProgress();
-            };
+          // Select an option (for MCQs and true/false)
+          function selectOption(questionIndex, optionIndex) {
+            // Save the answer
+            answers['q' + questionIndex] = optionIndex.toString();
             
-            // For text inputs and essays
-            window.saveAnswer = (questionIndex, value) => {
-              answers['q' + questionIndex] = value;
-              
-              // Only mark as answered if there's content
-              const questionBtn = document.getElementById('question-button-' + questionIndex);
-              if (value && value.trim().length > 0) {
-                questionBtn.classList.add('answered');
-              } else {
-                questionBtn.classList.remove('answered');
-              }
-              
-              // Update progress
-              updateProgress();
-            };
+            // Update question button to show it's answered
+            const questionBtn = document.getElementById('question-button-' + questionIndex);
+            if (!questionsForReview.has(questionIndex)) {
+              questionBtn.classList.add('answered');
+            }
+            
+            // Update progress
+            updateProgress();
+          }
+          
+          // Save answer for text inputs and essays
+          function saveAnswer(questionIndex, value) {
+            answers['q' + questionIndex] = value;
+            
+            // Only mark as answered if there's content
+            const questionBtn = document.getElementById('question-button-' + questionIndex);
+            if (value && value.trim().length > 0 && !questionsForReview.has(questionIndex)) {
+              questionBtn.classList.add('answered');
+            } else if (!questionsForReview.has(questionIndex)) {
+              questionBtn.classList.remove('answered');
+            }
+            
+            // Update progress
+            updateProgress();
           }
           
           // Update progress bar and stats
@@ -811,39 +859,46 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
             
             // Prepare the exam data for submission
             const examData = {
-              type: 'examCompleted',
-              examData: {
-                examId: "${exam.id || ''}",
-                examName: "${exam.name || ''}",
-                date: new Date().toISOString(),
-                answers: answers,
-                timeTaken: timeTaken,
-                questionWeights: questionWeights,
-                questionTypes: ${JSON.stringify(questions.map(q => q.type))},
-                questions: ${JSON.stringify(questions.map(q => ({
-                  question: q.question,
-                  type: q.type,
-                  options: q.options || [],
-                  // Don't include correct answers in the submitted data
-                })))}
-              }
+              examId: "${exam.id || ''}",
+              examName: "${exam.name || ''}",
+              date: new Date().toISOString(),
+              answers: answers,
+              timeTaken: timeTaken,
+              questions: ${JSON.stringify(questions.map(q => ({
+                question: q.question,
+                type: q.type,
+                options: q.options || [],
+                // Don't include correct answers in the submitted data
+              })))},
+              questionWeights: questionWeights,
+              questionTypes: ${JSON.stringify(questions.map(q => q.type))}
             };
             
             // Store the results in localStorage as fallback
-            localStorage.setItem('lastExamResults', JSON.stringify(examData.examData));
+            localStorage.setItem('lastExamResults', JSON.stringify(examData));
             localStorage.setItem('completedExamId', "${exam.id || ''}");
             
+            // Create and dispatch custom event
+            const completedEvent = new CustomEvent('examCompleted', { 
+              detail: examData,
+              bubbles: true 
+            });
+            document.dispatchEvent(completedEvent);
+            
             // Send the data to the parent window
-            window.opener.postMessage(examData, "*");
+            window.opener.postMessage({
+              type: 'examCompleted',
+              examData: examData
+            }, "*");
             
             // Show a completion message
             document.body.innerHTML = \`
-              <div style="max-width: 600px; margin: 100px auto; padding: 20px; text-align: center; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-                <h2 style="color: #2563eb; margin-bottom: 20px;">Exam Submitted Successfully!</h2>
-                <p>You've completed the exam in \${timeTaken}.</p>
-                <p>You answered \${Object.keys(answers).length} out of \${totalQuestions} questions.</p>
-                <p>You can close this window now. Your results will be processed and will appear in the Performance tab.</p>
-                <button onclick="window.close()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 4px; margin-top: 20px; cursor: pointer;">Close Window</button>
+              <div style="max-width: 600px; margin: 100px auto; padding: 30px; text-align: center; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+                <h2 style="color: #2563eb; margin-bottom: 20px; font-size: 24px;">Exam Submitted Successfully!</h2>
+                <p style="font-size: 16px; margin-bottom: 10px;">You've completed the exam in \${timeTaken}.</p>
+                <p style="font-size: 16px; margin-bottom: 20px;">You answered \${Object.keys(answers).length} out of \${totalQuestions} questions.</p>
+                <p style="font-size: 16px; color: #6b7280; margin-bottom: 30px;">Your results will be processed and will appear in the Performance tab.</p>
+                <button onclick="window.close()" style="padding: 10px 25px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s ease;">Close Window</button>
               </div>
             \`;
             
@@ -887,7 +942,7 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
     // Generate the HTML content for the exam window
     const parsedQuestions = parseQuestions(exam.questions || "");
     
-    // Generate HTML content for exam with improved light theme and better MCQ formatting
+    // Generate HTML content for exam with improved radio buttons for MCQs and true/false questions
     const examContent = generateExamHtml(exam, parsedQuestions);
     
     // Write the content to the new window
