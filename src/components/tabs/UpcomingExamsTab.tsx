@@ -80,6 +80,51 @@ const UpcomingExamsTab = ({
     setExamToDelete(null);
   };
   
+  // Function to render different question types as HTML - FIXED: Defined before use
+  const renderQuestionHtml = (question: ParsedQuestionItem, index: number) => {
+    switch (question.type) {
+      case 'mcq':
+        // Ensure each option is in its own div with proper styling
+        return `
+          <div class="options">
+            ${question.options?.map((option, optIndex) => `
+              <div class="option" onclick="selectOption(${index}, ${optIndex})">
+                <div class="option-radio" id="option-${index}-${optIndex}"></div>
+                <div class="option-text">${option}</div>
+              </div>
+            `).join('') || ''}
+          </div>
+        `;
+      case 'truefalse':
+        return `
+          <div class="options">
+            <div class="option" onclick="selectOption(${index}, 0)">
+              <div class="option-radio" id="option-${index}-0"></div>
+              <div class="option-text">True</div>
+            </div>
+            <div class="option" onclick="selectOption(${index}, 1)">
+              <div class="option-radio" id="option-${index}-1"></div>
+              <div class="option-text">False</div>
+            </div>
+          </div>
+        `;
+      case 'shortanswer':
+        return `
+          <input type="text" class="text-input" id="answer-${index}" 
+            placeholder="Enter your answer..." 
+            onchange="saveAnswer(${index}, this.value)" />
+        `;
+      case 'essay':
+        return `
+          <textarea class="essay-input" id="answer-${index}" 
+            placeholder="Write your essay here..."
+            onchange="saveAnswer(${index}, this.value)"></textarea>
+        `;
+      default:
+        return `<p class="text-muted">Unsupported question type</p>`;
+    }
+  };
+  
   // Parse questions from raw content with improved logic for better extraction
   const parseQuestions = (content: string): ParsedQuestionItem[] => {
     const questions: ParsedQuestionItem[] = [];
@@ -227,50 +272,6 @@ const UpcomingExamsTab = ({
         console.error("Could not enter fullscreen mode:", error);
       }
     }, 1000);
-  };
-  
-  // Function to render different question types as HTML
-  const renderQuestionHtml = (question: ParsedQuestionItem, index: number) => {
-    switch (question.type) {
-      case 'mcq':
-        return `
-          <div class="options">
-            ${question.options?.map((option, optIndex) => `
-              <div class="option" onclick="selectOption(${index}, ${optIndex})">
-                <div class="option-radio" id="option-${index}-${optIndex}"></div>
-                <div class="option-text">${option}</div>
-              </div>
-            `).join('') || ''}
-          </div>
-        `;
-      case 'truefalse':
-        return `
-          <div class="options">
-            <div class="option" onclick="selectOption(${index}, 0)">
-              <div class="option-radio" id="option-${index}-0"></div>
-              <div class="option-text">True</div>
-            </div>
-            <div class="option" onclick="selectOption(${index}, 1)">
-              <div class="option-radio" id="option-${index}-1"></div>
-              <div class="option-text">False</div>
-            </div>
-          </div>
-        `;
-      case 'shortanswer':
-        return `
-          <input type="text" class="text-input" id="answer-${index}" 
-            placeholder="Enter your answer..." 
-            onchange="saveAnswer(${index}, this.value)" />
-        `;
-      case 'essay':
-        return `
-          <textarea class="essay-input" id="answer-${index}" 
-            placeholder="Write your essay here..."
-            onchange="saveAnswer(${index}, this.value)"></textarea>
-        `;
-      default:
-        return `<p class="text-muted">Unsupported question type</p>`;
-    }
   };
   
   // Simple function to convert markdown to HTML
@@ -599,7 +600,7 @@ const UpcomingExamsTab = ({
             font-family: monospace;
           }
           
-          /* Options for MCQs - Improved grid layout */
+          /* Options for MCQs - Fixed: Using grid to show options in 2 columns */
           .options {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -699,6 +700,11 @@ const UpcomingExamsTab = ({
           
           .button:hover {
             opacity: 0.9;
+          }
+          
+          .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
           }
           
           .button.secondary {
@@ -1057,7 +1063,12 @@ const UpcomingExamsTab = ({
                 timeTaken: timeTaken,
                 questionWeights: questionWeights,
                 questionTypes: ${JSON.stringify(questions.map(q => q.type))},
-                questions: ${JSON.stringify(questions)}
+                questions: ${JSON.stringify(questions.map(q => ({
+                  question: q.question,
+                  type: q.type,
+                  options: q.options || [],
+                  // Don't include correct answers in the submitted data
+                })))}
               }
             };
             

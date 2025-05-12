@@ -62,11 +62,12 @@ serve(async (req) => {
                      
                      Format Guidelines:
                      - Number each question clearly (1, 2, 3, etc.)
-                     - For multiple choice questions, label options as A), B), C), D) and clearly indicate the correct answer
-                     - For true/false questions, provide the statement and indicate whether it's true or false
+                     - For multiple choice questions, label options as A), B), C), D) and clearly indicate the correct answer after all options with "Answer: X"
+                     - For true/false questions, provide the statement and indicate whether it's true or false at the end with "Answer: True/False"
                      - For short answer questions, include the expected answer length
                      - For essay questions, provide guidance on word count and key points to address
-                     - IMPORTANT: ALL questions MUST be directly related to the specified topics. DO NOT generate questions on unrelated topics.`;
+                     - IMPORTANT: ALL questions MUST be directly related to the specified topics. DO NOT generate questions on unrelated topics.
+                     - IMPORTANT: Put the correct answer for MCQs on a separate line AFTER listing all options`;
         }
         break;
       case "evaluate_answer":
