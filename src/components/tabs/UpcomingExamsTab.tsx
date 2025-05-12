@@ -99,6 +99,17 @@ const UpcomingExamsTab = ({
       examWindow.document.write(examContent);
       examWindow.document.close();
       
+      // Add event listener for exam completion
+      examWindow.addEventListener('examCompleted', (event: any) => {
+        // Move exam from upcoming to previous when completed
+        if (event.detail && event.detail.examId === exam.id) {
+          window.parent.postMessage({
+            type: 'examCompleted',
+            examData: event.detail
+          }, '*');
+        }
+      });
+      
       // Request fullscreen after loading
       setTimeout(() => {
         try {
@@ -118,7 +129,6 @@ const UpcomingExamsTab = ({
   // Helper function to generate exam HTML - extracted from ExamRenderer
   const generateExamHtml = (exam: IExam, questions: any[], markdownToHtml: (text: string) => string) => {
     // This is a simplified version of the HTML generation logic
-    // For brevity, we're using an extremely simplified template here
     return `
       <!DOCTYPE html>
       <html lang="en">
@@ -127,7 +137,6 @@ const UpcomingExamsTab = ({
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${exam.name}</title>
         <style>
-          /* ... Basic styling for exam view ... */
           body {
             font-family: system-ui, sans-serif;
             line-height: 1.5;
@@ -144,6 +153,39 @@ const UpcomingExamsTab = ({
             border: 1px solid #ddd;
             border-radius: 8px;
           }
+          .option-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+          }
+          .option-item input[type="radio"] {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+          }
+          .option-label {
+            font-size: 16px;
+          }
+          .submit-section {
+            margin-top: 30px;
+            text-align: center;
+          }
+          .btn {
+            background-color: #3b82f6;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+          }
+          .btn:hover {
+            background-color: #2563eb;
+          }
+          .btn-exit {
+            background-color: #6b7280;
+            margin-left: 10px;
+          }
         </style>
       </head>
       <body>
@@ -152,25 +194,107 @@ const UpcomingExamsTab = ({
           <p>${exam.date} • ${exam.duration} minutes</p>
         </div>
         
-        <div id="questions">
-          ${questions.map((q, index) => `
-            <div class="question">
-              <h3>Question ${index + 1}</h3>
-              <div>${markdownToHtml(q.question)}</div>
+        <form id="exam-form">
+          <div id="questions">
+            ${questions.map((q, index) => {
+              // Extract options from the question if it's an MCQ
+              let options = [];
+              if (q.options) {
+                options = q.options;
+              } else if (q.question.includes("A)") || q.question.includes("A.")) {
+                // Attempt to parse options from question text (common format in generated questions)
+                const optionsMatch = q.question.match(/([A-D])[.)](.+?)(?=(?:[A-D][.)]|$))/g);
+                if (optionsMatch) {
+                  options = optionsMatch.map((o: string) => o.trim());
+                }
+              }
               
-              <!-- Answer section would go here -->
-              <div class="answer-section">
-                Answer options
-              </div>
-            </div>
-          `).join('')}
-        </div>
-        
-        <button onclick="window.close()">Exit Exam</button>
+              return `
+                <div class="question">
+                  <h3>Question ${index + 1}</h3>
+                  <div>${markdownToHtml(q.question)}</div>
+                  
+                  <div class="answer-section">
+                    ${options.length > 0 ? 
+                      options.map((option: string, optIndex: number) => `
+                        <div class="option-item">
+                          <input 
+                            type="radio" 
+                            id="q${index}_opt${optIndex}" 
+                            name="q${index}" 
+                            value="${option}"
+                          />
+                          <label class="option-label" for="q${index}_opt${optIndex}">${option}</label>
+                        </div>
+                      `).join('') 
+                      : 
+                      `<textarea name="q${index}" rows="4" style="width: 100%; padding: 8px;"></textarea>`
+                    }
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          
+          <div class="submit-section">
+            <button type="submit" class="btn">Submit Exam</button>
+            <button type="button" class="btn btn-exit" onclick="window.close()">Exit Exam</button>
+          </div>
+        </form>
         
         <script>
-          // Basic exam functionality would go here
-          console.log("Exam started");
+          // Set up timer
+          const startTime = new Date();
+          
+          // Handle form submission
+          document.getElementById('exam-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Calculate time taken
+            const endTime = new Date();
+            const timeTaken = Math.round((endTime - startTime) / 60000); // minutes
+            
+            // Collect answers
+            const answers = {};
+            const formData = new FormData(this);
+            for (const [name, value] of formData.entries()) {
+              answers[name] = value;
+            }
+            
+            // Store in localStorage for parent window to access
+            const examData = {
+              examId: "${exam.id}",
+              examName: "${exam.name}",
+              date: new Date().toISOString(),
+              answers: answers,
+              timeTaken: timeTaken + " minutes",
+              questions: ${JSON.stringify(questions)},
+              questionWeights: ${JSON.stringify(exam.questionWeights || {})},
+              questionTypes: ["mcq"] // Simplifying for this example
+            };
+            
+            localStorage.setItem('completedExamId', "${exam.id}");
+            localStorage.setItem('lastExamResults', JSON.stringify(examData));
+            
+            // Create and dispatch custom event
+            const completedEvent = new CustomEvent('examCompleted', { 
+              detail: examData,
+              bubbles: true 
+            });
+            document.dispatchEvent(completedEvent);
+            
+            // Send message to parent window
+            window.opener.postMessage({
+              type: 'examCompleted',
+              examData: examData
+            }, '*');
+            
+            // Close the window after a short delay
+            setTimeout(() => {
+              alert('Exam submitted successfully! You may close this window.');
+              window.close();
+            }, 500);
+          });
         </script>
       </body>
       </html>
