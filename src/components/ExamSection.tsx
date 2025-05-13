@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export interface ExamSectionProps {
   sectionIndex: number;
@@ -94,10 +95,10 @@ const ExamSection = ({
   };
   
   // Handle difficulty change
-  const handleDifficultyChange = (difficulty: string, checked: boolean) => {
+  const handleDifficultyChange = (difficulty: string) => {
     onUpdate(sectionIndex, {
       ...section,
-      difficulty: checked ? difficulty : "medium" // Default to medium if unchecked
+      difficulty: difficulty
     });
   };
   
@@ -242,35 +243,27 @@ const ExamSection = ({
           </div>
         </div>
         
-        {/* Difficulty */}
+        {/* Difficulty - Changed to RadioGroup for exclusive selection */}
         <div>
           <Label>Difficulty</Label>
-          <div className="flex gap-4 mt-2">
+          <RadioGroup 
+            className="flex gap-4 mt-2"
+            value={section.difficulty}
+            onValueChange={handleDifficultyChange}
+          >
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id={`easy-${sectionIndex}`} 
-                checked={section.difficulty === "easy"}
-                onCheckedChange={(checked) => handleDifficultyChange("easy", !!checked)}
-              />
+              <RadioGroupItem id={`easy-${sectionIndex}`} value="easy" />
               <Label htmlFor={`easy-${sectionIndex}`}>Easy</Label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id={`medium-${sectionIndex}`} 
-                checked={section.difficulty === "medium"}
-                onCheckedChange={(checked) => handleDifficultyChange("medium", !!checked)}
-              />
+              <RadioGroupItem id={`medium-${sectionIndex}`} value="medium" />
               <Label htmlFor={`medium-${sectionIndex}`}>Medium</Label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id={`hard-${sectionIndex}`} 
-                checked={section.difficulty === "hard"}
-                onCheckedChange={(checked) => handleDifficultyChange("hard", !!checked)}
-              />
+              <RadioGroupItem id={`hard-${sectionIndex}`} value="hard" />
               <Label htmlFor={`hard-${sectionIndex}`}>Hard</Label>
             </div>
-          </div>
+          </RadioGroup>
         </div>
       </CardContent>
       <Separator className="my-2" />

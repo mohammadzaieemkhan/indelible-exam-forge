@@ -114,7 +114,7 @@ const UpcomingExamsTab = ({
       examWindow.document.close();
       
       // Request fullscreen immediately
-      const tryEnterFullscreen = () => {
+      setTimeout(() => {
         try {
           if (examWindow.document.documentElement.requestFullscreen) {
             examWindow.document.documentElement.requestFullscreen().catch(err => {
@@ -130,10 +130,7 @@ const UpcomingExamsTab = ({
         } catch (error) {
           console.error("Could not enter fullscreen mode:", error);
         }
-      };
-      
-      // Try to enter fullscreen after a short delay
-      setTimeout(tryEnterFullscreen, 500);
+      }, 500);
     });
   };
   

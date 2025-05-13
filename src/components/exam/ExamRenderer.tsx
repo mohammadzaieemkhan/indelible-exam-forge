@@ -1,3 +1,4 @@
+
 import React from "react";
 import { ParsedQuestionItem, parseQuestions, markdownToHtml } from "./utils/examParser";
 import { IExam } from "@/components/ExamTabs";
@@ -18,18 +19,16 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
           ${question.options?.map((option, optIndex) => `
             <div class="option">
               <label class="option-label" for="${questionId}-option-${optIndex}">
-                <div class="radio-container">
-                  <input 
-                    type="radio" 
-                    name="${questionId}" 
-                    id="${questionId}-option-${optIndex}" 
-                    value="${optIndex}"
-                    class="radio-input"
-                    onchange="selectOption(${index}, ${optIndex})"
-                  />
-                  <div class="radio-custom"></div>
-                </div>
-                <div class="option-text">${option}</div>
+                <input 
+                  type="radio" 
+                  name="${questionId}" 
+                  id="${questionId}-option-${optIndex}" 
+                  value="${optIndex}"
+                  class="radio-input"
+                  onchange="selectOption(${index}, ${optIndex})"
+                />
+                <span class="radio-custom"></span>
+                <span class="option-text">${option}</span>
               </label>
             </div>
           `).join('') || ''}
@@ -40,34 +39,30 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
         <div class="options">
           <div class="option">
             <label class="option-label" for="${questionId}-true">
-              <div class="radio-container">
-                <input 
-                  type="radio" 
-                  name="${questionId}" 
-                  id="${questionId}-true" 
-                  value="true"
-                  class="radio-input"
-                  onchange="selectOption(${index}, 0)"
-                />
-                <div class="radio-custom"></div>
-              </div>
-              <div class="option-text">True</div>
+              <input 
+                type="radio" 
+                name="${questionId}" 
+                id="${questionId}-true" 
+                value="true"
+                class="radio-input"
+                onchange="selectOption(${index}, 0)"
+              />
+              <span class="radio-custom"></span>
+              <span class="option-text">True</span>
             </label>
           </div>
           <div class="option">
             <label class="option-label" for="${questionId}-false">
-              <div class="radio-container">
-                <input 
-                  type="radio" 
-                  name="${questionId}" 
-                  id="${questionId}-false" 
-                  value="false"
-                  class="radio-input"
-                  onchange="selectOption(${index}, 1)"
-                />
-                <div class="radio-custom"></div>
-              </div>
-              <div class="option-text">False</div>
+              <input 
+                type="radio" 
+                name="${questionId}" 
+                id="${questionId}-false" 
+                value="false"
+                class="radio-input"
+                onchange="selectOption(${index}, 1)"
+              />
+              <span class="radio-custom"></span>
+              <span class="option-text">False</span>
             </label>
           </div>
         </div>
@@ -185,9 +180,9 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
       `;
     }
     
-    // Add the question
+    // Add the question - now hidden by default except first one
     questionHtml += `
-      <div class="question-container" id="question-${idx}">
+      <div class="question-container" id="question-${idx}" style="${idx === 0 ? '' : 'display: none;'}">
         <div class="question-header">
           <h3>Question ${idx + 1}</h3>
         </div>
@@ -229,6 +224,8 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           --success-foreground: white;
           --card: #ffffff;
           --card-foreground: #0f172a;
+          --text-color: #0f172a;
+          --radio-size: 20px;
         }
         
         /* Dark mode support */
@@ -237,22 +234,23 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
             --primary: #3b82f6;
             --primary-hover: #2563eb;
             --primary-foreground: white;
-            --background: #f8fafc;
-            --accent: #f1f5f9;
-            --accent-foreground: #0f172a;
-            --muted: #f1f5f9;
-            --muted-foreground: #64748b;
-            --border: #e2e8f0;
-            --border-hover: #cbd5e1;
-            --card: #ffffff;
-            --card-foreground: #0f172a;
+            --background: #0f172a;
+            --accent: #1e293b;
+            --accent-foreground: #f1f5f9;
+            --muted: #1e293b;
+            --muted-foreground: #94a3b8;
+            --border: #334155;
+            --border-hover: #475569;
+            --card: #1e293b;
+            --card-foreground: #f1f5f9;
+            --text-color: #f1f5f9;
           }
         }
         
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           line-height: 1.6;
-          color: var(--card-foreground);
+          color: var(--text-color);
           background-color: var(--background);
           margin: 0;
           padding: 0;
@@ -303,7 +301,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           border-bottom: 1px solid var(--border);
           font-size: 16px;
           font-weight: 600;
-          color: var(--accent-foreground);
+          color: var(--text-color);
           background-color: var(--muted);
           text-align: center;
         }
@@ -311,6 +309,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         .sidebar-progress {
           padding: 15px 20px;
           border-bottom: 1px solid var(--border);
+          color: var(--text-color);
         }
         
         .progress-bar {
@@ -334,6 +333,23 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           margin-top: 8px;
           font-size: 12px;
           color: var(--muted-foreground);
+        }
+        
+        .sidebar-sections {
+          padding: 15px 20px;
+          border-bottom: 1px solid var(--border);
+          color: var(--text-color);
+        }
+        
+        .section-link {
+          padding: 8px 0;
+          cursor: pointer;
+          transition: color 0.2s ease;
+          font-size: 14px;
+        }
+        
+        .section-link:hover {
+          color: var(--primary);
         }
         
         .question-grid {
@@ -382,6 +398,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         .sidebar-legend {
           padding: 15px 20px;
           border-bottom: 1px solid var(--border);
+          color: var(--text-color);
         }
         
         .legend-item {
@@ -430,6 +447,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           justify-content: space-between;
           align-items: center;
           margin-bottom: 15px;
+          color: var(--text-color);
         }
         
         .question-header h3 {
@@ -448,6 +466,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         
         .question-content {
           margin-bottom: 20px;
+          color: var(--text-color);
         }
         
         .question-content h1, 
@@ -502,19 +521,14 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           transition: all 0.2s ease;
           width: 100%;
           height: 100%;
+          color: var(--text-color);
         }
         
         .option-label:hover {
           background-color: var(--accent);
         }
         
-        .radio-container {
-          position: relative;
-          margin-right: 12px;
-          flex-shrink: 0;
-          margin-top: 2px;
-        }
-        
+        /* Custom radio button styling */
         .radio-input {
           position: absolute;
           opacity: 0;
@@ -522,32 +536,31 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         }
         
         .radio-custom {
-          display: block;
-          width: 20px;
-          height: 20px;
+          position: relative;
+          display: inline-block;
+          width: var(--radio-size);
+          height: var(--radio-size);
+          margin-right: 10px;
           border: 2px solid var(--border);
           border-radius: 50%;
-          position: relative;
+          flex-shrink: 0;
         }
         
-        .radio-input:checked + .radio-custom {
-          border-color: var(--primary);
-        }
-        
-        .radio-input:checked + .radio-custom:after {
+        .radio-input:checked + .radio-custom::after {
           content: '';
           position: absolute;
-          top: 4px;
-          left: 4px;
-          width: 8px;
-          height: 8px;
-          background-color: var(--primary);
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: calc(var(--radio-size) * 0.5);
+          height: calc(var(--radio-size) * 0.5);
           border-radius: 50%;
+          background: var(--primary);
         }
         
         .option-text {
-          flex-grow: a2
-          margin-left: 5px;
+          flex-grow: 1;
+          padding-left: 5px;
         }
         
         /* Text inputs and textareas */
@@ -565,7 +578,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           box-sizing: border-box;
           transition: border-color 0.2s ease;
           background-color: var(--card);
-          color: var(--card-foreground);
+          color: var(--text-color);
         }
         
         .text-input:focus, .essay-input:focus {
@@ -757,7 +770,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
       
       <button class="fullscreen-button" id="fullscreen-button" title="Toggle fullscreen">
         <svg class="fullscreen-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5-5m11 1v4m0 0h-4m4 0l-5-5" />
         </svg>
       </button>
       
@@ -772,11 +785,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         
         // Initialize the exam
         function initExam() {
-          // Hide all questions except the first one
-          for (let i = 1; i < totalQuestions; i++) {
-            document.getElementById('question-' + i).style.display = 'none';
-          }
-          
           // Setup fullscreen button
           document.getElementById('fullscreen-button').addEventListener('click', toggleFullScreen);
           
@@ -1020,12 +1028,12 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           
           // Show a completion message
           document.body.innerHTML = \`
-            <div style="max-width: 600px; margin: 100px auto; padding: 30px; text-align: center; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-              <h2 style="color: #2563eb; margin-bottom: 20px; font-size: 24px;">Exam Submitted Successfully!</h2>
+            <div style="max-width: 600px; margin: 100px auto; padding: 30px; text-align: center; background: var(--card); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); color: var(--text-color);">
+              <h2 style="color: var(--primary); margin-bottom: 20px; font-size: 24px;">Exam Submitted Successfully!</h2>
               <p style="font-size: 16px; margin-bottom: 10px;">You've completed the exam in \${timeTaken}.</p>
               <p style="font-size: 16px; margin-bottom: 20px;">You answered \${Object.keys(answers).length} out of \${totalQuestions} questions.</p>
-              <p style="font-size: 16px; color: #6b7280; margin-bottom: 30px;">Your results will be processed and will appear in the Performance tab.</p>
-              <button onclick="window.close()" style="padding: 10px 25px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s ease;">Close Window</button>
+              <p style="font-size: 16px; color: var(--muted-foreground); margin-bottom: 30px;">Your results will be processed and will appear in the Performance tab.</p>
+              <button onclick="window.close()" style="padding: 10px 25px; background: var(--primary); color: var(--primary-foreground); border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s ease;">Close Window</button>
             </div>
           \`;
           
