@@ -431,18 +431,12 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           font-family: monospace;
         }
         
-        /* Options for MCQs - Updated for individual radio buttons */
+        /* Options for MCQs with separate radio buttons */
         .options {
-          display: grid;
-          grid-template-columns: repeat(1, 1fr);
+          display: flex;
+          flex-direction: column;
           gap: 12px;
           margin-bottom: 15px;
-        }
-        
-        @media (min-width: 768px) {
-          .options {
-            grid-template-columns: repeat(2, 1fr);
-          }
         }
         
         .option {
@@ -450,6 +444,8 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           border: 1px solid var(--border);
           border-radius: 6px;
           background-color: var(--card);
+          width: 100%;
+          display: flex;
         }
         
         .option-label {
@@ -466,8 +462,10 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         
         .option-label:hover {
           background-color: var(--accent);
+          border-radius: 5px;
         }
         
+        /* Radio button styling improved */
         .radio-input {
           position: absolute;
           opacity: 0;
@@ -475,14 +473,14 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         }
         
         .radio-custom {
-          display: inline-block;
-          width: 18px;
-          height: 18px;
+          display: block;
+          flex-shrink: 0;
+          width: 20px;
+          height: 20px;
           border: 2px solid var(--border);
           border-radius: 50%;
           margin-right: 10px;
           position: relative;
-          top: 2px;
         }
         
         .radio-input:checked + .radio-custom::after {
@@ -499,7 +497,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         
         .option-text {
           flex-grow: 1;
-          margin-left: 8px;
+          padding-left: 5px;
         }
         
         /* Text inputs and textareas */
