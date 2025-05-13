@@ -69,7 +69,6 @@ const SyllabusUploader = ({ onTopicsExtracted, onSyllabusContent }: SyllabusUplo
       
       if (result.success && result.topics && result.topics.length > 0) {
         console.log("Topics extracted successfully:", result.topics);
-        // Pass the raw topics array directly to the parent component
         onTopicsExtracted(result.topics);
         toast({
           title: "Syllabus Processed",

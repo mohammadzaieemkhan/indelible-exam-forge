@@ -11,21 +11,6 @@ import ExamCard from "@/components/exam/ExamCard";
 import DeleteExamDialog from "@/components/exam/DeleteExamDialog";
 import ExamRenderer from "@/components/exam/ExamRenderer";
 
-// Define browser-specific fullscreen methods for TypeScript
-declare global {
-  interface HTMLElement {
-    webkitRequestFullscreen?: () => Promise<void>;
-    mozRequestFullScreen?: () => Promise<void>;
-    msRequestFullscreen?: () => Promise<void>;
-  }
-
-  interface Document {
-    webkitExitFullscreen?: () => Promise<void>;
-    mozCancelFullScreen?: () => Promise<void>;
-    msExitFullscreen?: () => Promise<void>;
-  }
-}
-
 interface UpcomingExamsTabProps {
   exams: IExam[];
   onSendReminder: (exam: IExam) => void;
@@ -77,8 +62,10 @@ const UpcomingExamsTab = ({
     setExamToDelete(null);
   };
   
-  // Open exam in a new window with fullscreen
+  // Open exam in a new window
   const handleViewExam = (exam: IExam) => {
+    // Directly call the handleViewExam method from ExamRenderer
+    // This avoids incorrectly instantiating the component with 'new'
     if (!exam.isActive) {
       toast({
         title: "Exam Not Available",
@@ -113,24 +100,19 @@ const UpcomingExamsTab = ({
       examWindow.document.write(examContent);
       examWindow.document.close();
       
-      // Request fullscreen immediately
+      // Request fullscreen after a short delay
       setTimeout(() => {
         try {
-          if (examWindow.document.documentElement.requestFullscreen) {
-            examWindow.document.documentElement.requestFullscreen().catch(err => {
+          const examElement = examWindow.document.getElementById('exam-container');
+          if (examElement && examElement.requestFullscreen) {
+            examElement.requestFullscreen().catch(err => {
               console.error(`Error attempting to enable full-screen mode: ${err.message}`);
             });
-          } else if (examWindow.document.documentElement.webkitRequestFullscreen) {
-            examWindow.document.documentElement.webkitRequestFullscreen();
-          } else if (examWindow.document.documentElement.mozRequestFullScreen) {
-            examWindow.document.documentElement.mozRequestFullScreen();
-          } else if (examWindow.document.documentElement.msRequestFullscreen) {
-            examWindow.document.documentElement.msRequestFullscreen();
           }
         } catch (error) {
           console.error("Could not enter fullscreen mode:", error);
         }
-      }, 500);
+      }, 1000);
     });
   };
   
