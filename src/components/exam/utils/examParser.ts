@@ -27,6 +27,15 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
       continue;
     }
     
+    // Alternative section header detection
+    if (/^(Section|SECTION)[\s:]+(.+)$/i.test(trimmedLine)) {
+      const match = trimmedLine.match(/^(Section|SECTION)[\s:]+(.+)$/i);
+      if (match) {
+        currentSection = match[2].trim();
+      }
+      continue;
+    }
+    
     // Detect questions by common patterns
     const questionRegex = /^(\d+[\.\)]|Question\s+\d+:)/i;
     if (questionRegex.test(trimmedLine)) {

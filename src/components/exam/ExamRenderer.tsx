@@ -1,3 +1,4 @@
+
 import React from "react";
 import { ParsedQuestionItem, parseQuestions, markdownToHtml } from "./utils/examParser";
 import { IExam } from "@/components/ExamTabs";
@@ -95,20 +96,48 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
 
 // Generate HTML content for the exam window
 export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) => {
-  const questionHtml = questions.map((q, index) => `
-    <div class="question-container" id="question-${index}">
-      <div class="question-header">
-        <h3>Question ${index + 1}</h3>
-        ${q.section ? `<div class="question-section">${q.section}</div>` : ''}
+  // Group questions by section
+  const sectionMap: {[key: string]: ParsedQuestionItem[]} = {};
+  
+  questions.forEach(q => {
+    const section = q.section || 'General';
+    if (!sectionMap[section]) {
+      sectionMap[section] = [];
+    }
+    sectionMap[section].push(q);
+  });
+  
+  // Generate questions HTML grouped by sections
+  const sectionsHtml = Object.keys(sectionMap).map((sectionName, sectionIndex) => {
+    const sectionQuestions = sectionMap[sectionName];
+    
+    return `
+      <div class="section-container" id="section-${sectionIndex}">
+        <div class="section-header">
+          <h2>${sectionName}</h2>
+          <p>${sectionQuestions.length} question${sectionQuestions.length !== 1 ? 's' : ''}</p>
+        </div>
+        <div class="questions-container">
+          ${sectionQuestions.map((q, qIndex) => {
+            const globalIndex = questions.findIndex(question => question === q);
+            return `
+              <div class="question-container" id="question-${globalIndex}" ${globalIndex !== 0 ? 'style="display:none;"' : ''}>
+                <div class="question-header">
+                  <h3>Question ${qIndex + 1} - ${sectionName}</h3>
+                </div>
+                <div class="question-content">
+                  ${markdownToHtml(q.question)}
+                </div>
+                <div class="answer-section">
+                  ${renderQuestionHtml(q, globalIndex)}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
       </div>
-      <div class="question-content">
-        ${markdownToHtml(q.question)}
-      </div>
-      <div class="answer-section">
-        ${renderQuestionHtml(q, index)}
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   return `
     <!DOCTYPE html>
@@ -145,15 +174,17 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
             --primary: #3b82f6;
             --primary-hover: #2563eb;
             --primary-foreground: white;
-            --background: #f8fafc;
-            --accent: #f1f5f9;
-            --accent-foreground: #0f172a;
-            --muted: #f1f5f9;
-            --muted-foreground: #64748b;
-            --border: #e2e8f0;
-            --border-hover: #cbd5e1;
-            --card: #ffffff;
-            --card-foreground: #0f172a;
+            --background: #0f172a;
+            --foreground: #f8fafc;
+            --accent: #1e293b;
+            --accent-foreground: #f1f5f9;
+            --muted: #1e293b;
+            --muted-foreground: #94a3b8;
+            --border: #334155;
+            --border-hover: #475569;
+            --card: #1e293b;
+            --card-foreground: #f1f5f9;
+            --text: #f1f5f9;
           }
         }
         
@@ -185,6 +216,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           display: flex;
           flex-direction: column;
           box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+          color: var(--accent-foreground);
         }
         
         .sidebar-header {
@@ -316,12 +348,30 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           margin-top: auto;
         }
         
+        /* Section styling */
+        .section-container {
+          margin-bottom: 20px;
+        }
+        
+        .section-header {
+          margin-bottom: 15px;
+          padding-bottom: 10px;
+          border-bottom: 2px solid var(--primary);
+        }
+        
+        .section-header h2 {
+          font-size: 20px;
+          margin: 0;
+          color: var(--accent-foreground);
+        }
+        
         /* Main content styles */
         .main-content {
           flex-grow: 1;
           padding: 20px;
           overflow-y: auto;
           background-color: var(--background);
+          color: var(--accent-foreground);
         }
         
         .question-container {
@@ -331,6 +381,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           padding: 20px;
           background-color: var(--card);
           box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+          color: var(--card-foreground);
         }
         
         .question-header {
@@ -344,6 +395,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           margin: 0;
           font-size: 18px;
           font-weight: 600;
+          color: var(--accent-foreground);
         }
         
         .question-section {
@@ -356,16 +408,19 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         
         .question-content {
           margin-bottom: 20px;
+          color: var(--accent-foreground);
         }
         
         .question-content h1, 
         .question-content h2, 
         .question-content h3 {
           margin-top: 0;
+          color: var(--accent-foreground);
         }
         
         .question-content p {
           margin-bottom: 15px;
+          color: var(--accent-foreground);
         }
         
         .question-content ul, 
@@ -410,6 +465,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           transition: all 0.2s ease;
           width: 100%;
           height: 100%;
+          color: var(--card-foreground);
         }
         
         .option-label:hover {
@@ -454,7 +510,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         }
         
         .option-text {
-          flex-grow: a2
+          flex-grow: 1;
           margin-left: 5px;
         }
         
@@ -555,6 +611,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         .fullscreen-icon {
           width: 24px;
           height: 24px;
+          color: white;
         }
         
         /* Responsive adjustments */
@@ -640,7 +697,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         </div>
         
         <div class="main-content">
-          ${questionHtml}
+          ${sectionsHtml}
           
           <div class="navigation">
             <button class="button secondary" id="prev-button" onclick="prevQuestion()">Previous</button>
@@ -652,7 +709,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
       
       <button class="fullscreen-button" id="fullscreen-button" title="Toggle fullscreen">
         <svg class="fullscreen-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l5-5m11 1v4m0 0h-4m4 0l-5-5" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5m-11-9v4m0 0h-4m4 0l-5 5M21 21v-4m0 0h-4m4 0l-5-5" />
         </svg>
       </button>
       
@@ -677,11 +734,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           
           // Enter fullscreen automatically
           setTimeout(() => {
-            if (document.documentElement.requestFullscreen) {
-              document.documentElement.requestFullscreen().catch(err => {
-                console.log('Error attempting to enable fullscreen:', err);
-              });
-            }
+            toggleFullScreen();
           }, 1000);
           
           // Start the timer
@@ -825,9 +878,12 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         // Toggle fullscreen
         function toggleFullScreen() {
           if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-              console.log('Error attempting to enable fullscreen:', err);
-            });
+            // Standard method
+            if (document.documentElement.requestFullscreen) {
+              document.documentElement.requestFullscreen().catch(err => {
+                console.log('Error attempting to enable fullscreen:', err);
+              });
+            } 
           } else if (document.exitFullscreen) {
             document.exitFullscreen();
           }
@@ -864,6 +920,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
               question: q.question,
               type: q.type,
               options: q.options || [],
+              section: q.section || 'General'
               // Don't include correct answers in the submitted data
             })))},
             questionWeights: questionWeights,
@@ -889,12 +946,12 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           
           // Show a completion message
           document.body.innerHTML = \`
-            <div style="max-width: 600px; margin: 100px auto; padding: 30px; text-align: center; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-              <h2 style="color: #2563eb; margin-bottom: 20px; font-size: 24px;">Exam Submitted Successfully!</h2>
+            <div style="max-width: 600px; margin: 100px auto; padding: 30px; text-align: center; background: var(--card); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); color: var(--card-foreground);">
+              <h2 style="color: var(--primary); margin-bottom: 20px; font-size: 24px;">Exam Submitted Successfully!</h2>
               <p style="font-size: 16px; margin-bottom: 10px;">You've completed the exam in \${timeTaken}.</p>
               <p style="font-size: 16px; margin-bottom: 20px;">You answered \${Object.keys(answers).length} out of \${totalQuestions} questions.</p>
-              <p style="font-size: 16px; color: #6b7280; margin-bottom: 30px;">Your results will be processed and will appear in the Performance tab.</p>
-              <button onclick="window.close()" style="padding: 10px 25px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s ease;">Close Window</button>
+              <p style="font-size: 16px; color: var(--muted-foreground); margin-bottom: 30px;">Your results will be processed and will appear in the Performance tab.</p>
+              <button onclick="window.close()" style="padding: 10px 25px; background: var(--primary); color: var(--primary-foreground); border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s ease;">Close Window</button>
             </div>
           \`;
           
@@ -948,20 +1005,6 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
     examWindow.document.open();
     examWindow.document.write(examContent);
     examWindow.document.close();
-    
-    // Request fullscreen after a short delay to ensure the window is fully loaded
-    setTimeout(() => {
-      try {
-        const examElement = examWindow.document.getElementById('exam-container');
-        if (examElement && examElement.requestFullscreen) {
-          examElement.requestFullscreen().catch(err => {
-            console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-          });
-        }
-      } catch (error) {
-        console.error("Could not enter fullscreen mode:", error);
-      }
-    }, 1000);
   };
 
   return null; // This component doesn't render anything directly
@@ -970,3 +1013,4 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
 // Export named functions and the default component
 export { parseQuestions };
 export default ExamRenderer;
+

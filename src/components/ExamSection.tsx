@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export interface ExamSectionProps {
   sectionIndex: number;
@@ -59,6 +60,16 @@ const ExamSection = ({
     }
   };
   
+  // Handle adding an available topic to this section
+  const handleAddAvailableTopic = (topic: string) => {
+    if (!section.topics.includes(topic)) {
+      onUpdate(sectionIndex, {
+        ...section,
+        topics: [...section.topics, topic]
+      });
+    }
+  };
+  
   // Handle removing a topic from this section
   const handleRemoveTopic = (topicToRemove: string) => {
     onUpdate(sectionIndex, {
@@ -84,11 +95,16 @@ const ExamSection = ({
   };
   
   // Handle difficulty change
-  const handleDifficultyChange = (difficulty: string, checked: boolean) => {
+  const handleDifficultyChange = (difficulty: string) => {
     onUpdate(sectionIndex, {
       ...section,
-      difficulty: checked ? difficulty : "medium" // Default to medium if unchecked
+      difficulty
     });
+  };
+  
+  // Get topics not already in this section
+  const getAvailableTopicsForSection = () => {
+    return availableTopics.filter(topic => !section.topics.includes(topic));
   };
   
   return (
@@ -135,16 +151,37 @@ const ExamSection = ({
               onChange={(e) => setNewTopic(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTopic())}
               className="flex-1"
-              list="available-topics"
+              list="section-available-topics"
             />
-            <datalist id="available-topics">
+            <datalist id="section-available-topics">
               {availableTopics.map((topic, i) => (
                 <option key={i} value={topic} />
               ))}
             </datalist>
             <Button type="button" onClick={handleAddTopic}>Add</Button>
           </div>
-          <div className="flex flex-wrap gap-2 mt-2">
+          
+          {/* Show available topics from global pool */}
+          {getAvailableTopicsForSection().length > 0 && (
+            <div className="mt-2">
+              <Label className="text-xs">Available Topics:</Label>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {getAvailableTopicsForSection().map((topic, index) => (
+                  <Button
+                    key={`available-${index}`}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs py-0 h-6"
+                    onClick={() => handleAddAvailableTopic(topic)}
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> {topic}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div className="flex flex-wrap gap-2 mt-2 p-2 border rounded-md min-h-[70px]">
             {section.topics.map((topic, index) => (
               <div key={index} className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
                 {topic}
@@ -213,32 +250,24 @@ const ExamSection = ({
         {/* Difficulty */}
         <div>
           <Label>Difficulty</Label>
-          <div className="flex gap-4 mt-2">
+          <RadioGroup 
+            value={section.difficulty} 
+            onValueChange={handleDifficultyChange}
+            className="flex gap-4 mt-2"
+          >
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id={`easy-${sectionIndex}`} 
-                checked={section.difficulty === "easy"}
-                onCheckedChange={(checked) => handleDifficultyChange("easy", !!checked)}
-              />
+              <RadioGroupItem value="easy" id={`easy-${sectionIndex}`} />
               <Label htmlFor={`easy-${sectionIndex}`}>Easy</Label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id={`medium-${sectionIndex}`} 
-                checked={section.difficulty === "medium"}
-                onCheckedChange={(checked) => handleDifficultyChange("medium", !!checked)}
-              />
+              <RadioGroupItem value="medium" id={`medium-${sectionIndex}`} />
               <Label htmlFor={`medium-${sectionIndex}`}>Medium</Label>
             </div>
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id={`hard-${sectionIndex}`} 
-                checked={section.difficulty === "hard"}
-                onCheckedChange={(checked) => handleDifficultyChange("hard", !!checked)}
-              />
+              <RadioGroupItem value="hard" id={`hard-${sectionIndex}`} />
               <Label htmlFor={`hard-${sectionIndex}`}>Hard</Label>
             </div>
-          </div>
+          </RadioGroup>
         </div>
       </CardContent>
       <Separator className="my-2" />
