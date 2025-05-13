@@ -95,20 +95,112 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
 
 // Generate HTML content for the exam window
 export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) => {
-  const questionHtml = questions.map((q, index) => `
-    <div class="question-container" id="question-${index}">
-      <div class="question-header">
-        <h3>Question ${index + 1}</h3>
-        ${q.section ? `<div class="question-section">${q.section}</div>` : ''}
+  // Group questions by section or type
+  const questionsBySection: Record<string, ParsedQuestionItem[]> = {};
+  
+  // If the exam has explicit sections defined, use those
+  if (exam.sections && exam.sections.length > 0) {
+    // Initialize sections
+    exam.sections.forEach(section => {
+      questionsBySection[section.title || 'Default Section'] = [];
+    });
+  } else {
+    // Group by question type if no explicit sections
+    questionsBySection["Multiple Choice Questions"] = [];
+    questionsBySection["True/False Questions"] = [];
+    questionsBySection["Short Answer Questions"] = [];
+    questionsBySection["Essay Questions"] = [];
+  }
+  
+  // Assign questions to their respective sections
+  questions.forEach(q => {
+    if (q.section && questionsBySection[q.section]) {
+      // If the question has a section defined and it exists in our sections
+      questionsBySection[q.section].push(q);
+    } else if (exam.sections && exam.sections.length === 0) {
+      // If no explicit sections, group by question type
+      switch (q.type) {
+        case 'mcq':
+          questionsBySection["Multiple Choice Questions"].push(q);
+          break;
+        case 'truefalse':
+          questionsBySection["True/False Questions"].push(q);
+          break;
+        case 'shortanswer':
+          questionsBySection["Short Answer Questions"].push(q);
+          break;
+        case 'essay':
+          questionsBySection["Essay Questions"].push(q);
+          break;
+        default:
+          // Add to default section if type is unknown
+          if (!questionsBySection["Other Questions"]) {
+            questionsBySection["Other Questions"] = [];
+          }
+          questionsBySection["Other Questions"].push(q);
+      }
+    } else {
+      // If we can't categorize it, put it in the first section
+      const firstSection = Object.keys(questionsBySection)[0];
+      if (firstSection) {
+        questionsBySection[firstSection].push(q);
+      } else {
+        // Create a default section if none exists
+        questionsBySection["Default Section"] = [q];
+      }
+    }
+  });
+  
+  // Remove empty sections
+  Object.keys(questionsBySection).forEach(section => {
+    if (questionsBySection[section].length === 0) {
+      delete questionsBySection[section];
+    }
+  });
+  
+  // Create a flat array of questions with section information for rendering
+  const flatQuestions: (ParsedQuestionItem & { sectionTitle: string })[] = [];
+  Object.entries(questionsBySection).forEach(([sectionTitle, sectionQuestions]) => {
+    sectionQuestions.forEach(q => {
+      flatQuestions.push({
+        ...q,
+        sectionTitle
+      });
+    });
+  });
+  
+  // Generate HTML for each question, grouped by section
+  let questionHtml = '';
+  let currentSection = '';
+  let questionIndex = 0;
+  
+  flatQuestions.forEach((q, idx) => {
+    // Add section header if this is a new section
+    if (q.sectionTitle !== currentSection) {
+      currentSection = q.sectionTitle;
+      questionHtml += `
+        <div class="section-header" id="section-${currentSection.replace(/\s+/g, '-').toLowerCase()}">
+          <h2>${currentSection}</h2>
+        </div>
+      `;
+    }
+    
+    // Add the question
+    questionHtml += `
+      <div class="question-container" id="question-${idx}">
+        <div class="question-header">
+          <h3>Question ${idx + 1}</h3>
+        </div>
+        <div class="question-content">
+          ${markdownToHtml(q.question)}
+        </div>
+        <div class="answer-section">
+          ${renderQuestionHtml(q, idx)}
+        </div>
       </div>
-      <div class="question-content">
-        ${markdownToHtml(q.question)}
-      </div>
-      <div class="answer-section">
-        ${renderQuestionHtml(q, index)}
-      </div>
-    </div>
-  `).join('');
+    `;
+    questionIndex++;
+  });
 
   return `
     <!DOCTYPE html>
@@ -601,13 +693,26 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
               <div class="progress-value" id="progress-bar"></div>
             </div>
             <div class="progress-stats">
-              <span id="progress-text">0 of ${questions.length} answered</span>
+              <span id="progress-text">0 of ${flatQuestions.length} answered</span>
               <span id="progress-percentage">0%</span>
             </div>
           </div>
           
+          <div class="sidebar-sections">
+            <div>Exam Sections</div>
+            ${Object.keys(questionsBySection).map((section, idx) => `
+              <div 
+                class="section-link" 
+                id="section-link-${idx}" 
+                onclick="scrollToSection('${section.replace(/\s+/g, '-').toLowerCase()}')"
+              >
+                ${section} (${questionsBySection[section].length})
+              </div>
+            `).join('')}
+          </div>
+          
           <div class="question-grid" id="question-grid">
-            ${questions.map((_, i) => `
+            ${flatQuestions.map((_, i) => `
               <div class="question-number${i === 0 ? ' current' : ''}" 
                 id="question-button-${i}" 
                 onclick="showQuestion(${i})">${i + 1}</div>
@@ -658,12 +763,12 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
       
       <script>
         let currentQuestion = 0;
-        const totalQuestions = ${questions.length};
+        const totalQuestions = ${flatQuestions.length};
         const answers = {};
         const questionsForReview = new Set();
         let startTime = Date.now();
         let timerInterval;
-        let questionWeights = ${JSON.stringify(questions.map((_, i) => exam.questionWeights?.[i] || 1))};
+        let questionWeights = ${JSON.stringify(flatQuestions.map((q, i) => exam.questionWeights?.[i] || 1))};
         
         // Initialize the exam
         function initExam() {
@@ -676,19 +781,47 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           document.getElementById('fullscreen-button').addEventListener('click', toggleFullScreen);
           
           // Enter fullscreen automatically
-          setTimeout(() => {
-            if (document.documentElement.requestFullscreen) {
-              document.documentElement.requestFullscreen().catch(err => {
-                console.log('Error attempting to enable fullscreen:', err);
-              });
-            }
-          }, 1000);
+          enterFullScreen();
           
           // Start the timer
           startTimer();
           
           // Update navigation buttons
           updateNavButtons();
+        }
+        
+        // Enter fullscreen mode
+        function enterFullScreen() {
+          const docElm = document.documentElement;
+          if (docElm.requestFullscreen) {
+            docElm.requestFullscreen().catch(err => {
+              console.log('Error attempting to enable fullscreen:', err);
+            });
+          } else if (docElm.mozRequestFullScreen) { // Firefox
+            docElm.mozRequestFullScreen();
+          } else if (docElm.webkitRequestFullscreen) { // Chrome, Safari and Opera
+            docElm.webkitRequestFullscreen();
+          } else if (docElm.msRequestFullscreen) { // IE/Edge
+            docElm.msRequestFullscreen();
+          }
+        }
+        
+        // Scroll to a specific section
+        function scrollToSection(sectionId) {
+          const sectionElement = document.getElementById('section-' + sectionId);
+          if (sectionElement) {
+            sectionElement.scrollIntoView({ behavior: 'smooth' });
+            
+            // Update section link highlighting
+            const sectionLinks = document.querySelectorAll('.section-link');
+            sectionLinks.forEach(link => link.classList.remove('current'));
+            
+            // Find and highlight the current section link
+            const currentLink = document.querySelector('[onclick="scrollToSection(\\''+sectionId+'\\')"]');
+            if (currentLink) {
+              currentLink.classList.add('current');
+            }
+          }
         }
         
         // Start the exam timer
@@ -825,9 +958,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         // Toggle fullscreen
         function toggleFullScreen() {
           if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(err => {
-              console.log('Error attempting to enable fullscreen:', err);
-            });
+            enterFullScreen();
           } else if (document.exitFullscreen) {
             document.exitFullscreen();
           }

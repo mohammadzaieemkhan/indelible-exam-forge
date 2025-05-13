@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,10 +9,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useGeminiAI } from "@/utils/apiService";
 import ExamSection from "@/components/ExamSection";
 import SyllabusUploader from "@/components/SyllabusUploader";
+import QuestionTypeWeightage from "@/components/QuestionTypeWeightage";
 import { IExam } from "@/components/ExamTabs";
 
 interface GenerateExamTabProps {
@@ -35,12 +38,14 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   const [sections, setSections] = useState<any[]>([]);
   const [useSections, setUseSections] = useState<boolean>(false);
   
-  // Question type preferences (for non-section mode)
-  const [questionTypes, setQuestionTypes] = useState({
-    mcq: true,
-    truefalse: false,
-    shortanswer: false,
-    essay: false
+  // Question type preferences and weights
+  const [questionTypeWeights, setQuestionTypeWeights] = useState<
+    Record<string, {enabled: boolean, weight: number}>
+  >({
+    mcq: { enabled: true, weight: 1 },
+    truefalse: { enabled: false, weight: 1 },
+    shortanswer: { enabled: false, weight: 2 },
+    essay: { enabled: false, weight: 3 }
   });
   
   // Difficulty (for non-section mode)
@@ -81,16 +86,14 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
     setTopics(topics.filter(topic => topic !== topicToRemove));
   };
   
-  // Handle question type toggle
-  const handleQuestionTypeChange = (type: string, checked: boolean) => {
-    setQuestionTypes({
-      ...questionTypes,
-      [type]: checked
-    });
+  // Handle question type weights change
+  const handleQuestionTypeWeightsChange = (weights: Record<string, {enabled: boolean, weight: number}>) => {
+    setQuestionTypeWeights(weights);
   };
   
   // Handle adding a new section
   const handleAddSection = () => {
+    // For sections, automatically use topics from the global topics list
     setSections([
       ...sections,
       {
@@ -115,8 +118,21 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
     setSections(sections.filter((_, index) => index !== sectionIndex));
   };
   
+  // Update section topics when global topics change
+  useEffect(() => {
+    if (useSections && topics.length > 0) {
+      // Update all sections to include the new topics
+      const updatedSections = sections.map(section => ({
+        ...section,
+        topics: [...topics] // Update with the latest topics
+      }));
+      setSections(updatedSections);
+    }
+  }, [topics, useSections]);
+  
   // Handle getting topics from syllabus uploader
   const handleTopicsExtracted = (extractedTopics: string[]) => {
+    // Use the extracted topics directly
     setTopics([...new Set([...topics, ...extractedTopics])]);
   };
   
@@ -145,9 +161,33 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         task: "generate_questions"
       };
       
+      // Create a mapping of question weights
+      const questionWeightsMap: Record<number, number> = {};
+      
       if (useSections && sections.length > 0) {
         // Generate questions based on sections
-        params.sections = sections;
+        // Pass the section information to include weightage
+        params.sections = sections.map((section, idx) => {
+          // For each section, add question types and their weights
+          const sectionWithWeights = {
+            ...section,
+            questionWeights: Object.fromEntries(
+              Object.entries(questionTypeWeights)
+                .filter(([_, data]) => data.enabled)
+                .map(([type, data]) => [type, data.weight])
+            )
+          };
+          
+          // Store the weights for later use
+          sectionWithWeights.questionTypes.forEach((type: string, qIdx: number) => {
+            const baseIdx = sections.slice(0, idx).reduce(
+              (sum, s) => sum + parseInt(s.numberOfQuestions), 0
+            );
+            questionWeightsMap[baseIdx + qIdx] = questionTypeWeights[type]?.weight || 1;
+          });
+          
+          return sectionWithWeights;
+        });
       } else {
         // Generate questions based on global settings
         // Get difficulty level
@@ -157,14 +197,33 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         if (difficulty.hard) difficultyLevels.push('hard');
         const difficultyString = difficultyLevels.join(', ');
         
-        // Get selected question types
-        const selectedQuestionTypes = Object.entries(questionTypes)
-          .filter(([_, value]) => value)
+        // Get selected question types and their weights
+        const selectedQuestionTypes = Object.entries(questionTypeWeights)
+          .filter(([_, data]) => data.enabled)
           .map(([key, _]) => key);
         
         if (selectedQuestionTypes.length === 0) {
           throw new Error("Please select at least one question type");
         }
+        
+        // Store the weights for each question
+        const numQuestions = parseInt(numberOfQuestions) || 10;
+        const typesCount = selectedQuestionTypes.length;
+        
+        // Distribute questions among types
+        let questionCountPerType = Math.floor(numQuestions / typesCount);
+        let remainder = numQuestions % typesCount;
+        
+        let questionIndex = 0;
+        selectedQuestionTypes.forEach(type => {
+          const questionsForType = questionCountPerType + (remainder > 0 ? 1 : 0);
+          if (remainder > 0) remainder--;
+          
+          // Set weights for all questions of this type
+          for (let i = 0; i < questionsForType; i++) {
+            questionWeightsMap[questionIndex++] = questionTypeWeights[type]?.weight || 1;
+          }
+        });
         
         params = {
           ...params,
@@ -172,6 +231,10 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
           difficulty: difficultyString || "medium",
           questionTypes: selectedQuestionTypes,
           numberOfQuestions: parseInt(numberOfQuestions) || 10,
+          questionWeights: Object.fromEntries(
+            selectedQuestionTypes.map(type => [type, questionTypeWeights[type]?.weight || 1])
+          ),
+          generateSections: true, // Automatically generate sections by question type
         };
       }
       
@@ -199,12 +262,13 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
             .filter(([_, value]) => value)
             .map(([key, _]) => key)
             .join(", "),
-          questionTypes: Object.entries(questionTypes)
-            .filter(([_, value]) => value)
+          questionTypes: Object.entries(questionTypeWeights)
+            .filter(([_, data]) => data.enabled)
             .map(([key, _]) => key)
             .join(", "),
           questions: result.response,
-          sections: useSections ? sections : []
+          sections: useSections ? sections : [],
+          questionWeights: questionWeightsMap
         };
         
         // Direct save to upcoming exams without showing preview
@@ -416,89 +480,39 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
                     />
                   </div>
                 </div>
+                
+                <QuestionTypeWeightage 
+                  onChange={handleQuestionTypeWeightsChange} 
+                />
               </div>
               
               <div className="space-y-4">
                 <div>
-                  <Label>Question Types</Label>
-                  <div className="space-y-2 mt-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="mcq" 
-                        checked={questionTypes.mcq}
-                        onCheckedChange={(checked) => 
-                          handleQuestionTypeChange('mcq', !!checked)
-                        }
-                      />
-                      <Label htmlFor="mcq">Multiple Choice Questions</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="truefalse" 
-                        checked={questionTypes.truefalse}
-                        onCheckedChange={(checked) => 
-                          handleQuestionTypeChange('truefalse', !!checked)
-                        }
-                      />
-                      <Label htmlFor="truefalse">True/False Questions</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="shortanswer" 
-                        checked={questionTypes.shortanswer}
-                        onCheckedChange={(checked) => 
-                          handleQuestionTypeChange('shortanswer', !!checked)
-                        }
-                      />
-                      <Label htmlFor="shortanswer">Short Answer Questions</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="essay" 
-                        checked={questionTypes.essay}
-                        onCheckedChange={(checked) => 
-                          handleQuestionTypeChange('essay', !!checked)
-                        }
-                      />
-                      <Label htmlFor="essay">Essay Questions</Label>
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
                   <Label>Difficulty</Label>
-                  <div className="flex gap-4 mt-2">
+                  <RadioGroup
+                    className="mt-2 flex flex-col space-y-1"
+                    defaultValue={difficulty.easy ? "easy" : difficulty.medium ? "medium" : "hard"}
+                    onValueChange={(value) => {
+                      setDifficulty({
+                        easy: value === "easy",
+                        medium: value === "medium",
+                        hard: value === "hard"
+                      });
+                    }}
+                  >
                     <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="easy" 
-                        checked={difficulty.easy}
-                        onCheckedChange={(checked) => 
-                          setDifficulty({...difficulty, easy: !!checked})
-                        }
-                      />
-                      <Label htmlFor="easy">Easy</Label>
+                      <RadioGroupItem value="easy" id="difficulty-easy" />
+                      <Label htmlFor="difficulty-easy">Easy</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="medium" 
-                        checked={difficulty.medium}
-                        onCheckedChange={(checked) => 
-                          setDifficulty({...difficulty, medium: !!checked})
-                        }
-                      />
-                      <Label htmlFor="medium">Medium</Label>
+                      <RadioGroupItem value="medium" id="difficulty-medium" />
+                      <Label htmlFor="difficulty-medium">Medium</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Checkbox 
-                        id="hard" 
-                        checked={difficulty.hard}
-                        onCheckedChange={(checked) => 
-                          setDifficulty({...difficulty, hard: !!checked})
-                        }
-                      />
-                      <Label htmlFor="hard">Hard</Label>
+                      <RadioGroupItem value="hard" id="difficulty-hard" />
+                      <Label htmlFor="difficulty-hard">Hard</Label>
                     </div>
-                  </div>
+                  </RadioGroup>
                 </div>
               </div>
             </div>

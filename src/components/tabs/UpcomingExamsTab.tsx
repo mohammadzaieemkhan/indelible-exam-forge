@@ -62,10 +62,8 @@ const UpcomingExamsTab = ({
     setExamToDelete(null);
   };
   
-  // Open exam in a new window
+  // Open exam in a new window with fullscreen
   const handleViewExam = (exam: IExam) => {
-    // Directly call the handleViewExam method from ExamRenderer
-    // This avoids incorrectly instantiating the component with 'new'
     if (!exam.isActive) {
       toast({
         title: "Exam Not Available",
@@ -100,19 +98,27 @@ const UpcomingExamsTab = ({
       examWindow.document.write(examContent);
       examWindow.document.close();
       
-      // Request fullscreen after a short delay
-      setTimeout(() => {
+      // Request fullscreen immediately
+      const tryEnterFullscreen = () => {
         try {
-          const examElement = examWindow.document.getElementById('exam-container');
-          if (examElement && examElement.requestFullscreen) {
-            examElement.requestFullscreen().catch(err => {
+          if (examWindow.document.documentElement.requestFullscreen) {
+            examWindow.document.documentElement.requestFullscreen().catch(err => {
               console.error(`Error attempting to enable full-screen mode: ${err.message}`);
             });
+          } else if (examWindow.document.documentElement.webkitRequestFullscreen) {
+            examWindow.document.documentElement.webkitRequestFullscreen();
+          } else if (examWindow.document.documentElement.mozRequestFullScreen) {
+            examWindow.document.documentElement.mozRequestFullScreen();
+          } else if (examWindow.document.documentElement.msRequestFullscreen) {
+            examWindow.document.documentElement.msRequestFullscreen();
           }
         } catch (error) {
           console.error("Could not enter fullscreen mode:", error);
         }
-      }, 1000);
+      };
+      
+      // Try to enter fullscreen after a short delay
+      setTimeout(tryEnterFullscreen, 500);
     });
   };
   
