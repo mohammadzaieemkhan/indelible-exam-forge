@@ -30,6 +30,21 @@ serve(async (req) => {
       case "generate_questions":
         systemPrompt = "You are an AI specialized in creating educational exam questions. Generate challenging but fair questions STRICTLY based on the provided topics, sections and difficulty level. For MCQs, include 4 options with one correct answer clearly labeled. For essay questions, include a question with appropriate word count guidance. Format each question clearly with a number and make sure options are clearly labeled A, B, C, D for multiple choice.";
         
+        // Add formatting instructions specific to MCQs to ensure each option is on its own line
+        const mcqFormatInstructions = `
+        IMPORTANT FORMATTING INSTRUCTIONS FOR MULTIPLE CHOICE QUESTIONS:
+        - For multiple choice questions, format each option on a SEPARATE LINE with a clear label (A, B, C, D).
+        - DO NOT combine options into a single paragraph or string.
+        - Each option MUST start with its label (A, B, C, D) followed by a parenthesis or period.
+        - Put each option on a new line.
+        - Example of CORRECT formatting:
+          A) First option
+          B) Second option
+          C) Third option
+          D) Fourth option
+        - Clearly indicate the correct answer on a separate line AFTER all options with "Answer: X"
+        `;
+        
         // Check if we have sections defined
         if (sections && sections.length > 0) {
           // Build a structured prompt for sections
@@ -44,6 +59,7 @@ serve(async (req) => {
           });
           
           sectionsPrompt += "\nIMPORTANT: ALL questions MUST be related to the specified topics. Do NOT include questions on any other topics. Format the questions clearly and ensure that each question is properly labeled with its section.";
+          sectionsPrompt += "\n" + mcqFormatInstructions;
           
           userPrompt = sectionsPrompt + "\n" + (userPrompt || "");
         } else {
@@ -63,11 +79,14 @@ serve(async (req) => {
                      Format Guidelines:
                      - Number each question clearly (1, 2, 3, etc.)
                      - For multiple choice questions, label options as A), B), C), D) and clearly indicate the correct answer after all options with "Answer: X"
+                     - Put EACH OPTION on a SEPARATE LINE with proper spacing between options
                      - For true/false questions, provide the statement and indicate whether it's true or false at the end with "Answer: True/False"
                      - For short answer questions, include the expected answer length
                      - For essay questions, provide guidance on word count and key points to address
                      - IMPORTANT: ALL questions MUST be directly related to the specified topics. DO NOT generate questions on unrelated topics.
-                     - IMPORTANT: Put the correct answer for MCQs on a separate line AFTER listing all options`;
+                     - IMPORTANT: Put the correct answer for MCQs on a separate line AFTER listing all options
+                     
+                     ${mcqFormatInstructions}`;
         }
         break;
       case "evaluate_answer":

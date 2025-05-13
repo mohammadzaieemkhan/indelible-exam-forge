@@ -9,7 +9,7 @@ export interface ParsedQuestionItem {
   section?: string;
 }
 
-// Parse questions from raw content with improved logic for better extraction
+// Parse questions from raw content with improved logic for better extraction of separately formatted options
 export const parseQuestions = (content: string): ParsedQuestionItem[] => {
   const questions: ParsedQuestionItem[] = [];
   const lines = content.split('\n');
@@ -17,9 +17,11 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
   let currentQuestion: Partial<ParsedQuestionItem> | null = null;
   let currentOptions: string[] = [];
   let currentSection: string = '';
+  let collectingOptions = false;
   
   for (const line of lines) {
     const trimmedLine = line.trim();
+    if (!trimmedLine) continue; // Skip empty lines
     
     // Check for section headers
     if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
@@ -55,13 +57,25 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
         section: currentSection || undefined
       };
       currentOptions = [];
+      collectingOptions = false;
     } 
-    // Detect options with improved regex
-    else if (/^[A-D][\.\)]\s|^\([A-D]\)\s/i.test(trimmedLine)) {
+    // Detect options with improved regex for options on separate lines
+    else if (/^[A-D][\.\)][\s]*|^\([A-D]\)[\s]*/i.test(trimmedLine)) {
       // Clean the option text to remove "Correct Answer" markers
-      let optionText = trimmedLine.replace(/\*\*.*?\*\*/g, '').trim();
+      let optionText = trimmedLine.trim();
       currentOptions.push(optionText);
-      if (currentQuestion) currentQuestion.type = 'mcq';
+      if (currentQuestion) {
+        currentQuestion.type = 'mcq';
+        collectingOptions = true;
+      }
+    }
+    // Detect answer lines after options
+    else if (/^Answer:[\s]*[A-D]$/i.test(trimmedLine) && currentQuestion) {
+      const answerMatch = trimmedLine.match(/^Answer:[\s]*([A-D])$/i);
+      if (answerMatch && currentQuestion) {
+        currentQuestion.answer = answerMatch[1].trim();
+        collectingOptions = false;
+      }
     }
     // Detect true/false questions
     else if (/true|false/i.test(trimmedLine) && currentOptions.length < 2 && currentQuestion) {
@@ -78,13 +92,29 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
     // Add the line to the current question if it's a continuation
     else if (currentQuestion && trimmedLine.length > 0) {
       // Check if it contains an answer
-      if (trimmedLine.toLowerCase().includes('answer:') || trimmedLine.toLowerCase().includes('*answer:')) {
+      if (trimmedLine.toLowerCase().includes('answer:') && !collectingOptions) {
         const answerMatch = trimmedLine.match(/answer:(.+)/i);
         if (answerMatch && currentQuestion) {
           currentQuestion.answer = answerMatch[1].trim();
         }
       } else {
-        currentQuestion.question += ' ' + trimmedLine;
+        // If we're not collecting options, this is part of the question text
+        if (!collectingOptions) {
+          currentQuestion.question += ' ' + trimmedLine;
+        }
+        // If we are collecting options but this doesn't match the option pattern,
+        // it could be additional text for the last option or the end of options
+        else if (!/^[A-D][\.\)][\s]*|^\([A-D]\)[\s]*/i.test(trimmedLine) && 
+                !/^Answer:[\s]*[A-D]$/i.test(trimmedLine)) {
+          // If this line doesn't look like an answer line, it's probably continuation of the last option
+          if (currentOptions.length > 0 && !trimmedLine.toLowerCase().includes('answer:')) {
+            // Append to the last option rather than creating a new one
+            currentOptions[currentOptions.length - 1] += ' ' + trimmedLine;
+          } else {
+            // Might be the end of options section
+            collectingOptions = false;
+          }
+        }
       }
     }
   }
