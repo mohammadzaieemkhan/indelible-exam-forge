@@ -817,7 +817,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
             sectionLinks.forEach(link => link.classList.remove('current'));
             
             // Find and highlight the current section link
-            const currentLink = document.querySelector('[onclick="scrollToSection(\\''+sectionId+'\\')"]');
+            const currentLink = document.querySelector('[onclick="scrollToSection(\\'+sectionId+'\\')"]');
             if (currentLink) {
               currentLink.classList.add('current');
             }

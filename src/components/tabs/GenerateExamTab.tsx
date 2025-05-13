@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,13 +62,13 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   // Check if the form is valid for generation
   const isGenerateButtonDisabled = isGeneratingQuestions || 
     (useSections && sections.length === 0) || 
-    topics.length === 0;
+    (!useSections && topics.length === 0);
 
   // Get the reason why the button is disabled
   const getDisabledReason = () => {
     if (isGeneratingQuestions) return "Generating questions...";
-    if (topics.length === 0) return "At least one topic is required";
     if (useSections && sections.length === 0) return "At least one section is required when sections are enabled";
+    if (!useSections && topics.length === 0) return "At least one topic is required";
     return "";
   };
   
@@ -118,10 +117,10 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
     setSections(sections.filter((_, index) => index !== sectionIndex));
   };
   
-  // Update section topics when global topics change
+  // Update section topics when global topics change - ONLY if NOT using sections
   useEffect(() => {
-    if (useSections && topics.length > 0) {
-      // Update all sections to include the new topics
+    if (!useSections && topics.length > 0) {
+      // Only sync global topics to sections when not in section mode
       const updatedSections = sections.map(section => ({
         ...section,
         topics: [...topics] // Update with the latest topics
@@ -366,7 +365,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
             <span className="text-sm font-medium text-red-500">*</span>
           </h3>
           
-          {topics.length === 0 && (
+          {!useSections && topics.length === 0 && (
             <Alert variant="destructive" className="bg-destructive/10 border-destructive/20">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
@@ -375,52 +374,67 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
             </Alert>
           )}
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left: Topic Input */}
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium flex items-center gap-1">
-                  Topics
-                  <span className="text-sm font-medium text-red-500">*</span>
-                </label>
-                <div className="flex flex-wrap gap-2 p-2 border rounded-md mt-1 min-h-[100px]">
-                  {topics.map((topic, index) => (
-                    <div key={index} className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
-                      {topic}
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveTopic(topic)} 
-                        className="hover:text-destructive"
-                      >×</button>
-                    </div>
-                  ))}
-                  <Input 
-                    value={newTopic}
-                    onChange={(e) => setNewTopic(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTopic())}
-                    className="flex-1 min-w-[100px] border-none p-0 h-8" 
-                    placeholder="Add topic..." 
-                  />
+          {!useSections && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left: Topic Input - Only show when sections are NOT enabled */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    Topics
+                    <span className="text-sm font-medium text-red-500">*</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2 p-2 border rounded-md mt-1 min-h-[100px]">
+                    {topics.map((topic, index) => (
+                      <div key={index} className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
+                        {topic}
+                        <button 
+                          type="button" 
+                          onClick={() => handleRemoveTopic(topic)} 
+                          className="hover:text-destructive"
+                        >×</button>
+                      </div>
+                    ))}
+                    <Input 
+                      value={newTopic}
+                      onChange={(e) => setNewTopic(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTopic())}
+                      className="flex-1 min-w-[100px] border-none p-0 h-8" 
+                      placeholder="Add topic..." 
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-1">
+                    <p className="text-xs text-muted-foreground">
+                      Enter topics and press Enter to add them
+                    </p>
+                    {newTopic && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleAddTopic} 
+                        className="text-xs h-7 px-2"
+                      >
+                        Add Topic
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex justify-between items-center mt-1">
-                  <p className="text-xs text-muted-foreground">
-                    Enter topics and press Enter to add them
-                  </p>
-                  {newTopic && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleAddTopic} 
-                      className="text-xs h-7 px-2"
-                    >
-                      Add Topic
-                    </Button>
-                  )}
+              </div>
+              
+              {/* Right: File Upload - Always show this */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Upload Syllabus (Optional)</label>
+                  <SyllabusUploader 
+                    onTopicsExtracted={handleTopicsExtracted}
+                    onSyllabusContent={handleSyllabusContent}
+                  />
                 </div>
               </div>
             </div>
-            
-            {/* Right: File Upload */}
+          )}
+
+          {/* When sections are enabled, only show the file upload */}
+          {useSections && (
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium">Upload Syllabus (Optional)</label>
@@ -429,8 +443,16 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
                   onSyllabusContent={handleSyllabusContent}
                 />
               </div>
+              <Alert variant={topics.length === 0 ? "destructive" : "default"} className="bg-muted">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {topics.length === 0 
+                    ? "Add topics in sections below to generate an exam" 
+                    : `${topics.length} topic(s) extracted. You can use them in sections below.`}
+                </AlertDescription>
+              </Alert>
             </div>
-          </div>
+          )}
         </div>
         
         {/* Step 3: Exam Configuration */}

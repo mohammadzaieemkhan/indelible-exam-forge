@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, ListCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -56,6 +56,16 @@ const ExamSection = ({
         topics: [...section.topics, newTopic]
       });
       setNewTopic("");
+    }
+  };
+  
+  // Handle adding an available topic from the global list
+  const handleAddAvailableTopic = (topic: string) => {
+    if (!section.topics.includes(topic)) {
+      onUpdate(sectionIndex, {
+        ...section,
+        topics: [...section.topics, topic]
+      });
     }
   };
   
@@ -144,6 +154,28 @@ const ExamSection = ({
             </datalist>
             <Button type="button" onClick={handleAddTopic}>Add</Button>
           </div>
+          
+          {/* Available topics from global list */}
+          {availableTopics.length > 0 && (
+            <div className="mt-2">
+              <Label className="text-sm text-muted-foreground">Available Topics:</Label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {availableTopics.map((topic, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    className={`text-xs h-7 px-2 ${section.topics.includes(topic) ? 'bg-primary/20' : ''}`}
+                    onClick={() => handleAddAvailableTopic(topic)}
+                  >
+                    <ListCheck className="h-3 w-3 mr-1" />
+                    {topic}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <div className="flex flex-wrap gap-2 mt-2">
             {section.topics.map((topic, index) => (
               <div key={index} className="bg-primary/20 text-primary rounded-full px-3 py-1 text-sm flex items-center gap-2">
