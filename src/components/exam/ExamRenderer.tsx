@@ -1,8 +1,8 @@
-
 import React from "react";
 import { ParsedQuestionItem, parseQuestions, markdownToHtml } from "./utils/examParser";
 import { IExam } from "@/components/ExamTabs";
 import { useToast } from "@/hooks/use-toast";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface ExamRendererProps {
   exam: IExam;
@@ -19,17 +19,15 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
           ${question.options?.map((option, optIndex) => `
             <div class="option">
               <label class="option-label" for="${questionId}-option-${optIndex}">
-                <div class="radio-container">
-                  <input 
-                    type="radio" 
-                    name="${questionId}" 
-                    id="${questionId}-option-${optIndex}" 
-                    value="${optIndex}"
-                    class="radio-input"
-                    onchange="selectOption(${index}, ${optIndex})"
-                  />
-                  <div class="radio-custom"></div>
-                </div>
+                <input 
+                  type="radio" 
+                  name="${questionId}" 
+                  id="${questionId}-option-${optIndex}" 
+                  value="${optIndex}"
+                  class="radio-input"
+                  onchange="selectOption(${index}, ${optIndex})"
+                />
+                <span class="radio-custom"></span>
                 <div class="option-text">${option}</div>
               </label>
             </div>
@@ -41,33 +39,29 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
         <div class="options">
           <div class="option">
             <label class="option-label" for="${questionId}-true">
-              <div class="radio-container">
-                <input 
-                  type="radio" 
-                  name="${questionId}" 
-                  id="${questionId}-true" 
-                  value="true"
-                  class="radio-input"
-                  onchange="selectOption(${index}, 0)"
-                />
-                <div class="radio-custom"></div>
-              </div>
+              <input 
+                type="radio" 
+                name="${questionId}" 
+                id="${questionId}-true" 
+                value="true"
+                class="radio-input"
+                onchange="selectOption(${index}, 0)"
+              />
+              <span class="radio-custom"></span>
               <div class="option-text">True</div>
             </label>
           </div>
           <div class="option">
             <label class="option-label" for="${questionId}-false">
-              <div class="radio-container">
-                <input 
-                  type="radio" 
-                  name="${questionId}" 
-                  id="${questionId}-false" 
-                  value="false"
-                  class="radio-input"
-                  onchange="selectOption(${index}, 1)"
-                />
-                <div class="radio-custom"></div>
-              </div>
+              <input 
+                type="radio" 
+                name="${questionId}" 
+                id="${questionId}-false" 
+                value="false"
+                class="radio-input"
+                onchange="selectOption(${index}, 1)"
+              />
+              <span class="radio-custom"></span>
               <div class="option-text">False</div>
             </label>
           </div>
@@ -188,6 +182,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           }
         }
         
+        /* General styles */
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           line-height: 1.6;
@@ -436,7 +431,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           font-family: monospace;
         }
         
-        /* Options for MCQs */
+        /* Options for MCQs - Updated for individual radio buttons */
         .options {
           display: grid;
           grid-template-columns: repeat(1, 1fr);
@@ -466,17 +461,11 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           width: 100%;
           height: 100%;
           color: var(--card-foreground);
+          position: relative;
         }
         
         .option-label:hover {
           background-color: var(--accent);
-        }
-        
-        .radio-container {
-          position: relative;
-          margin-right: 12px;
-          flex-shrink: 0;
-          margin-top: 2px;
         }
         
         .radio-input {
@@ -486,32 +475,31 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         }
         
         .radio-custom {
-          display: block;
-          width: 20px;
-          height: 20px;
+          display: inline-block;
+          width: 18px;
+          height: 18px;
           border: 2px solid var(--border);
           border-radius: 50%;
+          margin-right: 10px;
           position: relative;
+          top: 2px;
         }
         
-        .radio-input:checked + .radio-custom {
-          border-color: var(--primary);
-        }
-        
-        .radio-input:checked + .radio-custom:after {
+        .radio-input:checked + .radio-custom::after {
           content: '';
           position: absolute;
-          top: 4px;
-          left: 4px;
-          width: 8px;
-          height: 8px;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 10px;
+          height: 10px;
           background-color: var(--primary);
           border-radius: 50%;
         }
         
         .option-text {
           flex-grow: 1;
-          margin-left: 5px;
+          margin-left: 8px;
         }
         
         /* Text inputs and textareas */
@@ -1013,4 +1001,3 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
 // Export named functions and the default component
 export { parseQuestions };
 export default ExamRenderer;
-
