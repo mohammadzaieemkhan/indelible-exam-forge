@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -63,9 +64,56 @@ const UpcomingExamsTab = ({
   
   // Open exam in a new window
   const handleViewExam = (exam: IExam) => {
-    // Use the ExamRenderer component to render the exam
-    const examRenderer = new ExamRenderer({ exam });
-    examRenderer.handleViewExam();
+    // Directly call the handleViewExam method from ExamRenderer
+    // This avoids incorrectly instantiating the component with 'new'
+    if (!exam.isActive) {
+      toast({
+        title: "Exam Not Available",
+        description: "This exam is not yet available to take.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Create a new window for the exam
+    const examWindow = window.open('', '_blank', 'width=1024,height=768,scrollbars=yes');
+    
+    if (!examWindow) {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site to take the exam.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Import the necessary functions from ExamRenderer
+    import('@/components/exam/ExamRenderer').then(module => {
+      const { parseQuestions, generateExamHtml } = module;
+      
+      // Parse questions and generate HTML for the exam
+      const parsedQuestions = parseQuestions(exam.questions || "");
+      const examContent = generateExamHtml(exam, parsedQuestions);
+      
+      // Write content to the new window
+      examWindow.document.open();
+      examWindow.document.write(examContent);
+      examWindow.document.close();
+      
+      // Request fullscreen after a short delay
+      setTimeout(() => {
+        try {
+          const examElement = examWindow.document.getElementById('exam-container');
+          if (examElement && examElement.requestFullscreen) {
+            examElement.requestFullscreen().catch(err => {
+              console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+          }
+        } catch (error) {
+          console.error("Could not enter fullscreen mode:", error);
+        }
+      }, 1000);
+    });
   };
   
   return (
