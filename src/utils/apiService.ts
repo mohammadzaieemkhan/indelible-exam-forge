@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * Send WhatsApp notification
@@ -102,18 +102,65 @@ export const parseSyllabusContent = async (
       };
     }
     
-    // Extract topics from the AI response
-    // This is a simplified implementation - in production you might want to parse the response more carefully
+    // Extract topics from the AI response more intelligently
+    console.log("Gemini AI response for syllabus parsing:", data.response);
+    
+    // Better parsing logic for the AI response
     const topicsText = data.response;
-    const topics = topicsText
-      .split(/[\n,:]/)
-      .map((topic: string) => topic.trim())
-      .filter((topic: string) => 
-        topic && 
-        !topic.toLowerCase().includes('topic') && 
-        !topic.toLowerCase().includes('chapter') &&
-        topic.length > 1
-      );
+    let topics: string[] = [];
+    
+    // Try to find bullet points or numbered lists first
+    if (topicsText.includes('•') || topicsText.includes('*') || /\d+\./.test(topicsText)) {
+      // Split by common list markers
+      topics = topicsText
+        .split(/[\n\r]+/)
+        .filter(line => line.trim().startsWith('•') || line.trim().startsWith('*') || /^\d+\./.test(line.trim()))
+        .map(line => line.replace(/^[•*\s\d\.]+/, '').trim())
+        .filter(topic => topic.length > 1);
+    }
+    
+    // If no bullet points found, fall back to the original approach
+    if (topics.length === 0) {
+      topics = topicsText
+        .split(/[\n,:]/)
+        .map((topic: string) => topic.trim())
+        .filter((topic: string) => 
+          topic && 
+          !topic.toLowerCase().includes('topic') && 
+          !topic.toLowerCase().includes('chapter') &&
+          topic.length > 1
+        );
+    }
+    
+    // If we still don't have topics, try a more aggressive parsing approach
+    if (topics.length === 0) {
+      // Look for sections like "Topics:", "Main topics:", etc.
+      const topicSections = topicsText.match(/(?:Topics|Main topics|Key topics|Areas|Subjects):[^\n]*([\s\S]*?)(?:\n\n|\n[A-Z]|$)/gi);
+      
+      if (topicSections && topicSections.length > 0) {
+        topics = topicSections
+          .flatMap(section => 
+            section
+              .replace(/^.*?:/, '') // Remove the "Topics:" prefix
+              .split(/[\n,]/)
+              .map(t => t.trim())
+              .filter(t => t.length > 1)
+          );
+      } else {
+        // Last resort: just take any reasonable length words/phrases
+        topics = topicsText
+          .split(/[\n,\.:]/)
+          .map(t => t.trim())
+          .filter(t => t.length > 3 && t.length < 50);
+      }
+    }
+    
+    // Remove duplicates and general terms
+    topics = [...new Set(topics)].filter(topic => 
+      !['topic', 'topics', 'chapter', 'chapters', 'section', 'sections'].includes(topic.toLowerCase())
+    );
+    
+    console.log("Extracted topics:", topics);
     
     return { success: true, topics };
   } catch (error) {

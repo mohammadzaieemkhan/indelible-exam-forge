@@ -58,21 +58,31 @@ const SyllabusUploader = ({ onTopicsExtracted, onSyllabusContent }: SyllabusUplo
     try {
       // Convert file to text
       const fileContent = await fileToText(file);
+      console.log("File content extracted, length:", fileContent.length);
       
-      // Send to API for processing
+      // Save syllabus content 
       onSyllabusContent(fileContent);
       
-      // Parse syllabus content to extract topics
+      // Parse syllabus content to extract topics using Gemini AI
+      console.log("Calling Gemini AI to parse syllabus content");
       const result = await parseSyllabusContent(fileContent);
       
-      if (result.success && result.topics) {
+      if (result.success && result.topics && result.topics.length > 0) {
+        console.log("Topics extracted successfully:", result.topics);
         onTopicsExtracted(result.topics);
         toast({
           title: "Syllabus Processed",
           description: `${result.topics.length} topics extracted`,
         });
       } else {
-        throw new Error(result.error || "Failed to parse syllabus");
+        // If no topics were extracted or there was an error
+        const errorMsg = result.error || "No topics found in syllabus. Try adding topics manually.";
+        console.error("Failed to extract topics:", errorMsg);
+        toast({
+          title: "Processing Notice",
+          description: errorMsg,
+          variant: "default",
+        });
       }
     } catch (error) {
       console.error("Error processing syllabus:", error);
@@ -149,11 +159,11 @@ const SyllabusUploader = ({ onTopicsExtracted, onSyllabusContent }: SyllabusUplo
           {isProcessing ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Processing...
+              Processing with Gemini AI...
             </>
           ) : (
             <>
-              Analyze Syllabus
+              Analyze Syllabus with AI
             </>
           )}
         </Button>
