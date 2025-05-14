@@ -12,6 +12,30 @@ const corsHeaders = {
 // Default system prompt for the AI
 const DEFAULT_SYSTEM_PROMPT = "You are an AI assistant specialized in education, helping to create exam questions and evaluate answers based on educational content.";
 
+// Set timeout for Gemini API requests (in milliseconds)
+const API_TIMEOUT = 30000;
+
+// Helper function to handle API request with timeout
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -104,57 +128,60 @@ serve(async (req) => {
     console.log("Making request to Gemini API with prompt:", userPrompt);
     console.log("Using task:", task);
 
-    // Make the request to Gemini API using the gemini-1.5-flash model
-    const geminiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": GEMINI_API_KEY,
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: systemPrompt }]
-          },
-          {
-            role: "model",
-            parts: [{ text: "I understand. I'll help with this educational task and ensure questions are strictly relevant to the provided topics." }]
-          },
-          {
-            role: "user",
-            parts: [{ text: userPrompt }]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
+    // Make the request to Gemini API using the gemini-1.5-flash model with timeout
+    const geminiResponse = await fetchWithTimeout(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", 
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY,
         },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_ONLY_HIGH"
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: systemPrompt }]
+            },
+            {
+              role: "model",
+              parts: [{ text: "I understand. I'll help with this educational task and ensure questions are strictly relevant to the provided topics." }]
+            },
+            {
+              role: "user",
+              parts: [{ text: userPrompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048,
           },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH",
-            threshold: "BLOCK_ONLY_HIGH"
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_ONLY_HIGH"
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_ONLY_HIGH"
-          }
-        ]
-      }),
-    });
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_ONLY_HIGH"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_ONLY_HIGH"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_ONLY_HIGH"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_ONLY_HIGH"
+            }
+          ]
+        }),
+      },
+      API_TIMEOUT
+    );
 
     const geminiData = await geminiResponse.json();
-    console.log("Gemini API raw response:", JSON.stringify(geminiData, null, 2));
     
     // Safely extract the AI response text with better error handling
     let aiResponse = "";
@@ -170,15 +197,15 @@ serve(async (req) => {
       } else if (geminiData.error) {
         // Handle API error
         console.error("Gemini API returned an error:", geminiData.error);
-        aiResponse = `Error from Gemini API: ${geminiData.error.message || JSON.stringify(geminiData.error)}`;
+        throw new Error(`Error from Gemini API: ${geminiData.error.message || JSON.stringify(geminiData.error)}`);
       } else {
         // Handle unexpected response format
         console.error("Unexpected Gemini API response format:", geminiData);
-        aiResponse = "The AI model returned an unexpected response format. Please try again.";
+        throw new Error("The AI model returned an unexpected response format. Please try again.");
       }
     } catch (e) {
       console.error("Error parsing Gemini API response:", e, "Response:", geminiData);
-      aiResponse = "Sorry, I couldn't process your request at this time.";
+      throw new Error("Sorry, I couldn't process your request at this time.");
     }
 
     // Return success response
