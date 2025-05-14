@@ -1,12 +1,31 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, LineChart, PieChart, Trophy, Timer, Target } from "lucide-react";
+import { Trophy, Timer, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGeminiAI } from "@/utils/apiService";
 import type { IExam } from "@/components/ExamTabs";
+import { 
+  LineChart as RechartsLineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell
+} from "recharts";
+import { 
+  ChartContainer, 
+  ChartTooltip, 
+  ChartTooltipContent
+} from "@/components/ui/chart";
+import { motion } from "framer-motion";
 
 interface ExamResult {
   examId: string;
@@ -34,6 +53,34 @@ interface ExamResult {
   }>;
 }
 
+// Colors for charts
+const CHART_COLORS = {
+  primary: '#9b87f5',
+  success: '#4ade80',
+  warning: '#f97316',
+  danger: '#ef4444',
+  neutral: '#8E9196',
+  accent1: '#D946EF',
+  accent2: '#0EA5E9',
+  accent3: '#F97316',
+  accent4: '#8B5CF6',
+  accent5: '#1EAEDB',
+  background: 'rgba(155, 135, 245, 0.1)'
+};
+
+// Generate a pastel color based on index
+const generatePastelColor = (index: number) => {
+  const baseColors = [
+    CHART_COLORS.primary,
+    CHART_COLORS.accent1,
+    CHART_COLORS.accent2,
+    CHART_COLORS.accent3,
+    CHART_COLORS.accent4,
+    CHART_COLORS.accent5,
+  ];
+  return baseColors[index % baseColors.length];
+};
+
 const PerformanceTab = () => {
   const [examResults, setExamResults] = useState<ExamResult[]>([]);
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
@@ -60,6 +107,38 @@ const PerformanceTab = () => {
   const currentResult = selectedExam 
     ? examResults.find(result => result.examId === selectedExam)
     : null;
+
+  // Format exam results for line chart display
+  const getScoreHistoryData = () => {
+    return examResults.map((result, index) => ({
+      name: result.examName,
+      score: result.percentage,
+      date: new Date(result.date).toLocaleDateString(),
+    }));
+  };
+
+  // Format topic performance data for pie chart
+  const getTopicPerformanceData = () => {
+    if (!currentResult || !currentResult.topicPerformance) return [];
+    
+    return Object.entries(currentResult.topicPerformance).map(([topic, percentage]) => ({
+      name: topic,
+      value: percentage,
+    }));
+  };
+
+  // Animation variants for charts
+  const chartVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: "easeOut"
+      }
+    }
+  };
 
   return (
     <Card>
@@ -93,9 +172,9 @@ const PerformanceTab = () => {
                         <button
                           key={result.examId}
                           onClick={() => setSelectedExam(result.examId)}
-                          className={`px-3 py-1.5 text-sm font-medium rounded-full 
+                          className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all duration-300
                             ${selectedExam === result.examId 
-                              ? 'bg-primary text-primary-foreground' 
+                              ? 'bg-primary text-primary-foreground scale-105 shadow-md' 
                               : 'bg-muted hover:bg-muted/80'}`}
                         >
                           {result.examName}
@@ -108,98 +187,211 @@ const PerformanceTab = () => {
                     <>
                       {/* Score Overview */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Card className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Score</p>
-                              <h3 className="text-2xl font-bold mt-1">
-                                {currentResult.score}/{currentResult.totalMarks}
-                              </h3>
+                        <motion.div
+                          initial="hidden"
+                          animate="visible"
+                          variants={chartVariants}
+                        >
+                          <Card className="p-4 transition-all duration-300 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Score</p>
+                                <h3 className="text-2xl font-bold mt-1">
+                                  {currentResult.score}/{currentResult.totalMarks}
+                                </h3>
+                              </div>
+                              <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                <Trophy className="h-6 w-6 text-primary" />
+                              </div>
                             </div>
-                            <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Trophy className="h-6 w-6 text-primary" />
-                            </div>
-                          </div>
-                          <Progress 
-                            value={currentResult.percentage} 
-                            className="mt-3 h-2" 
-                          />
-                          <p className="text-xs text-right mt-1 text-muted-foreground">
-                            {currentResult.percentage}%
-                          </p>
-                        </Card>
+                            <Progress 
+                              value={currentResult.percentage} 
+                              className="mt-3 h-2" 
+                            />
+                            <p className="text-xs text-right mt-1 text-muted-foreground">
+                              {currentResult.percentage}%
+                            </p>
+                          </Card>
+                        </motion.div>
 
-                        <Card className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Time Taken</p>
-                              <h3 className="text-2xl font-bold mt-1">{currentResult.timeTaken}</h3>
+                        <motion.div
+                          initial="hidden"
+                          animate="visible"
+                          variants={chartVariants}
+                          transition={{ delay: 0.1 }}
+                        >
+                          <Card className="p-4 transition-all duration-300 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Time Taken</p>
+                                <h3 className="text-2xl font-bold mt-1">{currentResult.timeTaken}</h3>
+                              </div>
+                              <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                <Timer className="h-6 w-6 text-primary" />
+                              </div>
                             </div>
-                            <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Timer className="h-6 w-6 text-primary" />
-                            </div>
-                          </div>
-                        </Card>
+                          </Card>
+                        </motion.div>
 
-                        <Card className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Questions</p>
-                              <h3 className="text-2xl font-bold mt-1">
-                                {currentResult.questionStats.correct}/{currentResult.questionStats.total}
-                              </h3>
+                        <motion.div
+                          initial="hidden"
+                          animate="visible"
+                          variants={chartVariants}
+                          transition={{ delay: 0.2 }}
+                        >
+                          <Card className="p-4 transition-all duration-300 hover:shadow-md">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Questions</p>
+                                <h3 className="text-2xl font-bold mt-1">
+                                  {currentResult.questionStats.correct}/{currentResult.questionStats.total}
+                                </h3>
+                              </div>
+                              <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                <Target className="h-6 w-6 text-primary" />
+                              </div>
                             </div>
-                            <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Target className="h-6 w-6 text-primary" />
-                            </div>
-                          </div>
-                          <div className="flex gap-2 mt-3">
-                            <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                              {currentResult.questionStats.correct} Correct
-                            </span>
-                            <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                              {currentResult.questionStats.incorrect} Incorrect
-                            </span>
-                            {currentResult.questionStats.unattempted > 0 && (
-                              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">
-                                {currentResult.questionStats.unattempted} Unattempted
+                            <div className="flex gap-2 mt-3">
+                              <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                {currentResult.questionStats.correct} Correct
                               </span>
-                            )}
-                          </div>
-                        </Card>
+                              <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                                {currentResult.questionStats.incorrect} Incorrect
+                              </span>
+                              {currentResult.questionStats.unattempted > 0 && (
+                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">
+                                  {currentResult.questionStats.unattempted} Unattempted
+                                </span>
+                              )}
+                            </div>
+                          </Card>
+                        </motion.div>
                       </div>
 
                       {/* Charts */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-lg">Score History</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="h-[200px] flex items-center justify-center border rounded-lg bg-muted/30">
-                              <div className="text-center text-muted-foreground">
-                                <LineChart className="h-10 w-10 mx-auto mb-2" />
-                                <p>Line Chart Visualization</p>
-                                <p className="text-sm">(Connect to Chart.js)</p>
+                        <motion.div
+                          initial="hidden"
+                          animate="visible"
+                          variants={chartVariants}
+                          transition={{ delay: 0.3 }}
+                        >
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-lg">Score History</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="h-[200px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <RechartsLineChart
+                                    data={getScoreHistoryData()}
+                                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                                  >
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                                    <YAxis 
+                                      domain={[0, 100]} 
+                                      tick={{ fontSize: 12 }}
+                                      tickFormatter={(value) => `${value}%`}
+                                    />
+                                    <Tooltip
+                                      content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                          return (
+                                            <div className="bg-background border border-border p-2 rounded-md shadow-md">
+                                              <p className="font-medium">{payload[0].payload.name}</p>
+                                              <p>Date: {payload[0].payload.date}</p>
+                                              <p className="text-primary font-semibold">
+                                                Score: {payload[0].value}%
+                                              </p>
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      }}
+                                    />
+                                    <Legend />
+                                    <Line
+                                      type="monotone"
+                                      dataKey="score"
+                                      name="Score %"
+                                      stroke={CHART_COLORS.primary}
+                                      strokeWidth={2}
+                                      dot={{ 
+                                        r: 6,
+                                        strokeWidth: 2,
+                                        fill: "white", 
+                                        stroke: CHART_COLORS.primary
+                                      }}
+                                      activeDot={{ r: 8, fill: CHART_COLORS.primary }}
+                                    />
+                                  </RechartsLineChart>
+                                </ResponsiveContainer>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
                         
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-lg">Topic Mastery</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="h-[200px] flex items-center justify-center border rounded-lg bg-muted/30">
-                              <div className="text-center text-muted-foreground">
-                                <PieChart className="h-10 w-10 mx-auto mb-2" />
-                                <p>Topic Distribution</p>
-                                <p className="text-sm">(Connect to Chart.js)</p>
+                        <motion.div
+                          initial="hidden"
+                          animate="visible"
+                          variants={chartVariants}
+                          transition={{ delay: 0.4 }}
+                        >
+                          <Card>
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-lg">Topic Mastery</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="h-[200px]">
+                                {currentResult.topicPerformance && Object.keys(currentResult.topicPerformance).length > 0 ? (
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <RechartsPieChart>
+                                      <Pie
+                                        data={getTopicPerformanceData()}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        outerRadius={80}
+                                        fill={CHART_COLORS.primary}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                      >
+                                        {getTopicPerformanceData().map((entry, index) => (
+                                          <Cell 
+                                            key={`cell-${index}`} 
+                                            fill={generatePastelColor(index)}
+                                          />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip 
+                                        formatter={(value) => `${value}%`}
+                                        content={({ active, payload }) => {
+                                          if (active && payload && payload.length) {
+                                            return (
+                                              <div className="bg-background border border-border p-2 rounded-md shadow-md">
+                                                <p className="font-medium">{payload[0].name}</p>
+                                                <p className="text-primary font-semibold">
+                                                  Mastery: {payload[0].value}%
+                                                </p>
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        }}
+                                      />
+                                    </RechartsPieChart>
+                                  </ResponsiveContainer>
+                                ) : (
+                                  <div className="h-full flex items-center justify-center text-muted-foreground">
+                                    <p>No topic data available</p>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
                       </div>
                     </>
                   )}
@@ -243,7 +435,16 @@ const PerformanceTab = () => {
                             <span className="font-medium">{topic}</span>
                             <span className="text-sm text-muted-foreground">{percentage}%</span>
                           </div>
-                          <Progress value={percentage} className="h-2" />
+                          <Progress 
+                            value={percentage} 
+                            className="h-2" 
+                            indicatorColor={
+                              percentage >= 80 ? CHART_COLORS.success : 
+                              percentage >= 60 ? CHART_COLORS.accent3 : 
+                              percentage >= 40 ? CHART_COLORS.warning : 
+                              CHART_COLORS.danger
+                            }
+                          />
                         </div>
                       ))}
                     </div>
