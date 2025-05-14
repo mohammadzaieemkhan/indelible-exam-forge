@@ -16,8 +16,8 @@ interface PreviousExamsTabProps {
 const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState<boolean>(false);
-  const [filterSubject, setFilterSubject] = useState<string>("");
-  const [filterDate, setFilterDate] = useState<string>("");
+  const [filterSubject, setFilterSubject] = useState<string>("all-subjects");
+  const [filterDate, setFilterDate] = useState<string>("all-dates");
   const [showFilters, setShowFilters] = useState<boolean>(false);
   
   // Extract unique subjects from all exams
@@ -41,16 +41,16 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
   // Filter exams based on subject and date
   const filteredExams = useMemo(() => {
     return exams.filter(exam => {
-      const matchesSubject = !filterSubject || exam.topics.includes(filterSubject);
-      const matchesDate = !filterDate || exam.date === filterDate;
+      const matchesSubject = filterSubject === "all-subjects" || exam.topics.includes(filterSubject);
+      const matchesDate = filterDate === "all-dates" || exam.date === filterDate;
       return matchesSubject && matchesDate;
     });
   }, [exams, filterSubject, filterDate]);
   
   // Reset filters
   const handleResetFilters = () => {
-    setFilterSubject("");
-    setFilterDate("");
+    setFilterSubject("all-subjects");
+    setFilterDate("all-dates");
   };
   
   // Open dialog to view exam details
@@ -246,7 +246,7 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
                   <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Subjects</SelectItem>
+                  <SelectItem value="all-subjects">All Subjects</SelectItem>
                   {uniqueSubjects.map(subject => (
                     <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                   ))}
@@ -261,7 +261,7 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
                   <SelectValue placeholder="Select date" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Dates</SelectItem>
+                  <SelectItem value="all-dates">All Dates</SelectItem>
                   {uniqueDates.map(date => (
                     <SelectItem key={date} value={date}>{date}</SelectItem>
                   ))}
@@ -269,7 +269,7 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
               </Select>
             </div>
             
-            {(filterSubject || filterDate) && (
+            {(filterSubject !== "all-subjects" || filterDate !== "all-dates") && (
               <div className="flex items-end">
                 <Button variant="ghost" size="sm" onClick={handleResetFilters}>
                   Clear Filters
@@ -351,7 +351,7 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
               }) : (
                 <tr>
                   <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                    No previous exams found{filterSubject || filterDate ? ' matching your filter criteria' : ''}.
+                    No previous exams found{(filterSubject !== "all-subjects" || filterDate !== "all-dates") ? ' matching your filter criteria' : ''}.
                   </td>
                 </tr>
               )}
