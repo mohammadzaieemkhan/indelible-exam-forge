@@ -103,6 +103,20 @@ export default {
 				'slide-in-right': {
 					'0%': { transform: 'translateX(100%)' },
 					'100%': { transform: 'translateX(0)' }
+				},
+				'float': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-10px)' }
+				},
+				'glow': {
+					'0%, 100%': { 
+						boxShadow: '0 0 5px rgba(var(--primary), 0.5)',
+						opacity: '1' 
+					},
+					'50%': { 
+						boxShadow: '0 0 20px rgba(var(--primary), 0.8)',
+						opacity: '0.8'  
+					}
 				}
 			},
 			animation: {
@@ -112,8 +126,18 @@ export default {
 				'fade-in': 'fade-in 0.3s ease-out',
 				'scale-in': 'scale-in 0.2s ease-out',
 				'slide-in-right': 'slide-in-right 0.3s ease-out',
-				'enter': 'fade-in 0.3s ease-out, scale-in 0.2s ease-out'
-			}
+				'enter': 'fade-in 0.3s ease-out, scale-in 0.2s ease-out',
+				'float': 'float 3s ease-in-out infinite',
+				'glow': 'glow 2s ease-in-out infinite',
+			},
+			backgroundImage: {
+				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+				'grid-pattern': 'linear-gradient(to right, rgba(var(--primary), 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(var(--primary), 0.05) 1px, transparent 1px)',
+			},
+			backgroundSize: {
+				'grid-small': '20px 20px',
+				'grid-medium': '40px 40px',
+			},
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
