@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { useGeminiAI } from "@/utils/apiService";
 import ExamSection from "@/components/ExamSection";
 import SyllabusUploader from "@/components/SyllabusUploader";
@@ -32,6 +32,12 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   const [newTopic, setNewTopic] = useState<string>("");
   const [syllabusContent, setSyllabusContent] = useState<string>("");
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState<boolean>(false);
+  
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<{
+    date?: string;
+    time?: string;
+  }>({});
 
   // Section management
   const [sections, setSections] = useState<any[]>([]);
@@ -64,11 +70,15 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   // Check if the form is valid for generation
   const isGenerateButtonDisabled = isGeneratingQuestions || 
     (useSections && sections.length === 0) || 
-    (!useSections && topics.length === 0);
+    (!useSections && topics.length === 0) ||
+    !examDate ||
+    !examTime;
 
   // Get the reason why the button is disabled
   const getDisabledReason = () => {
     if (isGeneratingQuestions) return "Generating questions...";
+    if (!examDate) return "Exam date is required";
+    if (!examTime) return "Exam time is required";
     if (useSections && sections.length === 0) return "At least one section is required when sections are enabled";
     if (!useSections && topics.length === 0) return "At least one topic is required";
     return "";
@@ -149,9 +159,45 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   const handleSyllabusContent = (content: string) => {
     setSyllabusContent(content);
   };
+
+  // Handle date change
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setExamDate(e.target.value);
+    setFormErrors(prev => ({...prev, date: undefined}));
+  };
+
+  // Handle time change
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setExamTime(e.target.value);
+    setFormErrors(prev => ({...prev, time: undefined}));
+  };
   
   // Handle exam generation
   const handleGenerateExam = async () => {
+    // Validate required fields
+    const errors: {
+      date?: string;
+      time?: string;
+    } = {};
+
+    if (!examDate) {
+      errors.date = "Exam date is required";
+    }
+
+    if (!examTime) {
+      errors.time = "Exam time is required";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGeneratingQuestions(true);
     
     try {
@@ -239,7 +285,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         // Create exam object to save
         const newExam: IExam = {
           name: examName,
-          date: examDate || "2025-05-15",
+          date: examDate,
           time: examTime,
           duration: examDuration,
           numberOfQuestions,
@@ -267,6 +313,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         // Reset form
         setExamName("New Exam");
         setExamDate("");
+        setExamTime("10:00");
         setTopics([]);
       } else {
         throw new Error(result.error || "Failed to generate questions");
@@ -303,22 +350,32 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
               />
             </div>
             <div>
-              <Label>Exam Date</Label>
+              <Label className="flex items-center">
+                Exam Date <span className="text-red-500 ml-1">*</span>
+              </Label>
               <Input 
                 type="date" 
                 value={examDate}
-                onChange={(e) => setExamDate(e.target.value)}
-                className="w-full mt-1" 
+                onChange={handleDateChange}
+                className={cn("w-full mt-1", formErrors.date && "border-red-500")}
               />
+              {formErrors.date && (
+                <p className="text-xs text-red-500 mt-1">{formErrors.date}</p>
+              )}
             </div>
             <div>
-              <Label>Exam Time</Label>
+              <Label className="flex items-center">
+                Exam Time <span className="text-red-500 ml-1">*</span>
+              </Label>
               <Input 
                 type="time" 
                 value={examTime}
-                onChange={(e) => setExamTime(e.target.value)}
-                className="w-full mt-1" 
+                onChange={handleTimeChange}
+                className={cn("w-full mt-1", formErrors.time && "border-red-500")}
               />
+              {formErrors.time && (
+                <p className="text-xs text-red-500 mt-1">{formErrors.time}</p>
+              )}
             </div>
             <div>
               <Label>Duration (minutes)</Label>
