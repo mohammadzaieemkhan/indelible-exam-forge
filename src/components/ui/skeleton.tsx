@@ -2,10 +2,11 @@
 import { cn } from "@/lib/utils"
 import { HTMLMotionProps, motion } from "framer-motion"
 
-interface SkeletonProps extends Omit<HTMLMotionProps<"div">, "className"> {
+interface SkeletonProps {
   className?: string;
   shimmer?: boolean;
   animated?: boolean;
+  [key: string]: any; // Allow other props to pass through
 }
 
 function Skeleton({
