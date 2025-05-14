@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -135,6 +134,7 @@ export const useGeminiAI = async (
     difficulty?: string;
     questionTypes?: string[];
     numberOfQuestions?: number;
+    organizeBySections?: boolean;
     sections?: {
       title: string;
       topics: string[];

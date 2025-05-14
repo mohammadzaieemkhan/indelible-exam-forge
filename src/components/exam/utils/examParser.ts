@@ -1,4 +1,3 @@
-
 import { IExam } from "@/components/ExamTabs";
 
 export interface ParsedQuestionItem {
@@ -24,17 +23,26 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
     if (!trimmedLine) continue; // Skip empty lines
     
     // Check for section headers
+    // Enhanced section detection - include question type sections
     if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
       currentSection = trimmedLine.replace(/\*\*/g, '');
       continue;
     }
     
     // Alternative section header detection
-    if (/^(Section|SECTION)[\s:]+(.+)$/i.test(trimmedLine)) {
-      const match = trimmedLine.match(/^(Section|SECTION)[\s:]+(.+)$/i);
+    if (/^(Section|SECTION|MCQ|Multiple Choice|TRUE\/FALSE|True\/False|SHORT ANSWER|Short Answer|ESSAY|Essay)[\s:]+(.+)$/i.test(trimmedLine)) {
+      const match = trimmedLine.match(/^(Section|SECTION|MCQ|Multiple Choice|TRUE\/FALSE|True\/False|SHORT ANSWER|Short Answer|ESSAY|Essay)[\s:]+(.+)$/i);
       if (match) {
-        currentSection = match[2].trim();
+        currentSection = match[0].trim();
+      } else {
+        currentSection = trimmedLine;
       }
+      continue;
+    }
+    
+    // Even more section detection patterns
+    if (/^(MCQ|Multiple Choice Questions|TRUE\/FALSE|True\/False Questions|SHORT ANSWER|Short Answer Questions|ESSAY|Essay Questions)$/i.test(trimmedLine)) {
+      currentSection = trimmedLine.trim();
       continue;
     }
     
@@ -53,7 +61,7 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
       // Start a new question
       currentQuestion = {
         question: trimmedLine,
-        type: 'mcq', // Default, we'll update based on content
+        type: determineQuestionType(trimmedLine, currentSection), // Use section to help determine type
         section: currentSection || undefined
       };
       currentOptions = [];
@@ -147,6 +155,38 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
     return q;
   });
 };
+
+// Helper function to determine question type based on content and section
+function determineQuestionType(question: string, section: string): 'mcq' | 'truefalse' | 'shortanswer' | 'essay' {
+  const lowerSection = section.toLowerCase();
+  const lowerQuestion = question.toLowerCase();
+  
+  // Determine by section
+  if (lowerSection.includes('mcq') || lowerSection.includes('multiple choice')) {
+    return 'mcq';
+  }
+  if (lowerSection.includes('true/false') || lowerSection.includes('true or false')) {
+    return 'truefalse';
+  }
+  if (lowerSection.includes('short answer')) {
+    return 'shortanswer';
+  }
+  if (lowerSection.includes('essay')) {
+    return 'essay';
+  }
+  
+  // Determine by question content
+  if (lowerQuestion.includes('true or false')) {
+    return 'truefalse';
+  }
+  if (lowerQuestion.includes('explain') || lowerQuestion.includes('describe') || 
+      lowerQuestion.includes('discuss') || lowerQuestion.includes('essay')) {
+    return 'essay';
+  }
+  
+  // Default to MCQ if cannot determine
+  return 'mcq';
+}
 
 // Simple function to convert markdown to HTML
 export const markdownToHtml = (markdown: string): string => {

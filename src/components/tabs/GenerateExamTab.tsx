@@ -259,6 +259,9 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         if (selectedQuestionTypes.length === 0) {
           throw new Error("Please select at least one question type");
         }
+
+        // For auto-sectioning when multiple question types are selected
+        const shouldAutoSection = selectedQuestionTypes.length > 1;
         
         params = {
           ...params,
@@ -266,7 +269,8 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
           difficulty: difficultyLevel || "medium",
           questionTypes: selectedQuestionTypes,
           numberOfQuestions: parseInt(numberOfQuestions) || 10,
-          questionWeights: questionWeights
+          questionWeights: questionWeights,
+          organizeBySections: shouldAutoSection // Add this flag for auto-sectioning
         };
       }
       
