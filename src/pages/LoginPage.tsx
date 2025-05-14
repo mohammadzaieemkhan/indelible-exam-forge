@@ -71,20 +71,36 @@ const LoginPage = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      console.log("Starting Google sign-in process...");
+      
+      // Use the current origin for the redirect URL
+      const redirectTo = `${window.location.origin}/dashboard`;
+      console.log("Redirect URL:", redirectTo);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/dashboard'
+          redirectTo: redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Google Sign-In Error:", error);
+        throw error;
+      }
       
-      // The redirect will happen automatically, no need to navigate
+      console.log("Google sign-in initiated, redirecting to:", data?.url);
+      
+      // Note: Redirect will happen automatically from Supabase
     } catch (error: any) {
+      console.error("Google Sign-In Exception:", error);
       toast({
         title: "Google Sign-In Failed",
-        description: error.message || "Failed to sign in with Google. Please try again.",
+        description: "Unable to connect to Google. Please try again later or use email sign-in.",
         variant: "destructive"
       });
       setGoogleLoading(false);

@@ -89,20 +89,36 @@ const SignupPage = () => {
   const handleGoogleSignUp = async () => {
     setGoogleLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      console.log("Starting Google sign-up process...");
+      
+      // Use the current origin for the redirect URL
+      const redirectTo = `${window.location.origin}/dashboard`;
+      console.log("Redirect URL:", redirectTo);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/dashboard'
+          redirectTo: redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Google Sign-Up Error:", error);
+        throw error;
+      }
       
-      // The redirect will happen automatically, no need to navigate
+      console.log("Google sign-up initiated, redirecting to:", data?.url);
+      
+      // Note: Redirect will happen automatically from Supabase
     } catch (error: any) {
+      console.error("Google Sign-Up Exception:", error);
       toast({
         title: "Google Sign-Up Failed",
-        description: error.message || "Failed to sign up with Google. Please try again.",
+        description: "Unable to connect to Google. Please try again later or use email sign-up.",
         variant: "destructive"
       });
       setGoogleLoading(false);
