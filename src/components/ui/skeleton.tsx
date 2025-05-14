@@ -1,8 +1,9 @@
 
 import { cn } from "@/lib/utils"
-import { motion } from "framer-motion"
+import { HTMLMotionProps, motion } from "framer-motion"
 
-interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
+interface SkeletonProps extends Omit<HTMLMotionProps<"div">, "className"> {
+  className?: string;
   shimmer?: boolean;
   animated?: boolean;
 }
