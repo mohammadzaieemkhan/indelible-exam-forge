@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import ExamSection from "@/components/ExamSection";
 import SyllabusUploader from "@/components/SyllabusUploader";
 import { IExam } from "@/components/ExamTabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
 
 interface GenerateExamTabProps {
   onSaveExam: (exam: IExam) => void;
