@@ -15,8 +15,8 @@ const DashboardPage = () => {
         {/* Quick stats cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 w-full md:w-auto">
           <Card className="p-3 md:p-4 flex items-center gap-2 md:gap-3 bg-primary/5">
-            <div className="bg-primary/10 p-2 rounded-full">
-              <BookOpen className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+            <div className="bg-primary/10 p-2 rounded-full text-primary">
+              <BookOpen className="h-4 w-4 md:h-5 md:w-5" />
             </div>
             <div>
               <p className="text-xs md:text-sm font-medium">Create Exams</p>
@@ -25,8 +25,8 @@ const DashboardPage = () => {
           </Card>
           
           <Card className="p-3 md:p-4 flex items-center gap-2 md:gap-3 bg-primary/5">
-            <div className="bg-primary/10 p-2 rounded-full">
-              <Calendar className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+            <div className="bg-primary/10 p-2 rounded-full text-primary">
+              <Calendar className="h-4 w-4 md:h-5 md:w-5" />
             </div>
             <div>
               <p className="text-xs md:text-sm font-medium">Schedule Tests</p>
@@ -35,8 +35,8 @@ const DashboardPage = () => {
           </Card>
           
           <Card className="p-3 md:p-4 flex items-center gap-2 md:gap-3 bg-primary/5">
-            <div className="bg-primary/10 p-2 rounded-full">
-              <Bell className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+            <div className="bg-primary/10 p-2 rounded-full text-primary">
+              <Bell className="h-4 w-4 md:h-5 md:w-5" />
             </div>
             <div>
               <p className="text-xs md:text-sm font-medium">Get Notified</p>

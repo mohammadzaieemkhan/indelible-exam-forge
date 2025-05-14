@@ -6,10 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { IExam } from "@/components/ExamTabs";
 import { useToast } from "@/hooks/use-toast";
-import { Info } from "lucide-react";
+import { Info, Filter } from "lucide-react";
 import ExamCard from "@/components/exam/ExamCard";
 import DeleteExamDialog from "@/components/exam/DeleteExamDialog";
 import ExamRenderer from "@/components/exam/ExamRenderer";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 interface UpcomingExamsTabProps {
   exams: IExam[];
@@ -28,15 +29,9 @@ const UpcomingExamsTab = ({
   isWhatsAppSetup = false,
   onDeleteExam 
 }: UpcomingExamsTabProps) => {
-  const [selectedExamIndex, setSelectedExamIndex] = useState<string>("0");
-  const { toast } = useToast();
   const [examToDelete, setExamToDelete] = useState<IExam | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  
-  // Handle exam selection in upcoming exams tab
-  const handleExamSelect = (value: string) => {
-    setSelectedExamIndex(value);
-  };
+  const { toast } = useToast();
   
   // Handle delete exam button click
   const handleDeleteClick = (exam: IExam) => {
@@ -52,11 +47,6 @@ const UpcomingExamsTab = ({
         title: "Exam Deleted",
         description: `${examToDelete.name} has been deleted successfully.`
       });
-      
-      // If the deleted exam was selected, reset selection to the first exam
-      if (parseInt(selectedExamIndex) === exams.findIndex(e => e.id === examToDelete.id)) {
-        setSelectedExamIndex("0");
-      }
     }
     setDeleteConfirmOpen(false);
     setExamToDelete(null);
@@ -65,7 +55,6 @@ const UpcomingExamsTab = ({
   // Open exam in a new window
   const handleViewExam = (exam: IExam) => {
     // Directly call the handleViewExam method from ExamRenderer
-    // This avoids incorrectly instantiating the component with 'new'
     if (!exam.isActive) {
       toast({
         title: "Exam Not Available",
@@ -117,56 +106,47 @@ const UpcomingExamsTab = ({
   };
   
   return (
-    <div className="space-y-4">
-      {exams.length === 0 ? (
-        <Alert variant="default" className="bg-muted/50">
-          <Info className="h-4 w-4" />
-          <AlertTitle>No upcoming exams</AlertTitle>
-          <AlertDescription>
-            You don't have any upcoming exams scheduled. Go to the Generate Exam tab to create a new exam.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-            <div className="flex-1 w-full">
-              <Select value={selectedExamIndex} onValueChange={handleExamSelect}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select an exam" />
-                </SelectTrigger>
-                <SelectContent>
-                  {exams.map((exam, index) => (
-                    <SelectItem key={index} value={index.toString()}>
-                      {exam.name} ({exam.date})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {!isWhatsAppSetup && (
-              <div className="flex flex-col sm:flex-row items-start sm:items-center w-full sm:w-auto gap-2">
-                <Input
-                  type="text"
-                  placeholder="WhatsApp number with country code"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full sm:w-auto"
-                />
-              </div>
-            )}
-          </div>
-          
-          {exams.length > 0 && parseInt(selectedExamIndex) >= 0 && parseInt(selectedExamIndex) < exams.length && (
-            <ExamCard 
-              exam={exams[parseInt(selectedExamIndex)]} 
-              onSendReminder={onSendReminder}
-              onDeleteClick={handleDeleteClick}
-              onViewExam={handleViewExam}
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Upcoming Exams</CardTitle>
+          <CardDescription>View and manage your scheduled exams</CardDescription>
+        </div>
+        {!isWhatsAppSetup && (
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              placeholder="WhatsApp number with country code"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="w-full max-w-xs"
             />
-          )}
-        </>
-      )}
+          </div>
+        )}
+      </CardHeader>
+      <CardContent>
+        {exams.length === 0 ? (
+          <Alert variant="default" className="bg-muted/50">
+            <Info className="h-4 w-4" />
+            <AlertTitle>No upcoming exams</AlertTitle>
+            <AlertDescription>
+              You don't have any upcoming exams scheduled. Go to the Generate Exam tab to create a new exam.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <div className="space-y-4">
+            {exams.map((exam, index) => (
+              <ExamCard 
+                key={exam.id || index}
+                exam={exam} 
+                onSendReminder={onSendReminder}
+                onDeleteClick={handleDeleteClick}
+                onViewExam={handleViewExam}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
       
       {/* Delete confirmation dialog */}
       <DeleteExamDialog 
@@ -175,7 +155,7 @@ const UpcomingExamsTab = ({
         onOpenChange={setDeleteConfirmOpen}
         onConfirmDelete={handleConfirmDelete}
       />
-    </div>
+    </Card>
   );
 };
 
