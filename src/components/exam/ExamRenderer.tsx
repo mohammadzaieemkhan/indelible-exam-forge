@@ -34,7 +34,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         const cleanOption = option.replace(/^\s*[A-D][).]\s*/, '').trim();
         return `
           <div class="option">
-            <input type="radio" name="question-${question.id}" id="option-${question.id}-${optionLetter}" value="${optionLetter}">
+            <input type="radio" name="question-${question.id}" id="option-${question.id}-${optionLetter}" value="${optionLetter}" onchange="saveAnswer(${question.id}, this.value, 'mcq')">
             <label for="option-${question.id}-${optionLetter}" class="markdown-content">${cleanOption}</label>
           </div>
         `;
@@ -42,11 +42,11 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     } else if (question.type === 'trueFalse') {
       optionsHtml = `
         <div class="option">
-          <input type="radio" name="question-${question.id}" id="option-${question.id}-true" value="True">
+          <input type="radio" name="question-${question.id}" id="option-${question.id}-true" value="True" onchange="saveAnswer(${question.id}, this.value, 'trueFalse')">
           <label for="option-${question.id}-true">True</label>
         </div>
         <div class="option">
-          <input type="radio" name="question-${question.id}" id="option-${question.id}-false" value="False">
+          <input type="radio" name="question-${question.id}" id="option-${question.id}-false" value="False" onchange="saveAnswer(${question.id}, this.value, 'trueFalse')">
           <label for="option-${question.id}-false">False</label>
         </div>
       `;
@@ -54,7 +54,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
       optionsHtml = `
         <div class="short-answer-container">
           <textarea name="question-${question.id}" id="answer-${question.id}" placeholder="Enter your answer here..." 
-            rows="3" class="short-answer-input"></textarea>
+            rows="3" class="short-answer-input" oninput="saveAnswer(${question.id}, this.value, 'shortAnswer')"></textarea>
           <div class="answer-instructions">Write a brief, focused response (1-3 sentences)</div>
         </div>
       `;
@@ -62,7 +62,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
       optionsHtml = `
         <div class="essay-container">
           <textarea name="question-${question.id}" id="answer-${question.id}" placeholder="Write your essay here..." 
-            rows="8" class="essay-input"></textarea>
+            rows="8" class="essay-input" oninput="saveAnswer(${question.id}, this.value, 'essay')"></textarea>
           <div class="answer-instructions">Write a detailed response (recommended: 250-500 words)</div>
         </div>
       `;
@@ -520,6 +520,9 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         const allQuestions = ${JSON.stringify(questions.map(q => q.id))};
         let currentQuestion = 1;
         
+        // Track user answers
+        const userAnswers = {};
+        
         // Initialize all questions as not visited
         allQuestions.forEach(qId => {
           questionStatus[qId] = 'not-visited';
@@ -540,7 +543,52 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
               console.error('Error parsing markdown:', e);
             }
           });
+          
+          // Attach event listeners to all inputs
+          attachEventListeners();
         });
+        
+        // Attach event listeners to all inputs
+        function attachEventListeners() {
+          // For radio buttons (MCQ and True/False)
+          document.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+              const questionId = parseInt(this.name.split('-')[1]);
+              saveAnswer(questionId, this.value, this.name.includes('true') || this.name.includes('false') ? 'trueFalse' : 'mcq');
+            });
+          });
+          
+          // For textareas (Short Answer and Essay)
+          document.querySelectorAll('textarea').forEach(textarea => {
+            textarea.addEventListener('input', function() {
+              const questionId = parseInt(this.name.split('-')[1]);
+              const type = this.classList.contains('essay-input') ? 'essay' : 'shortAnswer';
+              saveAnswer(questionId, this.value, type);
+            });
+          });
+        }
+        
+        // Save user answers and update question status
+        function saveAnswer(questionId, answer, type) {
+          console.log('Saving answer for question', questionId, ':', answer, '(', type, ')');
+          
+          // Save the answer
+          userAnswers[questionId] = {
+            value: answer,
+            type: type
+          };
+          
+          // Update question status based on answer
+          if (type === 'mcq' || type === 'trueFalse') {
+            questionStatus[questionId] = 'answered';
+          } else if (type === 'shortAnswer' || type === 'essay') {
+            // For text inputs, only mark as answered if there's content
+            questionStatus[questionId] = answer.trim() !== '' ? 'answered' : 'unanswered';
+          }
+          
+          // Update the visual state of question numbers
+          updateQuestionNumbers();
+        }
         
         // Show a specific question
         function showQuestion(questionId) {
@@ -597,29 +645,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           });
         });
         
-        // Capture radio button changes to track answered questions
-        document.addEventListener('change', function(e) {
-          if (e.target.type === 'radio') {
-            const questionId = parseInt(e.target.name.split('-')[1]);
-            questionStatus[questionId] = 'answered';
-            updateQuestionNumbers();
-          }
-        });
-        
-        // Also listen for input events on textareas
-        document.addEventListener('input', function(e) {
-          if (e.target.tagName.toLowerCase() === 'textarea') {
-            const questionId = parseInt(e.target.name.split('-')[1]);
-            
-            if (e.target.value.trim() !== '') {
-              questionStatus[questionId] = 'answered';
-            } else {
-              questionStatus[questionId] = 'unanswered';
-            }
-            updateQuestionNumbers();
-          }
-        });
-        
         // Timer functionality
         function startTimer(minutes) {
           let totalSeconds = minutes * 60;
@@ -673,18 +698,10 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           // Collect all answers
           const answers = {};
           
-          // Get all radio button answers (MCQ and true/false questions)
-          document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
-            const questionId = radio.name.split('-')[1];
-            const value = radio.value;
-            answers[questionId] = value;
-          });
-          
-          // Get all textarea answers (short answer and essay questions)
-          document.querySelectorAll('textarea').forEach(textarea => {
-            const questionId = textarea.name.split('-')[1];
-            answers[questionId] = textarea.value.trim();
-          });
+          // Use the saved userAnswers for submission
+          for (const [questionId, answerObj] of Object.entries(userAnswers)) {
+            answers[questionId] = answerObj.value;
+          }
           
           // Get question text and type for each question
           const examQuestions = [];
@@ -721,6 +738,8 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
             questionTypes: examQuestions.map(q => q.type),
             questionWeights: ${JSON.stringify(exam.questionWeights || {})}
           };
+          
+          console.log('Submitting exam data with answers:', examData);
           
           // Submit the exam data
           if (typeof submitExam === 'function') {
