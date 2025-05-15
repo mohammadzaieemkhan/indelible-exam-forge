@@ -1,5 +1,5 @@
 
-import * as React from "react";
+import React from "react";
 
 type Theme = "dark" | "light" | "system";
 
@@ -26,7 +26,8 @@ export function ThemeProvider({
 }: ThemeProviderProps) {
   const [theme, setTheme] = React.useState<Theme>(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem(storageKey) as Theme) || defaultTheme;
+      const storedTheme = localStorage.getItem(storageKey) as Theme | null;
+      return storedTheme || defaultTheme;
     }
     return defaultTheme;
   });
