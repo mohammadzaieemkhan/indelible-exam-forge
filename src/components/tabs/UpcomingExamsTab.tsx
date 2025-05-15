@@ -61,6 +61,16 @@ const UpcomingExamsTab = ({
       return;
     }
     
+    // Check if exam has questions
+    if (!exam.questions || exam.questions.trim() === '') {
+      toast({
+        title: "Exam Content Missing",
+        description: "This exam doesn't have any questions. Please contact your instructor.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       // Use the renderer helper to open the exam with the two-panel layout
       const { openExamWindow } = renderExamWithNumbersPanel(exam);
@@ -70,6 +80,11 @@ const UpcomingExamsTab = ({
           title: "Popup Blocked",
           description: "Please allow popups for this site to take the exam.",
           variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Exam Started",
+          description: "Your exam has opened in a new window."
         });
       }
     } catch (error) {
