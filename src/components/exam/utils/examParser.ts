@@ -133,7 +133,7 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
       const text = match[2].trim();
       
       // Detect question type from content
-      let type = 'mcq'; // Default type
+      let type: 'mcq' | 'shortAnswer' | 'essay' | 'trueFalse' | 'unknown' = 'unknown'; // Default type with explicit typing
       let options: string[] = [];
       let correctAnswer: string | null = null;
       const cleanText = cleanQuestionText(text);
