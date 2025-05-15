@@ -9,8 +9,15 @@ export interface ParsedQuestionItem {
   section?: string;
 }
 
-// Parse questions from raw content with improved logic for better extraction of separately formatted options
+// Parse questions from raw content with improved logic for better extraction
 export const parseQuestions = (content: string): ParsedQuestionItem[] => {
+  if (!content || typeof content !== 'string') {
+    console.error("Invalid content provided to parseQuestions:", content);
+    return [];
+  }
+
+  console.log("Parsing questions from content:", content.substring(0, 100) + "...");
+  
   const questions: ParsedQuestionItem[] = [];
   const lines = content.split('\n');
   
@@ -19,14 +26,22 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
   let currentSection: string = '';
   let collectingOptions = false;
   
-  for (const line of lines) {
+  // Special handling for AI-generated question formats
+  // Look for patterns like **1. Multiple Choice:** to identify questions
+  const aiQuestionPattern = /^\s*\*\*\s*(\d+)\s*\.?\s*([^:]+):\*\*\s*(.+)/i;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmedLine = line.trim();
     if (!trimmedLine) continue; // Skip empty lines
     
     // Check for section headers
     if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
-      currentSection = trimmedLine.replace(/\*\*/g, '');
-      continue;
+      const sectionText = trimmedLine.replace(/\*\*/g, '');
+      if (!sectionText.match(/^\d+/)) { // If it doesn't start with a number, it's a section
+        currentSection = sectionText;
+        continue;
+      }
     }
     
     // Alternative section header detection
@@ -38,7 +53,48 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
       continue;
     }
     
-    // Detect questions by common patterns
+    // Check for AI-generated question format
+    const aiMatch = trimmedLine.match(aiQuestionPattern);
+    if (aiMatch) {
+      // Save previous question if exists
+      if (currentQuestion?.question) {
+        questions.push({
+          ...currentQuestion as ParsedQuestionItem,
+          options: currentOptions.length > 0 ? [...currentOptions] : undefined,
+          section: currentSection || undefined
+        });
+      }
+      
+      // Extract question type and content
+      const questionNumber = aiMatch[1];
+      const questionType = aiMatch[2].trim().toLowerCase();
+      const questionContent = aiMatch[3].trim();
+      
+      // Determine the question type
+      let type: 'mcq' | 'truefalse' | 'shortanswer' | 'essay' = 'shortanswer';
+      if (questionType.includes('multiple choice') || questionType.includes('mcq')) {
+        type = 'mcq';
+      } else if (questionType.includes('true') && questionType.includes('false')) {
+        type = 'truefalse';
+      } else if (questionType.includes('essay') || questionType.includes('discuss') || questionType.includes('explain')) {
+        type = 'essay';
+      } else if (questionType.includes('short') || questionType.includes('brief')) {
+        type = 'shortanswer';
+      }
+      
+      // Create new question
+      currentQuestion = {
+        question: `${questionNumber}. ${questionContent}`,
+        type,
+        section: currentSection || undefined
+      };
+      
+      currentOptions = [];
+      collectingOptions = type === 'mcq';
+      continue;
+    }
+    
+    // Detect regular questions by common patterns
     const questionRegex = /^(\d+[\.\)]|Question\s+\d+:)/i;
     if (questionRegex.test(trimmedLine)) {
       // Save the previous question if exists
@@ -75,6 +131,15 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
       if (answerMatch && currentQuestion) {
         currentQuestion.answer = answerMatch[1].trim();
         collectingOptions = false;
+      }
+    }
+    // Special handling for Answer: lines with more text
+    else if (trimmedLine.toLowerCase().startsWith('answer:') && currentQuestion) {
+      const answerText = trimmedLine.substring(7).trim(); // Remove "Answer: "
+      if (currentQuestion.type === 'mcq' && /^[A-D]$/i.test(answerText)) {
+        currentQuestion.answer = answerText;
+      } else {
+        currentQuestion.answer = answerText;
       }
     }
     // Detect true/false questions
@@ -127,6 +192,8 @@ export const parseQuestions = (content: string): ParsedQuestionItem[] => {
       section: currentSection || undefined
     });
   }
+  
+  console.log("Parsed questions:", questions.length);
   
   return questions.map(q => {
     // If no options and not already marked as essay, mark as short answer

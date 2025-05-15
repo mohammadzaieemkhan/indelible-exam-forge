@@ -7,6 +7,20 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGeminiAI } from "@/utils/apiService";
 import type { IExam } from "@/components/ExamTabs";
+import {
+  ResponsiveContainer,
+  LineChart as RechartsLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell
+} from "recharts";
+import { ChartContainer, ChartTooltipContent, ChartTooltip } from "@/components/ui/chart";
 
 interface ExamResult {
   examId: string;
@@ -60,6 +74,24 @@ const PerformanceTab = () => {
   const currentResult = selectedExam 
     ? examResults.find(result => result.examId === selectedExam)
     : null;
+
+  // Prepare data for line chart (score history)
+  const scoreHistoryData = examResults.map(result => ({
+    name: result.examName,
+    score: result.percentage,
+    date: new Date(result.date).toLocaleDateString()
+  }));
+
+  // Prepare data for pie chart (topic mastery)
+  const topicMasteryData = currentResult?.topicPerformance 
+    ? Object.keys(currentResult.topicPerformance).map(topic => ({
+        name: topic,
+        value: currentResult.topicPerformance[topic]
+      }))
+    : [];
+
+  // Colors for the pie chart
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A569BD', '#5DADE2', '#58D68D'];
 
   return (
     <Card>
@@ -176,12 +208,37 @@ const PerformanceTab = () => {
                             <CardTitle className="text-lg">Score History</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            <div className="h-[200px] flex items-center justify-center border rounded-lg bg-muted/30">
-                              <div className="text-center text-muted-foreground">
-                                <LineChart className="h-10 w-10 mx-auto mb-2" />
-                                <p>Line Chart Visualization</p>
-                                <p className="text-sm">(Connect to Chart.js)</p>
-                              </div>
+                            <div className="h-[300px]">
+                              {scoreHistoryData.length > 0 ? (
+                                <ChartContainer
+                                  config={{
+                                    score: { color: "#2563eb" }
+                                  }}
+                                >
+                                  <RechartsLineChart data={scoreHistoryData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="date" />
+                                    <YAxis domain={[0, 100]} />
+                                    <Tooltip content={<ChartTooltipContent />} />
+                                    <Legend />
+                                    <Line 
+                                      type="monotone" 
+                                      dataKey="score" 
+                                      name="Score (%)" 
+                                      stroke="#2563eb" 
+                                      strokeWidth={2} 
+                                      dot={{ r: 4 }}
+                                      activeDot={{ r: 6 }}
+                                    />
+                                  </RechartsLineChart>
+                                </ChartContainer>
+                              ) : (
+                                <div className="h-full flex items-center justify-center">
+                                  <p className="text-muted-foreground">
+                                    Not enough data to display chart
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -191,12 +248,49 @@ const PerformanceTab = () => {
                             <CardTitle className="text-lg">Topic Mastery</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            <div className="h-[200px] flex items-center justify-center border rounded-lg bg-muted/30">
-                              <div className="text-center text-muted-foreground">
-                                <PieChart className="h-10 w-10 mx-auto mb-2" />
-                                <p>Topic Distribution</p>
-                                <p className="text-sm">(Connect to Chart.js)</p>
-                              </div>
+                            <div className="h-[300px]">
+                              {topicMasteryData.length > 0 ? (
+                                <ChartContainer
+                                  config={
+                                    topicMasteryData.reduce((acc, entry, index) => {
+                                      acc[entry.name] = { 
+                                        color: COLORS[index % COLORS.length],
+                                        label: entry.name
+                                      };
+                                      return acc;
+                                    }, {} as Record<string, {color: string, label: string}>)
+                                  }
+                                >
+                                  <RechartsPieChart>
+                                    <Pie
+                                      data={topicMasteryData}
+                                      cx="50%"
+                                      cy="50%"
+                                      labelLine={false}
+                                      outerRadius={80}
+                                      fill="#8884d8"
+                                      dataKey="value"
+                                      nameKey="name"
+                                      label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                    >
+                                      {topicMasteryData.map((entry, index) => (
+                                        <Cell 
+                                          key={`cell-${index}`} 
+                                          fill={COLORS[index % COLORS.length]} 
+                                        />
+                                      ))}
+                                    </Pie>
+                                    <Tooltip content={<ChartTooltipContent nameKey="name" />} />
+                                    <Legend />
+                                  </RechartsPieChart>
+                                </ChartContainer>
+                              ) : (
+                                <div className="h-full flex items-center justify-center">
+                                  <p className="text-muted-foreground">
+                                    No topic data available
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>

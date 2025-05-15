@@ -1,3 +1,4 @@
+
 import React from "react";
 import { ParsedQuestionItem, parseQuestions, markdownToHtml } from "./utils/examParser";
 import { IExam } from "@/components/ExamTabs";
@@ -90,6 +91,46 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
 
 // Generate HTML content for the exam window
 export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) => {
+  console.log("Generating exam HTML with questions:", questions);
+  
+  // If we don't have any questions, show error message
+  if (!questions || questions.length === 0) {
+    console.error("No questions available to generate exam");
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Error - ${exam.name}</title>
+        <style>
+          body { font-family: sans-serif; padding: 30px; text-align: center; }
+          .error-container { max-width: 600px; margin: 100px auto; }
+          h1 { color: #ef4444; }
+          pre { background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: left; overflow: auto; }
+        </style>
+      </head>
+      <body>
+        <div class="error-container">
+          <h1>Error Loading Exam Questions</h1>
+          <p>We couldn't parse any questions for this exam. This might be because:</p>
+          <ul style="text-align: left; display: inline-block;">
+            <li>The question format is not recognized</li>
+            <li>The exam questions were not generated properly</li>
+            <li>There's an issue with the question data</li>
+          </ul>
+          <p>Please go back and try regenerating the exam, or contact support if the issue persists.</p>
+          
+          <h3>Raw Question Content:</h3>
+          <pre>${exam.questions ? exam.questions.substring(0, 1000) + (exam.questions.length > 1000 ? '...' : '') : 'No question content available'}</pre>
+          
+          <button onclick="window.close()" style="padding: 10px 20px; margin-top: 20px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;">Close Window</button>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   // Group questions by section
   const sectionMap: {[key: string]: ParsedQuestionItem[]} = {};
   
@@ -710,6 +751,8 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         
         // Initialize the exam
         function initExam() {
+          console.log("Initializing exam with", totalQuestions, "questions");
+          
           // Hide all questions except the first one
           for (let i = 1; i < totalQuestions; i++) {
             document.getElementById('question-' + i).style.display = 'none';
@@ -717,11 +760,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           
           // Setup fullscreen button
           document.getElementById('fullscreen-button').addEventListener('click', toggleFullScreen);
-          
-          // Enter fullscreen automatically
-          setTimeout(() => {
-            toggleFullScreen();
-          }, 1000);
           
           // Start the timer
           startTimer();
@@ -906,12 +944,14 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
               question: q.question,
               type: q.type,
               options: q.options || [],
+              answer: q.answer || '',
               section: q.section || 'General'
-              // Don't include correct answers in the submitted data
             })))},
             questionWeights: questionWeights,
             questionTypes: ${JSON.stringify(questions.map(q => q.type))}
           };
+          
+          console.log("Submitting exam data:", examData);
           
           // Store the results in localStorage as fallback
           localStorage.setItem('lastExamResults', JSON.stringify(examData));
@@ -982,7 +1022,9 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
     }
     
     // Generate the HTML content for the exam window
+    console.log("Generating exam with questions content:", exam.questions);
     const parsedQuestions = parseQuestions(exam.questions || "");
+    console.log("Parsed questions:", parsedQuestions);
     
     // Generate HTML content for exam with improved radio buttons for MCQs and true/false questions
     const examContent = generateExamHtml(exam, parsedQuestions);
