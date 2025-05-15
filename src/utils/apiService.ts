@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -177,6 +176,32 @@ export const useGeminiAI = async (
           params.numberOfQuestions = 10;
         }
       }
+      
+      // Enhanced prompt for better question type distribution
+      if (params.prompt && params.questionTypes && params.questionTypes.length > 0) {
+        // Make sure we emphasize the question types in the prompt
+        if (!params.prompt.includes("Question Type Distribution")) {
+          const questionTypeDistribution = params.questionTypes.map(type => {
+            let count = Math.ceil(params.numberOfQuestions / params.questionTypes.length);
+            let label = "";
+            
+            // Map internal types to human-readable labels
+            if (type === "mcq") label = "Multiple Choice Questions";
+            else if (type === "truefalse") label = "True/False Questions";
+            else if (type === "shortanswer") label = "Short Answer Questions";
+            else if (type === "essay") label = "Essay Questions";
+            
+            return `- ${label}: ${count}`;
+          }).join('\n');
+          
+          params.prompt += `\n\nQuestion Type Distribution:\n${questionTypeDistribution}\n`;
+          
+          // Add specific instructions for each question type
+          params.prompt += `\n\nPlease ensure you include the requested number of each question type. 
+For true/false questions, clearly label them as "True/False Question" and end with "Answer: True" or "Answer: False".
+For essay questions, include "(Essay Question)" in the title and provide word count requirements like "(200-250 words)".`;
+        }
+      }
     }
     
     const { data, error } = await supabase.functions.invoke('gemini-ai', {
@@ -242,4 +267,54 @@ export const fileToText = async (file: File): Promise<string> => {
       reader.readAsText(file);
     }
   });
+};
+
+/**
+ * Delete an exam by ID
+ */
+export const deleteExam = (examId: string): boolean => {
+  try {
+    // Get existing exams from localStorage
+    const examsJson = localStorage.getItem('exams');
+    if (!examsJson) {
+      return false;
+    }
+    
+    const exams = JSON.parse(examsJson);
+    
+    // Find the exam index
+    const examIndex = exams.findIndex(exam => exam.id === examId);
+    if (examIndex === -1) {
+      return false;
+    }
+    
+    // Remove the exam
+    exams.splice(examIndex, 1);
+    
+    // Update localStorage
+    localStorage.setItem('exams', JSON.stringify(exams));
+    
+    // Also remove from exam results if it exists there
+    const resultsJson = localStorage.getItem('examResults');
+    if (resultsJson) {
+      const results = JSON.parse(resultsJson);
+      const updatedResults = results.filter(result => result.examId !== examId);
+      localStorage.setItem('examResults', JSON.stringify(updatedResults));
+    }
+    
+    toast({
+      title: "Exam Deleted",
+      description: "The exam has been deleted successfully"
+    });
+    
+    return true;
+  } catch (error) {
+    console.error("Error deleting exam:", error);
+    toast({
+      title: "Delete Failed",
+      description: "There was an error deleting the exam",
+      variant: "destructive"
+    });
+    return false;
+  }
 };
