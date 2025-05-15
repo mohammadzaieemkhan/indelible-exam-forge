@@ -4,7 +4,7 @@ import ExamCard from './ExamCard';
 import { IExam } from '@/components/ExamTabs';
 import ExamHandwrittenUploadHandler from './ExamHandwrittenUploadHandler';
 import ExamRendererWithHandwritten from './ExamRendererWithHandwritten';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/use-toast';
 
 interface ExamCardWithHandwrittenProps {
   exam: IExam;

@@ -2,7 +2,7 @@
 import React from "react";
 import { ParsedQuestionItem, parseQuestions } from "./utils/examParser";
 import { IExam } from "@/components/ExamTabs";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { generateExamHtml } from "./ExamRenderer"; // Reuse the HTML generator
 
 interface ExamRendererWithHandwrittenProps {
@@ -11,8 +11,6 @@ interface ExamRendererWithHandwrittenProps {
 }
 
 const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWithHandwrittenProps) => {
-  const { toast } = useToast();
-
   // Open exam in a new window
   const handleViewExam = () => {
     if (!exam.isActive) {

@@ -1,5 +1,5 @@
 
-// Export the useToast hook correctly from the right place
+// Correctly re-export the useToast hook from the hooks directory
 import * as React from "react";
 import { useToast as useToastHook, toast as toastFunction } from "@/hooks/use-toast";
 

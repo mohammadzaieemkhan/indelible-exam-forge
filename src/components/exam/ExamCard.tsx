@@ -34,8 +34,8 @@ const ExamCard = ({ exam, onSendReminder, onDeleteClick, onViewExam }: ExamCardP
               : "from-red-400/20 to-rose-500/20"
         )} />
 
-        <CardHeader>
-          <div className="flex justify-between items-center">
+        <CardHeader className="pb-2">
+          <div className="flex flex-col gap-2">
             <div>
               <CardTitle className="text-xl font-bold flex items-center gap-2">
                 {exam.name}
@@ -66,18 +66,25 @@ const ExamCard = ({ exam, onSendReminder, onDeleteClick, onViewExam }: ExamCardP
                 </span>
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            
+            <div className="flex flex-wrap items-center gap-2">
               {exam.isActive ? (
                 <Button 
                   variant="outline" 
                   onClick={() => onViewExam(exam)} 
+                  size="sm"
                   className="whitespace-nowrap hover:bg-primary hover:text-primary-foreground transition-colors"
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Take Exam
                 </Button>
               ) : (
-                <Button variant="outline" disabled className="whitespace-nowrap opacity-60">
+                <Button 
+                  variant="outline" 
+                  disabled 
+                  size="sm"
+                  className="whitespace-nowrap opacity-60"
+                >
                   <FileText className="h-4 w-4 mr-2" />
                   Not Available Yet
                 </Button>
@@ -85,6 +92,7 @@ const ExamCard = ({ exam, onSendReminder, onDeleteClick, onViewExam }: ExamCardP
               <Button 
                 variant="outline" 
                 onClick={() => onSendReminder(exam)} 
+                size="sm"
                 className="whitespace-nowrap hover:bg-blue-500/10"
               >
                 <Bell className="h-4 w-4 mr-2" />
@@ -93,6 +101,7 @@ const ExamCard = ({ exam, onSendReminder, onDeleteClick, onViewExam }: ExamCardP
               <Button 
                 variant="outline" 
                 onClick={() => onDeleteClick(exam)}
+                size="sm"
                 className="whitespace-nowrap text-destructive hover:text-destructive-foreground hover:bg-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
