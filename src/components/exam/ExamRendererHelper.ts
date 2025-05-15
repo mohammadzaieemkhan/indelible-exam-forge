@@ -1,6 +1,7 @@
 
 import { formatExamWithLayout, parseQuestions } from "./utils/examParser";
 import { IExam } from '@/components/ExamTabs';
+import { generateExamHtml } from './ExamRenderer';
 
 // This function will be used instead of the original ExamRenderer
 // when we want the two-panel layout
@@ -9,7 +10,7 @@ export const renderExamWithNumbersPanel = (exam: IExam) => {
   const questions = parseQuestions(exam.questions || '');
   
   // Generate the HTML for the exam with our enhanced layout
-  const examHtml = formatExamWithLayout(exam);
+  const examHtml = generateExamHtml(exam, questions);
   
   // This function mimics what handleViewExam does but uses our enhanced renderer
   const openExamWindow = () => {

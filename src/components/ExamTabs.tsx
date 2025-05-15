@@ -147,7 +147,7 @@ const ExamTabs = () => {
     }, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [upcomingExams, toast, phoneNumber]);
+  }, [upcomingExams]);
   
   // Listen for exam completion events from the exam window
   useEffect(() => {
@@ -169,7 +169,7 @@ const ExamTabs = () => {
         if (lastExamResults) {
           try {
             console.log("Found last exam results in localStorage:", lastExamResults);
-            const examData = JSON.parse(lastExamResults) as IExamResult;
+            const examData = JSON.parse(lastExamResults);
             await processCompletedExam(examData);
             localStorage.removeItem('completedExamId');
             localStorage.removeItem('lastExamResults');
@@ -190,8 +190,9 @@ const ExamTabs = () => {
   }, [upcomingExams]);
   
   // Process a completed exam
-  const processCompletedExam = async (examData: IExamResult) => {
+  const processCompletedExam = async (examData: any) => {
     console.log("Processing completed exam:", examData);
+    
     // Find the exam in upcoming exams
     const examIndex = upcomingExams.findIndex(exam => exam.id === examData.examId);
     console.log("Found exam at index:", examIndex, "out of", upcomingExams.length, "exams");
@@ -217,6 +218,17 @@ const ExamTabs = () => {
     try {
       console.log("Starting AI evaluation for exam:", completedExam.name);
       
+      // Prepare questions and answers for evaluation
+      const questions = examData.questions.map((q: any, idx: number) => {
+        return {
+          id: q.id,
+          question: q.text,
+          type: q.type,
+          answer: q.correctAnswer,
+          options: q.options || []
+        };
+      });
+      
       // Evaluate the exam using Gemini AI
       const evaluationPrompt = `Evaluate the following exam responses:
         
@@ -225,10 +237,10 @@ const ExamTabs = () => {
       Difficulty: ${completedExam.difficulty}
       
       Questions and Responses:
-      ${examData.questions.map((q, idx) => {
+      ${questions.map((q: any, idx: number) => {
         const questionNumber = idx + 1;
         const questionType = q.type;
-        const userAnswer = examData.answers[`q${idx}`] || 'Not answered';
+        const userAnswer = examData.answers[q.id] || 'Not answered';
         const correctAnswer = q.answer || 'N/A';
         const weight = examData.questionWeights[idx] || 1;
         
