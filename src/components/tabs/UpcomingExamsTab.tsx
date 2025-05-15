@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import ExamCard from "@/components/exam/ExamCard";
 import DeleteExamDialog from "@/components/exam/DeleteExamDialog";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { isExamActive, getTimeRemaining } from "@/lib/utils";
+import { renderExamWithNumbersPanel } from "@/components/exam/ExamRendererHelper";
 
 interface UpcomingExamsTabProps {
   exams: IExam[];
@@ -45,7 +45,7 @@ const UpcomingExamsTab = ({
     setExamToDelete(null);
   };
   
-  // Open exam in a new window
+  // Open exam in a new window with the two-panel layout
   const handleViewExam = (exam: IExam) => {
     // Check if the exam should be available based on current time
     const isAvailable = isExamActive(exam.date, exam.time);
@@ -60,44 +60,16 @@ const UpcomingExamsTab = ({
       return;
     }
     
-    // Create a new window for the exam
-    const examWindow = window.open('', '_blank', 'width=1024,height=768,scrollbars=yes');
+    // Use the new renderer helper to open the exam with the two-panel layout
+    const { openExamWindow } = renderExamWithNumbersPanel(exam);
     
-    if (!examWindow) {
+    if (!openExamWindow()) {
       toast({
         title: "Popup Blocked",
         description: "Please allow popups for this site to take the exam.",
         variant: "destructive"
       });
-      return;
     }
-    
-    console.log("Opening exam:", exam.name, "with ID:", exam.id);
-    
-    // Import the necessary functions from ExamRenderer
-    import('@/components/exam/utils/examParser').then(module => {
-      const { formatExamWithLayout } = module;
-      const examHtml = formatExamWithLayout(exam);
-      
-      // Write content to the new window
-      examWindow.document.open();
-      examWindow.document.write(examHtml);
-      examWindow.document.close();
-      
-      // Request fullscreen after a short delay
-      setTimeout(() => {
-        try {
-          const examElement = examWindow.document.getElementById('exam-container');
-          if (examElement && examElement.requestFullscreen) {
-            examElement.requestFullscreen().catch(err => {
-              console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
-          }
-        } catch (error) {
-          console.error("Could not enter fullscreen mode:", error);
-        }
-      }, 1000);
-    });
   };
   
   const handleSendReminder = (exam: IExam) => {

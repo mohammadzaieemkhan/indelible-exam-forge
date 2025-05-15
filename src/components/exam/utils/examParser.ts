@@ -1,15 +1,5 @@
-
 import { IExam } from '@/components/ExamTabs';
-
-// Define the ParsedQuestion type locally since it's not exported from ExamRenderer
-export interface ParsedQuestion {
-  id: number;
-  text: string;
-  type: 'mcq' | 'trueFalse' | 'shortAnswer' | 'essay' | 'unknown';
-  options: string[];
-  correctAnswer?: string;
-  weight?: number;
-}
+import { ParsedQuestion } from '@/components/exam/ExamRenderer';
 
 // Parse questions from text content
 export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
