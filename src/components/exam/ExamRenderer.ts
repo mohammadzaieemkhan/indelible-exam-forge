@@ -1,7 +1,10 @@
 
-// Import functions to format time and parse questions
+// Import functions to format time and parse questions correctly
 import { formatElapsedTime } from "@/lib/utils";
-import { parseQuestions } from "./utils/examParser";
+import { parseQuestions as parseExamQuestions } from "@/components/exam/utils/examParser";
+
+// Re-export the parseQuestions function 
+export const parseQuestions = parseExamQuestions;
 
 // Function to generate the HTML for the exam
 export const generateExamHtml = (exam: any, questions: any[]) => {
@@ -576,5 +579,3 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
   `;
 };
 
-// Export functions for use in other modules
-export { parseQuestions };
