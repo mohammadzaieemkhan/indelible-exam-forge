@@ -52,10 +52,13 @@ export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
         correctAnswer = answerMatch[1];
       }
     }
-    // Check for short answer questions
+    // Check for short answer questions - expanded keywords detection
     else if (questionContent.toLowerCase().includes('short answer') || 
              questionContent.toLowerCase().includes('briefly explain') ||
-             questionContent.toLowerCase().includes('in a few sentences')) {
+             questionContent.toLowerCase().includes('in a few sentences') ||
+             questionContent.toLowerCase().includes('brief response') ||
+             questionContent.toLowerCase().includes('explain briefly') ||
+             questionContent.toLowerCase().includes('short response')) {
       type = 'shortAnswer';
     }
     // Check for essay questions

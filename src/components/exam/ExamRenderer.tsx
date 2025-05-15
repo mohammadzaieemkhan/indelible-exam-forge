@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { IExam } from '@/components/ExamTabs';
 import { parseQuestions } from './utils/examParser';
@@ -57,7 +56,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         </div>
       `;
     } else if (question.type === 'shortAnswer') {
-      optionsHtml = `<textarea placeholder="Enter your answer here..." rows="3"></textarea>`;
+      optionsHtml = `<textarea placeholder="Enter your answer here..." rows="3" class="short-answer-textarea"></textarea>`;
     } else if (question.type === 'essay') {
       optionsHtml = `<textarea placeholder="Write your essay here..." rows="8"></textarea>`;
     }
@@ -300,6 +299,18 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           resize: vertical;
         }
         
+        textarea.short-answer-textarea {
+          width: 100%;
+          padding: 12px;
+          border-radius: 5px;
+          border: 1px solid var(--light-gray);
+          background-color: var(--white);
+          color: #333;
+          font-size: 1rem;
+          resize: vertical;
+          min-height: 80px;
+        }
+        
         .navigation-buttons {
           display: flex;
           justify-content: space-between;
@@ -499,6 +510,19 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
             const questionId = parseInt(e.target.name.split('-')[1]);
             questionStatus[questionId] = 'answered';
             updateQuestionNumbers();
+          }
+        });
+        
+        // Capture input changes for short answer textareas
+        document.addEventListener('input', function(e) {
+          if (e.target.tagName === 'TEXTAREA') {
+            // Find the closest question container to get the ID
+            const questionContent = e.target.closest('.question-content');
+            if (questionContent) {
+              const questionId = parseInt(questionContent.id.split('-')[2]);
+              questionStatus[questionId] = 'answered';
+              updateQuestionNumbers();
+            }
           }
         });
         
