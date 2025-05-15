@@ -43,3 +43,16 @@ export function getTimeRemaining(examDate: string, examTime: string): string {
     return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
   }
 }
+
+/**
+ * Formats the elapsed time from start to end in minutes and seconds
+ * @param start start time in milliseconds
+ * @param end end time in milliseconds
+ * @returns formatted string showing elapsed time
+ */
+export function formatElapsedTime(start: number, end: number): string {
+  const elapsed = end - start;
+  const minutes = Math.floor(elapsed / 60000);
+  const seconds = Math.floor((elapsed % 60000) / 1000);
+  return `${minutes} minute${minutes !== 1 ? 's' : ''} and ${seconds} second${seconds !== 1 ? 's' : ''}`;
+}
