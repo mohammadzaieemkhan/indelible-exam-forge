@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Google } from "lucide-react";
+import GoogleIcon from "@/components/icons/GoogleIcon";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -147,7 +147,7 @@ const LoginPage = () => {
             className="w-full" 
             onClick={handleGoogleLogin}
           >
-            <Google className="mr-2 h-4 w-4" />
+            <GoogleIcon className="mr-2 h-4 w-4" />
             Google
           </Button>
           

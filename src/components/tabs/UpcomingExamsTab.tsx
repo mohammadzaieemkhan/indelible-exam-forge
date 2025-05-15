@@ -147,10 +147,11 @@ const UpcomingExamsTab = ({
               return (
                 <ExamCard 
                   key={exam.id || index}
-                  exam={{...exam, isActive: isActive}} 
-                  onSendReminder={onSendReminder}
-                  onDeleteClick={handleDeleteClick}
-                  onViewExam={handleViewExam}
+                  exam={{...exam, isActive: isActive}}
+                  onView={() => handleViewExam(exam)}
+                  onRefresh={() => {
+                    if (onDeleteExam) onDeleteExam(exam.id || "");
+                  }}
                 />
               );
             })}

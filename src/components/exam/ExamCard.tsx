@@ -5,6 +5,7 @@ import { IExam } from "@/components/ExamTabs";
 import { Calendar, Clock, ArrowRight } from "lucide-react";
 import DeleteExamHandler from "./DeleteExamHandler";
 
+// Extend the IExam interface with the properties we need
 interface ExamCardProps {
   exam: IExam;
   onView?: () => void;
@@ -26,6 +27,15 @@ const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
   const isPast = examDate < now && examDate !== 0;
   const isToday = examDate !== 0 && 
                  new Date(examDate).toDateString() === new Date().toDateString();
+
+  // Get the description and total questions if they exist or set defaults
+  const description = exam.hasOwnProperty('description') ? exam.description : 
+                      exam.hasOwnProperty('topics') ? exam.topics?.join(', ') : 
+                      "No description provided";
+                      
+  const totalQuestions = exam.hasOwnProperty('totalQuestions') ? exam.totalQuestions : 
+                        exam.hasOwnProperty('numberOfQuestions') ? exam.numberOfQuestions : 
+                        undefined;
 
   return (
     <Card className={`overflow-hidden border ${
@@ -59,13 +69,13 @@ const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
       <CardContent className="pt-4">
         <div className="text-sm">
           <p className="line-clamp-2 text-muted-foreground">
-            {exam.description || "No description provided"}
+            {description}
           </p>
           
-          {exam.totalQuestions && (
+          {totalQuestions && (
             <div className="mt-2">
               <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                {exam.totalQuestions} questions
+                {totalQuestions} questions
               </span>
             </div>
           )}
