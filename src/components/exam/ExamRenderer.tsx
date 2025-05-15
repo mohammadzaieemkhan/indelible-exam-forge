@@ -73,6 +73,7 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
           <input type="text" class="text-input" id="answer-${index}" 
             placeholder="Enter your short answer here..." 
             onchange="saveAnswer(${index}, this.value)" />
+          <div class="upload-handwritten-container" id="upload-handwritten-${index}"></div>
         </div>
       `;
     case 'essay':
@@ -81,6 +82,7 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
           <textarea class="essay-input" id="answer-${index}" 
             placeholder="Write your essay here..."
             onchange="saveAnswer(${index}, this.value)"></textarea>
+          <div class="upload-handwritten-container" id="upload-handwritten-${index}"></div>
         </div>
       `;
     default:
@@ -695,7 +697,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
       
       <button class="fullscreen-button" id="fullscreen-button" title="Toggle fullscreen">
         <svg class="fullscreen-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5m-11-9v4m0 0h-4m4 0l-5 5M21 21v-4m0 0h-4m4 0l-5-5" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5m-11-9v4m0 0h-4m4 0l-5-5" />
         </svg>
       </button>
       
@@ -949,6 +951,54 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         
         // Initialize the exam when the page loads
         document.addEventListener('DOMContentLoaded', initExam);
+        
+        // Initialize handwritten answer upload buttons
+        document.addEventListener('DOMContentLoaded', () => {
+          // Add upload buttons to short answer and essay questions
+          for (let i = 0; i < ${questions.length}; i++) {
+            const question = ${JSON.stringify(questions)};
+            if (question[i].type === 'shortanswer' || question[i].type === 'essay') {
+              const container = document.getElementById(\`upload-handwritten-\${i}\`);
+              if (container) {
+                const uploadBtn = document.createElement('button');
+                uploadBtn.className = 'upload-handwritten-button';
+                uploadBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg> Upload handwritten answer';
+                uploadBtn.onclick = function() {
+                  window.parent.postMessage({
+                    type: 'requestHandwrittenUpload',
+                    questionIndex: i
+                  }, "*");
+                };
+                container.appendChild(uploadBtn);
+              }
+            }
+          }
+        });
+        
+        // Function to update answer from extracted text
+        function updateAnswerFromExtractedText(questionIndex, text) {
+          const question = ${JSON.stringify(questions)};
+          if (question[questionIndex].type === 'shortanswer') {
+            const input = document.getElementById(\`answer-\${questionIndex}\`);
+            if (input) {
+              input.value = text;
+              saveAnswer(questionIndex, text);
+            }
+          } else if (question[questionIndex].type === 'essay') {
+            const textarea = document.getElementById(\`answer-\${questionIndex}\`);
+            if (textarea) {
+              textarea.value = text;
+              saveAnswer(questionIndex, text);
+            }
+          }
+        }
+        
+        // Listen for messages from parent window
+        window.addEventListener('message', function(event) {
+          if (event.data.type === 'extractedHandwrittenText') {
+            updateAnswerFromExtractedText(event.data.questionIndex, event.data.text);
+          }
+        });
       </script>
     </body>
     </html>
