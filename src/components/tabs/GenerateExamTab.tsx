@@ -27,7 +27,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   const [examName, setExamName] = useState<string>("New Exam");
   const [examDate, setExamDate] = useState<string>("");
   const [examTime, setExamTime] = useState<string>("10:00");
-  const [examDuration, setExamDuration] = useState<string>("60");
+  const [examDuration, setExamDuration] = useState<number>(60); // Changed from string to number
   const [topics, setTopics] = useState<string[]>([]);
   const [newTopic, setNewTopic] = useState<string>("");
   const [syllabusContent, setSyllabusContent] = useState<string>("");
@@ -63,8 +63,8 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
   const [difficultyLevel, setDifficultyLevel] = useState<string>("medium");
   
   // Number of questions (for non-section mode)
-  const [numberOfQuestions, setNumberOfQuestions] = useState<string>("10");
-  
+  const [numberOfQuestions, setNumberOfQuestions] = useState<number>(10); // Changed from string to number
+
   const { toast } = useToast();
   
   // Check if the form is valid for generation
@@ -160,6 +160,26 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
     setSyllabusContent(content);
   };
 
+  // Update the slider handlers to use numbers
+  const handleDurationChange = (value: number[]) => {
+    setExamDuration(value[0]);
+  };
+
+  const handleNumberOfQuestionsChange = (value: number[]) => {
+    setNumberOfQuestions(value[0]);
+  };
+
+  // Update the input handlers to convert strings to numbers
+  const handleDurationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setExamDuration(isNaN(value) ? 60 : value);
+  };
+
+  const handleNumberOfQuestionsInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setNumberOfQuestions(isNaN(value) ? 10 : value);
+  };
+  
   // Handle date change
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setExamDate(e.target.value);
@@ -389,8 +409,8 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
                   max={180}
                   step={5}
                   className="flex-1"
-                  value={[parseInt(examDuration)]}
-                  onValueChange={(value) => setExamDuration(value[0].toString())}
+                  value={[examDuration]}
+                  onValueChange={handleDurationChange}
                 />
                 <Input
                   type="number"
@@ -398,7 +418,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
                   min={15}
                   max={180}
                   value={examDuration}
-                  onChange={(e) => setExamDuration(e.target.value)}
+                  onChange={handleDurationInputChange}
                 />
               </div>
             </div>
@@ -534,8 +554,8 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
                       max={50}
                       step={1}
                       className="flex-1"
-                      value={[parseInt(numberOfQuestions)]}
-                      onValueChange={(value) => setNumberOfQuestions(value[0].toString())}
+                      value={[numberOfQuestions]}
+                      onValueChange={handleNumberOfQuestionsChange}
                     />
                     <Input
                       type="number"
@@ -543,7 +563,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
                       min={1}
                       max={50}
                       value={numberOfQuestions}
-                      onChange={(e) => setNumberOfQuestions(e.target.value)}
+                      onChange={handleNumberOfQuestionsInputChange}
                     />
                   </div>
                 </div>

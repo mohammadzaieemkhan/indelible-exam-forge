@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import ExamCard from './ExamCard';  // Fix import
+import ExamCard from './ExamCard';
 import { IExam } from '@/components/ExamTabs';
 import ExamHandwrittenUploadHandler from './ExamHandwrittenUploadHandler';
 import ExamRendererWithHandwritten from './ExamRendererWithHandwritten';
@@ -40,8 +40,11 @@ const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) 
   return (
     <>
       <ExamCard 
-        {...props} 
-        onView={handleView}
+        exam={props.exam}
+        onDeleteClick={props.onDeleteClick}
+        onEditClick={props.onEditClick}
+        onDuplicateClick={props.onDuplicateClick}
+        // We don't pass onView directly, as we handle it with our custom handler
       />
       <ExamHandwrittenUploadHandler examWindowRef={examWindowRef} />
     </>

@@ -15,6 +15,14 @@ export interface IExam {
   questionTypes: string;
   isActive: boolean;
   questions?: string;
+  sections?: any[]; // Add this property
+  questionWeights?: { // Add this property
+    mcq?: number;
+    truefalse?: number;
+    shortanswer?: number;
+    essay?: number;
+    [key: string]: number | undefined;
+  };
 }
 
 // Create a wrapper component for ExamTabs that will handle the exam window reference
