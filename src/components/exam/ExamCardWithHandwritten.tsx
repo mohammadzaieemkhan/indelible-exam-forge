@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import ExamCard from './ExamCard';
 import { IExam } from '@/components/ExamTabs';
 import ExamHandwrittenUploadHandler from './ExamHandwrittenUploadHandler';
@@ -16,6 +16,37 @@ interface ExamCardWithHandwrittenProps {
 
 const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) => {
   const examWindowRef = useRef<Window | null>(null);
+  // State to track if the exam is currently available
+  const [isExamAvailable, setIsExamAvailable] = useState(false);
+  
+  // Check if the exam should be available based on current time
+  useEffect(() => {
+    const checkExamAvailability = () => {
+      const now = new Date();
+      const [year, month, day] = props.exam.date.split('-').map(Number);
+      
+      // Parse the exam time
+      let [hours, minutes] = [0, 0];
+      if (props.exam.time) {
+        [hours, minutes] = props.exam.time.split(':').map(Number);
+      }
+      
+      const examDate = new Date(year, month - 1, day, hours, minutes);
+      
+      // The exam is available if the current time is past the scheduled exam time
+      const available = now >= examDate || props.exam.isActive;
+      setIsExamAvailable(available);
+    };
+    
+    // Check availability immediately
+    checkExamAvailability();
+    
+    // Set up interval to check periodically (every minute)
+    const intervalId = setInterval(checkExamAvailability, 60000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, [props.exam.date, props.exam.time, props.exam.isActive]);
   
   const handleExamWindowOpen = (examWindow: Window) => {
     examWindowRef.current = examWindow;
@@ -25,7 +56,7 @@ const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) 
   const handleView = () => {
     // Create the renderer instance without using 'new'
     const renderer = ExamRendererWithHandwritten({
-      exam: props.exam,
+      exam: {...props.exam, isActive: isExamAvailable},
       onExamWindowOpen: handleExamWindowOpen
     });
     
@@ -50,9 +81,9 @@ const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) 
   return (
     <>
       <ExamCard 
-        exam={props.exam}
+        exam={{...props.exam, isActive: isExamAvailable}}
         onSendReminder={handleSendReminder}
-        onDeleteClick={() => props.onDeleteClick?.()} 
+        onDeleteClick={props.onDeleteClick ? () => props.onDeleteClick?.() : undefined}
         onViewExam={handleView}
       />
       <ExamHandwrittenUploadHandler examWindowRef={examWindowRef} />

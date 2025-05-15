@@ -16,7 +16,7 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
     if (!exam.isActive) {
       toast({
         title: "Exam Not Available",
-        description: "This exam is not yet available to take.",
+        description: "This exam will be available at the scheduled date and time.",
         variant: "destructive"
       });
       return;
