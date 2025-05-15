@@ -1,5 +1,7 @@
+
 // Fix the import to use the correct path and import the new parseQuestions function
 import { parseQuestions } from "./utils/examParser";
+import { ParsedQuestion } from "./types/examTypes";
 
 // Function to generate the HTML for the exam
 export const generateExamHtml = (exam: any, questions: any[]) => {
@@ -14,7 +16,8 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
   // Filter out the answer key questions (they usually have the same question number)
   const questionSet = new Set();
   const uniqueQuestions = questions.filter(q => {
-    const questionNumber = q.question.match(/^\d+/);
+    // Add null check before accessing question property
+    const questionNumber = q?.question?.match(/^\d+/);
     if (questionNumber && !questionSet.has(questionNumber[0])) {
       questionSet.add(questionNumber[0]);
       return true;

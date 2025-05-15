@@ -1,17 +1,7 @@
-
 import React from 'react';
 import { IExam } from '@/components/ExamTabs';
 import { parseQuestions } from './utils/examParser';
-
-// Interface for parsed question
-export interface ParsedQuestion {
-  id: number;
-  text: string;
-  type: 'mcq' | 'shortAnswer' | 'essay' | 'trueFalse' | 'unknown';
-  options?: string[];
-  correctAnswer?: string;
-  weight?: number;
-}
+import { ParsedQuestion } from './types/examTypes';
 
 // Generate HTML for the exam with the new two-panel layout
 export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): string => {
@@ -63,7 +53,8 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     }
     
     // Extract just the question part (without instructions like "Select one:" etc.)
-    const questionText = cleanText.replace(/.*?([A-Za-z0-9].*?\?)/s, '$1').trim();
+    // Add null check before using replace
+    const questionText = cleanText ? cleanText.replace(/.*?([A-Za-z0-9].*?\?)/s, '$1').trim() : `Question ${question.id}`;
     
     return `
       <div class="question-content" id="question-content-${question.id}" ${index > 0 ? 'style="display: none;"' : ''}>

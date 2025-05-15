@@ -1,6 +1,6 @@
 
 import { IExam } from '@/components/ExamTabs';
-import { ParsedQuestion } from '@/components/exam/ExamRenderer';
+import { ParsedQuestion } from '@/components/exam/types/examTypes';
 
 // Parse questions from text content
 export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
