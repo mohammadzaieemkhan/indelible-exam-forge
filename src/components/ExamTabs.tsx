@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +26,7 @@ export interface IExam {
   questions?: string;
   sections?: any[];
   questionWeights?: Record<number, number>;
+  questionTypeConfig?: Record<string, number>; // New field for question type configuration
 }
 
 interface ExamResult {
@@ -322,7 +322,15 @@ const ExamTabs = () => {
       
       // Move the exam from upcoming to previous
       setPreviousExams(prev => [...prev, completedExam]);
+      
+      // Remove the exam from upcoming exams
       setUpcomingExams(prev => prev.filter(exam => exam.id !== completedExam.id));
+      
+      // Save updated exam lists to localStorage
+      localStorage.setItem('upcomingExams', JSON.stringify(
+        upcomingExams.filter(exam => exam.id !== completedExam.id)
+      ));
+      localStorage.setItem('previousExams', JSON.stringify([...previousExams, completedExam]));
       
       toast({
         title: "Exam Evaluated",
