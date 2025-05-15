@@ -1,3 +1,4 @@
+
 import { IExam } from "@/components/ExamTabs";
 
 export interface ParsedQuestionItem {
@@ -9,7 +10,13 @@ export interface ParsedQuestionItem {
 }
 
 // Parse questions from raw content with improved logic for better extraction of separately formatted options
-export const parseQuestions = (content: string): ParsedQuestionItem[] => {
+export const parseQuestions = (content: string | any): ParsedQuestionItem[] => {
+  // First ensure content is a string
+  if (!content || typeof content !== 'string') {
+    console.error("Invalid question content format:", content);
+    return [];
+  }
+
   const questions: ParsedQuestionItem[] = [];
   const lines = content.split('\n');
   

@@ -40,10 +40,26 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
     }
     
     try {
-      // Generate the HTML content for the exam window
-      // Check if questions is a string before parsing
-      const questions = exam.questions || "";
-      const parsedQuestions = typeof questions === 'string' ? parseQuestions(questions) : [];
+      // Log the exam object to diagnose issues
+      console.log("Rendering exam:", exam);
+      
+      // Get questions from the exam
+      const questions = exam.questions;
+      
+      // Check if questions exist
+      if (!questions) {
+        throw new Error("No questions data available for this exam");
+      }
+      
+      // Parse questions and handle errors
+      let parsedQuestions: ParsedQuestionItem[] = [];
+      try {
+        parsedQuestions = parseQuestions(questions);
+        console.log("Parsed questions:", parsedQuestions);
+      } catch (parseError) {
+        console.error("Error parsing questions:", parseError);
+        throw new Error("Failed to parse exam questions");
+      }
       
       if (parsedQuestions.length === 0) {
         console.warn("No questions found or unable to parse questions");
@@ -60,7 +76,8 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
           </head>
           <body>
             <h1>${exam.name}</h1>
-            <p>This exam has no questions or the questions couldn't be loaded.</p>
+            <p class="error">This exam has no questions or the questions couldn't be loaded.</p>
+            <p>If you generated this exam recently, please go back and check if the exam generation was successful.</p>
             <button onclick="window.close()">Close</button>
           </body>
           </html>
