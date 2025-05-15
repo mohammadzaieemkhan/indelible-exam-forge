@@ -48,18 +48,37 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
   };
 
   // Helper function to clean question text
-  const cleanQuestionText = (text: string): string => {
-    // Remove options from the question text
-    let cleanText = text.replace(/([A-D])[).]\s*([^\n]+)(?:\n|$)/g, '');
+  const cleanQuestionText = (text: string, type: 'mcq' | 'shortAnswer' | 'essay' | 'trueFalse' | 'unknown'): string => {
+    // Start with the original text
+    let cleanText = text;
     
-    // Remove the Answer: part
+    // Remove options from MCQ questions
+    if (type === 'mcq') {
+      cleanText = cleanText.replace(/([A-D])[).]\s*([^\n]+)(?:\n|$)/g, '');
+    }
+    
+    // Remove Answer sections for all question types
     cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False).*?(?:\n|$)/gi, '');
+    
+    // For short answer and essay, remove any suggested answers or answer content
+    if (type === 'shortAnswer' || type === 'essay') {
+      // Remove content after "Answer:" or "Sample Answer:" or "Suggested Answer:"
+      cleanText = cleanText.replace(/(?:Answer|Sample Answer|Suggested Answer|Expected Answer|Model Answer):.*?(?=\n\n|\n$|$)/gis, '');
+      
+      // Remove content after "Word count:", "Word limit:" etc.
+      cleanText = cleanText.replace(/(?:Word count|Word limit|Expected length):.*?(?=\n\n|\n$|$)/gi, '');
+    }
     
     // Remove any "Select one:" or similar instructions
     cleanText = cleanText.replace(/(?:Select one:|Choose one:|Select the correct option:).*?(?:\n|$)/gi, '');
     
+    // Remove potential point values that might appear
+    cleanText = cleanText.replace(/\(\s*\d+\s*points?\s*\)/gi, '');
+    
     // Trim extra whitespace and newlines
-    return cleanText.trim().replace(/\n{3,}/g, '\n\n');
+    cleanText = cleanText.trim().replace(/\n{3,}/g, '\n\n');
+    
+    return cleanText;
   };
 
   // Process MCQs
@@ -68,7 +87,7 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
     const text = match[2].trim();
     const options = extractOptions(text);
     const correctAnswer = extractAnswer(text, 'mcq');
-    const cleanText = cleanQuestionText(text);
+    const cleanText = cleanQuestionText(text, 'mcq');
     
     questions.push({
       id,
@@ -83,7 +102,7 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
   while ((match = shortAnswerPattern.exec(examText)) !== null) {
     const id = parseInt(match[1]);
     const text = match[2].trim();
-    const cleanText = cleanQuestionText(text);
+    const cleanText = cleanQuestionText(text, 'shortAnswer');
     
     questions.push({
       id,
@@ -98,7 +117,7 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
   while ((match = essayPattern.exec(examText)) !== null) {
     const id = parseInt(match[1]);
     const text = match[2].trim();
-    const cleanText = cleanQuestionText(text);
+    const cleanText = cleanQuestionText(text, 'essay');
     
     questions.push({
       id,
@@ -114,7 +133,7 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
     const id = parseInt(match[1]);
     const text = match[2].trim();
     const correctAnswer = extractAnswer(text, 'trueFalse');
-    const cleanText = cleanQuestionText(text);
+    const cleanText = cleanQuestionText(text, 'trueFalse');
     
     questions.push({
       id,
@@ -136,7 +155,6 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
       let type: 'mcq' | 'shortAnswer' | 'essay' | 'trueFalse' | 'unknown' = 'unknown'; // Default type with explicit typing
       let options: string[] = [];
       let correctAnswer: string | null = null;
-      const cleanText = cleanQuestionText(text);
       
       if (text.match(/Answer:\s*(True|False)/i)) {
         type = 'trueFalse';
@@ -153,6 +171,8 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
       } else {
         type = 'shortAnswer';
       }
+      
+      const cleanText = cleanQuestionText(text, type);
       
       questions.push({
         id,
