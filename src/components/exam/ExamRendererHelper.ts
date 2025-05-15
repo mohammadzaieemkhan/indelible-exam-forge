@@ -15,9 +15,31 @@ export const renderExamWithNumbersPanel = (exam) => {
       return false;
     }
     
-    // Write content to the new window
+    // Add a script to pass exam completion data back to the parent window
+    const completionScript = `
+      <script>
+        function submitExam(examData) {
+          // Store the data in localStorage as backup
+          localStorage.setItem('lastExamResults', JSON.stringify(examData));
+          localStorage.setItem('completedExamId', examData.examId);
+          
+          // Try to send message to parent window
+          try {
+            window.opener.postMessage({
+              type: 'examCompleted',
+              examData: examData
+            }, '*');
+            console.log('Sent exam completion data to parent window');
+          } catch (error) {
+            console.error('Failed to send message to parent window:', error);
+          }
+        }
+      </script>
+    `;
+    
+    // Write content to the new window with the completion script
     examWindow.document.open();
-    examWindow.document.write(examHtml);
+    examWindow.document.write(completionScript + examHtml);
     examWindow.document.close();
     
     // Request fullscreen after a short delay
