@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { IExam } from '@/components/ExamTabs';
 import { parseQuestions } from './utils/examParser';
@@ -21,7 +22,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     // Clean up the question text by removing the answer part
     let cleanText = question.text;
     if (question.correctAnswer) {
-      cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False)/i, '');
+      cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*)/i, '');
     }
     
     // Format based on question type
@@ -47,9 +48,21 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         </div>
       `;
     } else if (question.type === 'shortAnswer') {
-      optionsHtml = `<textarea name="question-${question.id}" id="answer-${question.id}" placeholder="Enter your answer here..." rows="3" class="short-answer-input"></textarea>`;
+      optionsHtml = `
+        <div class="short-answer-container">
+          <textarea name="question-${question.id}" id="answer-${question.id}" placeholder="Enter your answer here..." 
+            rows="3" class="short-answer-input"></textarea>
+          <div class="answer-instructions">Write a brief, focused response (1-3 sentences)</div>
+        </div>
+      `;
     } else if (question.type === 'essay') {
-      optionsHtml = `<textarea name="question-${question.id}" id="answer-${question.id}" placeholder="Write your essay here..." rows="8" class="essay-input"></textarea>`;
+      optionsHtml = `
+        <div class="essay-container">
+          <textarea name="question-${question.id}" id="answer-${question.id}" placeholder="Write your essay here..." 
+            rows="8" class="essay-input"></textarea>
+          <div class="answer-instructions">Write a detailed response (recommended: 250-500 words)</div>
+        </div>
+      `;
     }
     
     // Extract just the question part (without instructions like "Select one:" etc.)
@@ -291,6 +304,17 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           resize: vertical;
         }
         
+        .short-answer-container, .essay-container {
+          width: 100%;
+        }
+        
+        .answer-instructions {
+          margin-top: 5px;
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.7);
+          font-style: italic;
+        }
+        
         .short-answer-input, .essay-input {
           width: 100%;
           padding: 12px;
@@ -300,7 +324,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           color: #333;
           font-size: 1rem;
           resize: vertical;
-          margin-bottom: 10px;
+          margin-bottom: 5px;
         }
         
         .essay-input {
@@ -512,28 +536,20 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
             const questionId = parseInt(e.target.name.split('-')[1]);
             questionStatus[questionId] = 'answered';
             updateQuestionNumbers();
-          } else if (e.target.type === 'textarea') {
-            // Also track when textareas have content
-            if (e.target.value.trim() !== '') {
-              const questionId = parseInt(e.target.name.split('-')[1]);
-              questionStatus[questionId] = 'answered';
-              updateQuestionNumbers();
-            }
           }
         });
         
         // Also listen for input events on textareas
         document.addEventListener('input', function(e) {
           if (e.target.tagName.toLowerCase() === 'textarea') {
+            const questionId = parseInt(e.target.name.split('-')[1]);
+            
             if (e.target.value.trim() !== '') {
-              const questionId = parseInt(e.target.name.split('-')[1]);
               questionStatus[questionId] = 'answered';
-              updateQuestionNumbers();
             } else {
-              const questionId = parseInt(e.target.name.split('-')[1]);
               questionStatus[questionId] = 'unanswered';
-              updateQuestionNumbers();
             }
+            updateQuestionNumbers();
           }
         });
         
@@ -600,9 +616,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           // Get all textarea answers (short answer and essay questions)
           document.querySelectorAll('textarea').forEach(textarea => {
             const questionId = textarea.name.split('-')[1];
-            if (textarea.value.trim()) {
-              answers[questionId] = textarea.value;
-            }
+            answers[questionId] = textarea.value.trim();
           });
           
           // Get question text and type for each question
@@ -633,6 +647,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
             examId: "${exam.id || ''}",
             examName: "${exam.name || 'Exam'}",
             date: "${new Date().toISOString().split('T')[0]}",
+            topics: ${JSON.stringify(exam.topics || [])},
             questions: examQuestions,
             answers: answers,
             timeTaken: timeTaken,
@@ -655,7 +670,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
               <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 30px; background-color: #004d40; color: white; border-radius: 10px;">
                 <h1>Exam Submitted</h1>
                 <p>Thank you for completing the exam. Your answers have been recorded.</p>
-                <p>You will be redirected to the results page shortly.</p>
+                <p>Your exam is being evaluated and results will be available in the Performance tab.</p>
               </div>
             \`;
             

@@ -1,11 +1,36 @@
-
 import { formatExamWithLayout } from "./utils/examParser";
 import { ParsedQuestion, ExamSubmissionData } from "./types/examTypes";
 
 // This function will be used instead of the original ExamRenderer
 // when we want the two-panel layout
 export const renderExamWithNumbersPanel = (exam) => {
-  const examHtml = formatExamWithLayout(exam);
+  // Create a version of the exam without answers for display
+  const examWithoutAnswers = { ...exam };
+  
+  // If questions have answers, remove them from what's shown to students
+  if (examWithoutAnswers.questions) {
+    const questionsWithoutAnswers = examWithoutAnswers.questions.map(question => {
+      // Create a clean version of the question without the answer part
+      let cleanText = question.text;
+      if (question.correctAnswer) {
+        cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*)/i, '');
+      }
+      
+      return {
+        ...question,
+        text: cleanText,
+        // Remove correctAnswer from what's displayed to students
+        correctAnswer: undefined
+      };
+    });
+    
+    examWithoutAnswers.questions = questionsWithoutAnswers;
+  }
+  
+  const examHtml = formatExamWithLayout(examWithoutAnswers);
+  
+  // Keep original answers for evaluation
+  const originalQuestions = exam.questions;
   
   // This function mimics what handleViewExam does but uses our enhanced renderer
   const openExamWindow = () => {

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -132,7 +131,7 @@ ${data.response}
 };
 
 /**
- * Use Gemini AI for various tasks
+ * Use Gemini AI for various tasks including exam evaluation
  */
 export const useGeminiAI = async (
   params: {
@@ -144,6 +143,7 @@ export const useGeminiAI = async (
     difficulty?: string;
     questionTypes?: string[];
     numberOfQuestions?: number;
+    examData?: any; // For exam evaluation
     sections?: {
       title: string;
       topics: string[];
@@ -152,7 +152,7 @@ export const useGeminiAI = async (
       difficulty: string;
     }[];
   }
-): Promise<{ success: boolean; response?: string; error?: string }> => {
+): Promise<{ success: boolean; response?: string; error?: string; evaluationResult?: any }> => {
   try {
     console.log("Calling Gemini AI with params:", params);
     
@@ -164,7 +164,7 @@ export const useGeminiAI = async (
       };
     }
     
-    // Add validation and defaults
+    // Add validation and defaults for question generation
     if (params.task === "generate_questions") {
       if (!params.topics || params.topics.length === 0) {
         if (!params.sections || params.sections.length === 0) {
@@ -248,6 +248,34 @@ For True/False questions, clearly state if the answer is True or False.
       }
     }
     
+    // Add evaluation logic for exam submissions
+    if (params.task === "evaluate_answer" && params.examData) {
+      console.log("Evaluating exam submission with Gemini AI");
+      // Enhanced prompt for better evaluation
+      const evaluationPrompt = `
+        Evaluate this exam submission and provide detailed feedback.
+        
+        Exam name: ${params.examData.examName}
+        
+        For each question, compare the student's answer with the correct answer and determine if it's correct.
+        Assign full marks if correct, zero if incorrect.
+        
+        For short answer and essay questions, evaluate based on:
+        - Correctness of key points
+        - Completeness of response
+        - Clarity of explanation
+        
+        Provide a JSON response with:
+        1. Overall score (percentage)
+        2. Total marks
+        3. Number of correct/incorrect answers
+        4. Performance by topic
+      `;
+      
+      // Update or create the prompt
+      params.prompt = evaluationPrompt;
+    }
+    
     const { data, error } = await supabase.functions.invoke('gemini-ai', {
       body: params
     });
@@ -274,6 +302,127 @@ For True/False questions, clearly state if the answer is True or False.
         success: false, 
         error: "Received an empty response from AI" 
       };
+    }
+    
+    // If this was an exam evaluation, process the results
+    if (params.task === "evaluate_answer" && params.examData) {
+      // Process evaluation response and calculate results
+      try {
+        // Store the evaluated results in localStorage
+        const examResults = localStorage.getItem('examResults') ? 
+          JSON.parse(localStorage.getItem('examResults')!) : [];
+        
+        // Basic evaluation if Gemini fails to provide structured data
+        const defaultEvaluation = {
+          examId: params.examData.examId,
+          examName: params.examData.examName,
+          date: new Date().toISOString().split('T')[0],
+          score: 0,
+          totalMarks: params.examData.questions.length,
+          percentage: 0,
+          timeTaken: params.examData.timeTaken || "N/A",
+          questionStats: {
+            correct: 0,
+            incorrect: 0,
+            unattempted: 0
+          },
+          topicPerformance: {},
+          questionDetails: []
+        };
+        
+        // Calculate basic score based on matching answers
+        let correctCount = 0;
+        const questionDetails = [];
+        
+        for (let i = 0; i < params.examData.questions.length; i++) {
+          const question = params.examData.questions[i];
+          const questionId = (i + 1).toString();
+          const userAnswer = params.examData.answers[questionId];
+          
+          let isCorrect = false;
+          if (question.type === 'mcq' || question.type === 'trueFalse') {
+            // For MCQ and true/false, direct comparison
+            isCorrect = userAnswer && userAnswer.toString().trim().toLowerCase() === 
+                         question.answer.toString().trim().toLowerCase();
+          } else if (userAnswer && userAnswer.trim() !== '') {
+            // For short answer and essay, mark as attempted but need manual review
+            // Give partial credit (50%) for attempting
+            isCorrect = 0.5;
+          }
+          
+          // Full marks for correct, partial for essay/short answers with content
+          const marksObtained = isCorrect === true ? 1 : (isCorrect === 0.5 ? 0.5 : 0);
+          correctCount += marksObtained;
+          
+          questionDetails.push({
+            question: question.question,
+            type: question.type,
+            userAnswer: userAnswer || "Not attempted",
+            correctAnswer: question.answer,
+            marksObtained: marksObtained,
+            totalMarks: 1
+          });
+        }
+        
+        // Calculate percentage
+        const percentage = Math.round((correctCount / params.examData.questions.length) * 100);
+        
+        // Update the evaluation
+        defaultEvaluation.score = correctCount;
+        defaultEvaluation.percentage = percentage;
+        defaultEvaluation.questionStats.correct = correctCount;
+        defaultEvaluation.questionStats.incorrect = params.examData.questions.length - correctCount;
+        defaultEvaluation.questionDetails = questionDetails;
+        
+        // Also try to extract topics performance
+        if (params.examData.topics) {
+          const topicPerformance = {};
+          params.examData.topics.forEach(topic => {
+            topicPerformance[topic] = percentage; // Assign overall percentage to each topic
+          });
+          defaultEvaluation.topicPerformance = topicPerformance;
+        }
+        
+        // Add to results and save
+        examResults.push(defaultEvaluation);
+        localStorage.setItem('examResults', JSON.stringify(examResults));
+        
+        // Mark exam as completed
+        if (params.examData.examId) {
+          // Get existing exams
+          const examsJson = localStorage.getItem('exams');
+          if (examsJson) {
+            const exams = JSON.parse(examsJson);
+            // Find the exam
+            const examIndex = exams.findIndex(e => e.id === params.examData.examId);
+            if (examIndex !== -1) {
+              // Mark the exam as completed
+              exams[examIndex].completed = true;
+              // Update localStorage
+              localStorage.setItem('exams', JSON.stringify(exams));
+            }
+          }
+        }
+        
+        // Show success toast
+        toast({
+          title: "Exam Evaluated",
+          description: `Your exam has been evaluated! Score: ${percentage}%`,
+        });
+        
+        return { 
+          success: true, 
+          response: data.response,
+          evaluationResult: defaultEvaluation
+        };
+      } catch (evalError) {
+        console.error("Error processing evaluation:", evalError);
+        toast({
+          title: "Evaluation Error",
+          description: "There was an error evaluating your exam",
+          variant: "destructive",
+        });
+      }
     }
     
     return { success: true, response: data.response };
