@@ -8,21 +8,21 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 
 // Define the props interface for PerformanceTab
 interface PerformanceTabProps {
-  examData: IExam[]; // Updated prop name from exams to examData
+  completedExams: any[];
 }
 
-const PerformanceTab: React.FC<PerformanceTabProps> = ({ examData }) => {
+const PerformanceTab: React.FC<PerformanceTabProps> = ({ completedExams }) => {
   const [timeRange, setTimeRange] = useState<string>("all-time");
   const [selectedSubject, setSelectedSubject] = useState<string>("all-subjects");
   
   // Extract unique subjects from all exams
   const subjects = useMemo(() => {
     const subjectSet = new Set<string>();
-    examData.forEach(exam => {
+    completedExams.forEach(exam => {
       exam.topics.forEach(topic => subjectSet.add(topic));
     });
     return Array.from(subjectSet);
-  }, [examData]);
+  }, [completedExams]);
   
   // Get exam results from localStorage
   const examResults = useMemo(() => {
@@ -62,13 +62,13 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ examData }) => {
       // Filter by subject
       if (selectedSubject !== "all-subjects") {
         // Check if the exam has the selected subject/topic
-        const exam = examData.find(e => e.id === result.examId);
+        const exam = completedExams.find(e => e.id === result.examId);
         if (!exam || !exam.topics.includes(selectedSubject)) return false;
       }
       
       return true;
     });
-  }, [examResults, timeRange, selectedSubject, examData]);
+  }, [examResults, timeRange, selectedSubject, completedExams]);
   
   // Calculate average score
   const averageScore = useMemo(() => {
@@ -113,7 +113,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ examData }) => {
     };
     
     filteredResults.forEach((result: any) => {
-      const exam = examData.find(e => e.id === result.examId);
+      const exam = completedExams.find(e => e.id === result.examId);
       if (exam) {
         const difficulty = exam.difficulty || 'Medium';
         difficultyCount[difficulty] = (difficultyCount[difficulty] || 0) + 1;
@@ -123,7 +123,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ examData }) => {
     return Object.entries(difficultyCount)
       .filter(([_, count]) => count > 0)
       .map(([name, value]) => ({ name, value }));
-  }, [filteredResults, examData]);
+  }, [filteredResults, completedExams]);
   
   // Prepare time series data for line chart
   const timeSeriesData = useMemo(() => {
@@ -330,7 +330,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ examData }) => {
                         </thead>
                         <tbody>
                           {filteredResults.slice(0, 5).map((result: any, index: number) => {
-                            const exam = examData.find(e => e.id === result.examId);
+                            const exam = completedExams.find(e => e.id === result.examId);
                             return (
                               <tr key={index} className="border-b">
                                 <td className="p-2">{result.examName || (exam?.name || 'Unknown Exam')}</td>

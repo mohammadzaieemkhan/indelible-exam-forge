@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Filter, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,12 @@ import { format } from "date-fns";
 
 interface PreviousExamsTabProps {
   exams: IExam[];
+  onDeleteExam?: (examId: string) => void;
+  onEditExam?: (examId: string) => void;
+  onDuplicateExam?: (examId: string) => void;
 }
 
-const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
+const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: PreviousExamsTabProps) => {
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState<boolean>(false);
   const [filterSubject, setFilterSubject] = useState<string>("all-subjects");
@@ -343,6 +345,21 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
                       {examScore && (
                         <Button variant="outline" size="sm" onClick={() => handleDownloadReport(exam.id || '')}>
                           Report
+                        </Button>
+                      )}
+                      {onDeleteExam && (
+                        <Button variant="outline" size="sm" onClick={() => onDeleteExam(exam.id || '')}>
+                          Delete
+                        </Button>
+                      )}
+                      {onEditExam && (
+                        <Button variant="outline" size="sm" onClick={() => onEditExam(exam.id || '')}>
+                          Edit
+                        </Button>
+                      )}
+                      {onDuplicateExam && (
+                        <Button variant="outline" size="sm" onClick={() => onDuplicateExam(exam.id || '')}>
+                          Duplicate
                         </Button>
                       )}
                     </td>

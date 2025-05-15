@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from "react";
 import { ParsedQuestionItem, parseQuestions } from "./utils/examParser";
 import { IExam } from "@/components/ExamTabs";
@@ -31,7 +30,7 @@ interface Section {
   questions: ParsedQuestionItem[];
 }
 
-const ExamSectionedRenderer = ({ exam }: ExamSectionedRendererProps) => {
+const ExamSectionedRenderer = ({ exam, onExamWindowOpen }: ExamSectionedRendererProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [parsedQuestions, setParsedQuestions] = useState<ParsedQuestionItem[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
@@ -40,7 +39,7 @@ const ExamSectionedRenderer = ({ exam }: ExamSectionedRendererProps) => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [currentQuestionForUpload, setCurrentQuestionForUpload] = useState<number | null>(null);
   const { toast } = useToast();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
   const [showSidebar, setShowSidebar] = useState(!isMobile);
   
   // Parse questions and organize them into sections

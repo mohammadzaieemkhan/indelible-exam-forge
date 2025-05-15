@@ -24,7 +24,10 @@ const ExamCardWithHandwritten = ({ exam, onDeleteClick, onEditClick, onDuplicate
     }
   });
   
-  const handleViewExam = examRenderer.handleViewExam;
+  // Ensure we're accessing the handleViewExam from the return value properly
+  const handleViewExam = typeof examRenderer === 'object' && 'handleViewExam' in examRenderer 
+    ? examRenderer.handleViewExam 
+    : () => {}; // Fallback empty function if not available
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
