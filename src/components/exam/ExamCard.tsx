@@ -31,16 +31,16 @@ const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
   // Get the description and total questions using type-safe property access
   const description = 
     'description' in exam && exam.description ? 
-      exam.description : 
+      String(exam.description) : 
     'topics' in exam && exam.topics ? 
       exam.topics.join(', ') : 
       "No description provided";
                       
   const totalQuestions = 
     'totalQuestions' in exam && exam.totalQuestions ? 
-      exam.totalQuestions : 
+      Number(exam.totalQuestions) : 
     'numberOfQuestions' in exam && exam.numberOfQuestions ? 
-      exam.numberOfQuestions : 
+      Number(exam.numberOfQuestions) : 
       undefined;
 
   return (
@@ -68,7 +68,7 @@ const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
               )}
             </CardDescription>
           </div>
-          <DeleteExamHandler examId={exam.id} variant="icon" size="sm" onDelete={onRefresh} />
+          <DeleteExamHandler examId={exam.id || ""} variant="icon" size="sm" onDelete={onRefresh} />
         </div>
       </CardHeader>
 
@@ -78,7 +78,7 @@ const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
             {description}
           </p>
           
-          {totalQuestions && (
+          {totalQuestions !== undefined && (
             <div className="mt-2">
               <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
                 {totalQuestions} questions
