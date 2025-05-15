@@ -133,13 +133,13 @@ export const useGeminiAI = async (
     topics?: string[];
     difficulty?: string;
     questionTypes?: string[];
-    numberOfQuestions?: number;
+    numberOfQuestions?: number | string;  // Updated to accept both number and string
     organizeBySections?: boolean;
     sections?: {
       title: string;
       topics: string[];
       questionTypes: string[];
-      numberOfQuestions: number;
+      numberOfQuestions: number | string;  // Updated to accept both number and string
       difficulty: string;
     }[];
   }
@@ -163,15 +163,25 @@ export const useGeminiAI = async (
         }
       }
       
-      if (!params.numberOfQuestions || params.numberOfQuestions <= 0) {
+      if (!params.numberOfQuestions || (typeof params.numberOfQuestions === 'number' && params.numberOfQuestions <= 0)) {
         if (!params.sections || params.sections.length === 0) {
           params.numberOfQuestions = 10;
         }
       }
     }
     
+    // Convert number parameters to strings if needed
+    const processedParams = {
+      ...params,
+      numberOfQuestions: params.numberOfQuestions !== undefined ? String(params.numberOfQuestions) : undefined,
+      sections: params.sections?.map(section => ({
+        ...section,
+        numberOfQuestions: section.numberOfQuestions !== undefined ? String(section.numberOfQuestions) : "5"
+      }))
+    };
+    
     const { data, error } = await supabase.functions.invoke('gemini-ai', {
-      body: params
+      body: processedParams
     });
 
     if (error) {
