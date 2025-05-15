@@ -54,7 +54,7 @@ export const renderExamWithNumbersPanel = (exam) => {
             // Show a success message to the user
             const resultEl = document.getElementById('submission-result');
             if (resultEl) {
-              resultEl.innerHTML = '<div class="alert success" style="color: #155724; background-color: #d4edda; padding: 15px; border-radius: 4px;">Exam submitted successfully! Your results will be available in the Performance tab.</div>';
+              resultEl.innerHTML = '<div class="alert success" style="color: #155724; background-color: #d4edda; padding: 15px; border-radius: 4px;">Exam submitted successfully! Your exam is being evaluated, and results will be available in the Performance tab.</div>';
               resultEl.style.display = 'block';
             }
 

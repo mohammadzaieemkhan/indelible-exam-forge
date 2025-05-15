@@ -147,7 +147,7 @@ const ExamTabs = () => {
     }, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [upcomingExams, toast, phoneNumber]);
+  }, [upcomingExams]);
   
   // Listen for exam completion events from the exam window
   useEffect(() => {
@@ -228,7 +228,7 @@ const ExamTabs = () => {
       ${examData.questions.map((q, idx) => {
         const questionNumber = idx + 1;
         const questionType = q.type;
-        const userAnswer = examData.answers[`q${idx}`] || 'Not answered';
+        const userAnswer = examData.answers[`${questionNumber}`] || 'Not answered';
         const correctAnswer = q.answer || 'N/A';
         const weight = examData.questionWeights[idx] || 1;
         
@@ -320,7 +320,9 @@ const ExamTabs = () => {
           total: parsedEvaluation.questionDetails.length
         },
         topicPerformance: parsedEvaluation.topicPerformance,
-        questionDetails: parsedEvaluation.questionDetails
+        questionDetails: parsedEvaluation.questionDetails,
+        questions: examData.questions,
+        answers: examData.answers
       };
       
       console.log("Created exam result object:", examResult);
