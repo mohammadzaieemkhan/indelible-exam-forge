@@ -1,457 +1,527 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useMemo } from 'react';
+import { IExam } from '@/components/ExamTabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, Timer, Target } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useGeminiAI } from "@/utils/apiService";
-import type { IExam } from "@/components/ExamTabs";
-import { 
-  LineChart as RechartsLineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell
-} from "recharts";
-import { 
-  ChartContainer, 
-  ChartTooltip, 
-  ChartTooltipContent
-} from "@/components/ui/chart";
-import { motion } from "framer-motion";
+import { CircleCheck, CircleX, HelpCircle, Calendar, BookOpen, Clock, BarChart3 } from "lucide-react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 
-interface ExamResult {
-  examId: string;
-  examName: string;
-  date: string;
-  score: number;
-  totalMarks: number;
-  percentage: number;
-  timeTaken: string;
-  questionStats: {
-    correct: number;
-    incorrect: number;
-    unattempted: number;
-    total: number;
-  };
-  topicPerformance: Record<string, number>;
-  questionDetails: Array<{
-    question: string;
-    type: string;
-    marksObtained: number;
-    totalMarks: number;
-    userAnswer?: string;
-    correctAnswer?: string;
-    feedback?: string;
-  }>;
+// Define the props interface for PerformanceTab
+interface PerformanceTabProps {
+  exams: IExam[]; // Accept exams as prop
 }
 
-// Colors for charts
-const CHART_COLORS = {
-  primary: '#9b87f5',
-  success: '#4ade80',
-  warning: '#f97316',
-  danger: '#ef4444',
-  neutral: '#8E9196',
-  accent1: '#D946EF',
-  accent2: '#0EA5E9',
-  accent3: '#F97316',
-  accent4: '#8B5CF6',
-  accent5: '#1EAEDB',
-  background: 'rgba(155, 135, 245, 0.1)'
-};
-
-// Generate a pastel color based on index
-const generatePastelColor = (index: number) => {
-  const baseColors = [
-    CHART_COLORS.primary,
-    CHART_COLORS.accent1,
-    CHART_COLORS.accent2,
-    CHART_COLORS.accent3,
-    CHART_COLORS.accent4,
-    CHART_COLORS.accent5,
-  ];
-  return baseColors[index % baseColors.length];
-};
-
-const PerformanceTab = () => {
-  const [examResults, setExamResults] = useState<ExamResult[]>([]);
-  const [selectedExam, setSelectedExam] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    // Load exam results from localStorage
-    const savedResults = localStorage.getItem('examResults');
-    if (savedResults) {
-      try {
-        const results = JSON.parse(savedResults);
-        setExamResults(results);
-        
-        if (results.length > 0 && !selectedExam) {
-          setSelectedExam(results[0].examId);
-        }
-      } catch (error) {
-        console.error('Error parsing saved exam results:', error);
+const PerformanceTab: React.FC<PerformanceTabProps> = ({ exams }) => {
+  const [timeRange, setTimeRange] = useState<string>("all-time");
+  const [selectedSubject, setSelectedSubject] = useState<string>("all-subjects");
+  
+  // Extract unique subjects from all exams
+  const subjects = useMemo(() => {
+    const subjectSet = new Set<string>();
+    exams.forEach(exam => {
+      exam.topics.forEach(topic => subjectSet.add(topic));
+    });
+    return Array.from(subjectSet);
+  }, [exams]);
+  
+  // Get exam results from localStorage
+  const examResults = useMemo(() => {
+    try {
+      const savedResults = localStorage.getItem('examResults');
+      if (savedResults) {
+        return JSON.parse(savedResults);
       }
+    } catch (error) {
+      console.error("Error loading exam results:", error);
     }
-  }, [selectedExam]);
-
-  const currentResult = selectedExam 
-    ? examResults.find(result => result.examId === selectedExam)
-    : null;
-
-  // Format exam results for line chart display
-  const getScoreHistoryData = () => {
-    return examResults.map((result, index) => ({
-      name: result.examName,
-      score: result.percentage,
-      date: new Date(result.date).toLocaleDateString(),
-    }));
-  };
-
-  // Format topic performance data for pie chart
-  const getTopicPerformanceData = () => {
-    if (!currentResult || !currentResult.topicPerformance) return [];
+    return [];
+  }, []);
+  
+  // Filter results based on selected time range and subject
+  const filteredResults = useMemo(() => {
+    if (!examResults || examResults.length === 0) return [];
     
-    return Object.entries(currentResult.topicPerformance).map(([topic, percentage]) => ({
-      name: topic,
-      value: percentage,
-    }));
-  };
-
-  // Animation variants for charts
-  const chartVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: {
-        duration: 0.6,
-        ease: "easeOut"
+    return examResults.filter((result: any) => {
+      // Filter by time range
+      if (timeRange !== "all-time") {
+        const resultDate = new Date(result.date);
+        const now = new Date();
+        
+        if (timeRange === "last-week") {
+          const lastWeek = new Date(now.setDate(now.getDate() - 7));
+          if (resultDate < lastWeek) return false;
+        } else if (timeRange === "last-month") {
+          const lastMonth = new Date(now.setMonth(now.getMonth() - 1));
+          if (resultDate < lastMonth) return false;
+        } else if (timeRange === "last-3-months") {
+          const last3Months = new Date(now.setMonth(now.getMonth() - 3));
+          if (resultDate < last3Months) return false;
+        }
       }
-    }
-  };
+      
+      // Filter by subject
+      if (selectedSubject !== "all-subjects") {
+        // Check if the exam has the selected subject/topic
+        const exam = exams.find(e => e.id === result.examId);
+        if (!exam || !exam.topics.includes(selectedSubject)) return false;
+      }
+      
+      return true;
+    });
+  }, [examResults, timeRange, selectedSubject, exams]);
+  
+  // Calculate average score
+  const averageScore = useMemo(() => {
+    if (filteredResults.length === 0) return 0;
+    const sum = filteredResults.reduce((acc: number, result: any) => acc + result.percentage, 0);
+    return Math.round(sum / filteredResults.length);
+  }, [filteredResults]);
+  
+  // Calculate topic performance
+  const topicPerformance = useMemo(() => {
+    if (filteredResults.length === 0) return [];
+    
+    const topicScores: Record<string, { total: number, count: number }> = {};
+    
+    filteredResults.forEach((result: any) => {
+      if (result.topicPerformance) {
+        Object.entries(result.topicPerformance).forEach(([topic, score]) => {
+          if (!topicScores[topic]) {
+            topicScores[topic] = { total: 0, count: 0 };
+          }
+          topicScores[topic].total += Number(score);
+          topicScores[topic].count += 1;
+        });
+      }
+    });
+    
+    return Object.entries(topicScores).map(([topic, { total, count }]) => ({
+      name: topic,
+      score: Math.round(total / count)
+    })).sort((a, b) => b.score - a.score);
+  }, [filteredResults]);
+  
+  // Prepare data for charts
+  const pieData = useMemo(() => {
+    if (filteredResults.length === 0) return [];
+    
+    // Count exams by difficulty
+    const difficultyCount: Record<string, number> = {
+      'Easy': 0,
+      'Medium': 0,
+      'Hard': 0
+    };
+    
+    filteredResults.forEach((result: any) => {
+      const exam = exams.find(e => e.id === result.examId);
+      if (exam) {
+        const difficulty = exam.difficulty || 'Medium';
+        difficultyCount[difficulty] = (difficultyCount[difficulty] || 0) + 1;
+      }
+    });
+    
+    return Object.entries(difficultyCount)
+      .filter(([_, count]) => count > 0)
+      .map(([name, value]) => ({ name, value }));
+  }, [filteredResults, exams]);
+  
+  // Prepare time series data for line chart
+  const timeSeriesData = useMemo(() => {
+    if (filteredResults.length === 0) return [];
+    
+    // Sort results by date
+    const sortedResults = [...filteredResults].sort((a: any, b: any) => {
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+    
+    return sortedResults.map((result: any) => ({
+      date: new Date(result.date).toLocaleDateString(),
+      score: result.percentage
+    }));
+  }, [filteredResults]);
+  
+  // Colors for charts
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+  
+  // Check if we have any data to display
+  const hasData = filteredResults.length > 0;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Performance Tracking</CardTitle>
-        <CardDescription>Analyze your exam performance metrics</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {examResults.length === 0 ? (
-          <div className="text-center py-12">
-            <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-xl font-medium mb-2">No Exam Results Yet</h3>
-            <p className="text-muted-foreground">
-              Take an exam to see your performance metrics here.
-            </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <CardTitle>Performance Analytics</CardTitle>
+            <CardDescription>Track your exam performance over time</CardDescription>
           </div>
-        ) : (
+          
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Select value={timeRange} onValueChange={setTimeRange}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Time Range" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all-time">All Time</SelectItem>
+                <SelectItem value="last-week">Last Week</SelectItem>
+                <SelectItem value="last-month">Last Month</SelectItem>
+                <SelectItem value="last-3-months">Last 3 Months</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Subject" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all-subjects">All Subjects</SelectItem>
+                {subjects.map(subject => (
+                  <SelectItem key={subject} value={subject}>{subject}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {hasData ? (
           <div className="space-y-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <Tabs defaultValue="overview" className="flex-1">
-                <TabsList>
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="questions">Question Details</TabsTrigger>
-                  <TabsTrigger value="topics">Topic Performance</TabsTrigger>
-                </TabsList>
-                <TabsContent value="overview" className="space-y-6">
-                  {/* Exam selection */}
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex flex-wrap gap-2">
-                      {examResults.map(result => (
-                        <button
-                          key={result.examId}
-                          onClick={() => setSelectedExam(result.examId)}
-                          className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all duration-300
-                            ${selectedExam === result.examId 
-                              ? 'bg-primary text-primary-foreground scale-105 shadow-md' 
-                              : 'bg-muted hover:bg-muted/80'}`}
-                        >
-                          {result.examName}
-                        </button>
-                      ))}
-                    </div>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <BarChart3 className="h-6 w-6 text-primary" />
                   </div>
-
-                  {currentResult && (
-                    <>
-                      {/* Score Overview */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <motion.div
-                          initial="hidden"
-                          animate="visible"
-                          variants={chartVariants}
+                  <div>
+                    <p className="text-sm text-muted-foreground">Average Score</p>
+                    <p className="text-2xl font-bold">{averageScore}%</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Exams Taken</p>
+                    <p className="text-2xl font-bold">{filteredResults.length}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <Clock className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg. Time Spent</p>
+                    <p className="text-2xl font-bold">
+                      {filteredResults.length > 0 
+                        ? Math.round(filteredResults.reduce((acc: number, result: any) => {
+                            const timeParts = result.timeTaken ? result.timeTaken.split(':') : ['0', '0'];
+                            return acc + (parseInt(timeParts[0]) * 60 + parseInt(timeParts[1] || 0));
+                          }, 0) / filteredResults.length)
+                        : 0} min
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <Calendar className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Last Exam</p>
+                    <p className="text-2xl font-bold">
+                      {filteredResults.length > 0 
+                        ? new Date(Math.max(...filteredResults.map((r: any) => new Date(r.date).getTime())))
+                            .toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                        : 'N/A'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Charts */}
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="w-full grid grid-cols-3 mb-4">
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="topics">Topic Performance</TabsTrigger>
+                <TabsTrigger value="progress">Progress Over Time</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="overview" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Exam Difficulty Distribution</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {pieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Question Type Performance</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={[
+                            { name: 'MCQ', score: 85 },
+                            { name: 'True/False', score: 92 },
+                            { name: 'Short Answer', score: 78 },
+                            { name: 'Essay', score: 65 }
+                          ]}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                         >
-                          <Card className="p-4 transition-all duration-300 hover:shadow-md">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Score</p>
-                                <h3 className="text-2xl font-bold mt-1">
-                                  {currentResult.score}/{currentResult.totalMarks}
-                                </h3>
-                              </div>
-                              <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                                <Trophy className="h-6 w-6 text-primary" />
-                              </div>
-                            </div>
-                            <Progress 
-                              value={currentResult.percentage} 
-                              className="mt-3 h-2" 
-                            />
-                            <p className="text-xs text-right mt-1 text-muted-foreground">
-                              {currentResult.percentage}%
-                            </p>
-                          </Card>
-                        </motion.div>
-
-                        <motion.div
-                          initial="hidden"
-                          animate="visible"
-                          variants={chartVariants}
-                          transition={{ delay: 0.1 }}
-                        >
-                          <Card className="p-4 transition-all duration-300 hover:shadow-md">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Time Taken</p>
-                                <h3 className="text-2xl font-bold mt-1">{currentResult.timeTaken}</h3>
-                              </div>
-                              <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                                <Timer className="h-6 w-6 text-primary" />
-                              </div>
-                            </div>
-                          </Card>
-                        </motion.div>
-
-                        <motion.div
-                          initial="hidden"
-                          animate="visible"
-                          variants={chartVariants}
-                          transition={{ delay: 0.2 }}
-                        >
-                          <Card className="p-4 transition-all duration-300 hover:shadow-md">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm text-muted-foreground">Questions</p>
-                                <h3 className="text-2xl font-bold mt-1">
-                                  {currentResult.questionStats.correct}/{currentResult.questionStats.total}
-                                </h3>
-                              </div>
-                              <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                                <Target className="h-6 w-6 text-primary" />
-                              </div>
-                            </div>
-                            <div className="flex gap-2 mt-3">
-                              <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                                {currentResult.questionStats.correct} Correct
-                              </span>
-                              <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                                {currentResult.questionStats.incorrect} Incorrect
-                              </span>
-                              {currentResult.questionStats.unattempted > 0 && (
-                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">
-                                  {currentResult.questionStats.unattempted} Unattempted
-                                </span>
-                              )}
-                            </div>
-                          </Card>
-                        </motion.div>
-                      </div>
-
-                      {/* Charts */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <motion.div
-                          initial="hidden"
-                          animate="visible"
-                          variants={chartVariants}
-                          transition={{ delay: 0.3 }}
-                        >
-                          <Card>
-                            <CardHeader className="pb-2">
-                              <CardTitle className="text-lg">Score History</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="h-[200px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                  <RechartsLineChart
-                                    data={getScoreHistoryData()}
-                                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                                  >
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
-                                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                                    <YAxis 
-                                      domain={[0, 100]} 
-                                      tick={{ fontSize: 12 }}
-                                      tickFormatter={(value) => `${value}%`}
-                                    />
-                                    <Tooltip
-                                      content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                          return (
-                                            <div className="bg-background border border-border p-2 rounded-md shadow-md">
-                                              <p className="font-medium">{payload[0].payload.name}</p>
-                                              <p>Date: {payload[0].payload.date}</p>
-                                              <p className="text-primary font-semibold">
-                                                Score: {payload[0].value}%
-                                              </p>
-                                            </div>
-                                          );
-                                        }
-                                        return null;
-                                      }}
-                                    />
-                                    <Legend />
-                                    <Line
-                                      type="monotone"
-                                      dataKey="score"
-                                      name="Score %"
-                                      stroke={CHART_COLORS.primary}
-                                      strokeWidth={2}
-                                      dot={{ 
-                                        r: 6,
-                                        strokeWidth: 2,
-                                        fill: "white", 
-                                        stroke: CHART_COLORS.primary
-                                      }}
-                                      activeDot={{ r: 8, fill: CHART_COLORS.primary }}
-                                    />
-                                  </RechartsLineChart>
-                                </ResponsiveContainer>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                        
-                        <motion.div
-                          initial="hidden"
-                          animate="visible"
-                          variants={chartVariants}
-                          transition={{ delay: 0.4 }}
-                        >
-                          <Card>
-                            <CardHeader className="pb-2">
-                              <CardTitle className="text-lg">Topic Mastery</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="h-[200px]">
-                                {currentResult.topicPerformance && Object.keys(currentResult.topicPerformance).length > 0 ? (
-                                  <ResponsiveContainer width="100%" height="100%">
-                                    <RechartsPieChart>
-                                      <Pie
-                                        data={getTopicPerformanceData()}
-                                        cx="50%"
-                                        cy="50%"
-                                        labelLine={false}
-                                        outerRadius={80}
-                                        fill={CHART_COLORS.primary}
-                                        dataKey="value"
-                                        nameKey="name"
-                                        label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                      >
-                                        {getTopicPerformanceData().map((entry, index) => (
-                                          <Cell 
-                                            key={`cell-${index}`} 
-                                            fill={generatePastelColor(index)}
-                                          />
-                                        ))}
-                                      </Pie>
-                                      <Tooltip 
-                                        formatter={(value) => `${value}%`}
-                                        content={({ active, payload }) => {
-                                          if (active && payload && payload.length) {
-                                            return (
-                                              <div className="bg-background border border-border p-2 rounded-md shadow-md">
-                                                <p className="font-medium">{payload[0].name}</p>
-                                                <p className="text-primary font-semibold">
-                                                  Mastery: {payload[0].value}%
-                                                </p>
-                                              </div>
-                                            );
-                                          }
-                                          return null;
-                                        }}
-                                      />
-                                    </RechartsPieChart>
-                                  </ResponsiveContainer>
-                                ) : (
-                                  <div className="h-full flex items-center justify-center text-muted-foreground">
-                                    <p>No topic data available</p>
-                                  </div>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      </div>
-                    </>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="questions" className="space-y-6">
-                  {currentResult && (
-                    <div className="rounded-md border overflow-hidden">
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis domain={[0, 100]} />
+                          <Tooltip formatter={(value) => [`${value}%`, 'Score']} />
+                          <Bar dataKey="score" fill="#8884d8" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                </div>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Recent Exam Results</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
                       <table className="w-full">
                         <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="p-2 text-left font-medium">Question</th>
-                            <th className="p-2 text-left font-medium">Type</th>
-                            <th className="p-2 text-left font-medium">Marks</th>
-                            <th className="p-2 text-left font-medium">Your Answer</th>
-                            <th className="p-2 text-left font-medium">Correct Answer</th>
+                          <tr className="border-b">
+                            <th className="text-left p-2">Exam Name</th>
+                            <th className="text-left p-2">Date</th>
+                            <th className="text-left p-2">Score</th>
+                            <th className="text-left p-2">Time Taken</th>
+                            <th className="text-left p-2">Status</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {currentResult.questionDetails.map((q, idx) => (
-                            <tr key={idx} className="border-b hover:bg-muted/20">
-                              <td className="p-2">{q.question.length > 40 ? q.question.substring(0, 40) + '...' : q.question}</td>
-                              <td className="p-2 capitalize">{q.type}</td>
-                              <td className="p-2">{q.marksObtained}/{q.totalMarks}</td>
-                              <td className="p-2">{q.userAnswer || 'Not attempted'}</td>
-                              <td className="p-2">{q.correctAnswer || 'N/A'}</td>
-                            </tr>
-                          ))}
+                          {filteredResults.slice(0, 5).map((result: any, index: number) => {
+                            const exam = exams.find(e => e.id === result.examId);
+                            return (
+                              <tr key={index} className="border-b">
+                                <td className="p-2">{result.examName || (exam?.name || 'Unknown Exam')}</td>
+                                <td className="p-2">{new Date(result.date).toLocaleDateString()}</td>
+                                <td className="p-2">{result.percentage}% ({result.score}/{result.totalMarks})</td>
+                                <td className="p-2">{result.timeTaken || 'N/A'}</td>
+                                <td className="p-2">
+                                  <div className="flex items-center">
+                                    {result.percentage >= 70 ? (
+                                      <CircleCheck className="h-4 w-4 text-green-500 mr-1" />
+                                    ) : result.percentage >= 40 ? (
+                                      <HelpCircle className="h-4 w-4 text-amber-500 mr-1" />
+                                    ) : (
+                                      <CircleX className="h-4 w-4 text-red-500 mr-1" />
+                                    )}
+                                    {result.percentage >= 70 ? 'Passed' : result.percentage >= 40 ? 'Needs Improvement' : 'Failed'}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="topics" className="space-y-6">
-                  {currentResult && currentResult.topicPerformance && (
-                    <div className="space-y-4">
-                      {Object.entries(currentResult.topicPerformance).map(([topic, percentage]) => (
-                        <div key={topic} className="space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">{topic}</span>
-                            <span className="text-sm text-muted-foreground">{percentage}%</span>
-                          </div>
-                          <Progress 
-                            value={percentage} 
-                            className="h-2" 
-                            indicatorColor={
-                              percentage >= 80 ? CHART_COLORS.success : 
-                              percentage >= 60 ? CHART_COLORS.accent3 : 
-                              percentage >= 40 ? CHART_COLORS.warning : 
-                              CHART_COLORS.danger
-                            }
-                          />
-                        </div>
-                      ))}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="topics" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Topic Performance</CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={topicPerformance}
+                        layout="vertical"
+                        margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis type="number" domain={[0, 100]} />
+                        <YAxis dataKey="name" type="category" width={80} />
+                        <Tooltip formatter={(value) => [`${value}%`, 'Score']} />
+                        <Bar dataKey="score" fill="#8884d8" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Strengths & Weaknesses</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="font-medium mb-2 flex items-center">
+                          <CircleCheck className="h-4 w-4 text-green-500 mr-2" /> Strengths
+                        </h3>
+                        <ul className="space-y-2">
+                          {topicPerformance.filter(topic => topic.score >= 70).slice(0, 3).map((topic, i) => (
+                            <li key={i} className="flex justify-between items-center bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                              <span>{topic.name}</span>
+                              <span className="font-medium">{topic.score}%</span>
+                            </li>
+                          ))}
+                          {topicPerformance.filter(topic => topic.score >= 70).length === 0 && (
+                            <li className="text-muted-foreground text-sm">No strengths identified yet</li>
+                          )}
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h3 className="font-medium mb-2 flex items-center">
+                          <CircleX className="h-4 w-4 text-red-500 mr-2" /> Areas for Improvement
+                        </h3>
+                        <ul className="space-y-2">
+                          {topicPerformance.filter(topic => topic.score < 70).slice(-3).map((topic, i) => (
+                            <li key={i} className="flex justify-between items-center bg-red-50 dark:bg-red-900/20 p-2 rounded">
+                              <span>{topic.name}</span>
+                              <span className="font-medium">{topic.score}%</span>
+                            </li>
+                          ))}
+                          {topicPerformance.filter(topic => topic.score < 70).length === 0 && (
+                            <li className="text-muted-foreground text-sm">No areas for improvement identified</li>
+                          )}
+                        </ul>
+                      </div>
                     </div>
-                  )}
-                </TabsContent>
-              </Tabs>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="progress" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Score Progress Over Time</CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-[400px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart
+                        data={timeSeriesData}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="date" 
+                          angle={-45} 
+                          textAnchor="end"
+                          height={70}
+                          tick={{ fontSize: 12 }}
+                        />
+                        <YAxis domain={[0, 100]} />
+                        <Tooltip formatter={(value) => [`${value}%`, 'Score']} />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="score" 
+                          stroke="#8884d8" 
+                          activeDot={{ r: 8 }} 
+                          strokeWidth={2}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Performance Insights</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {timeSeriesData.length >= 2 && (
+                        <div className="bg-muted/30 p-4 rounded-lg">
+                          <h3 className="font-medium mb-2">Trend Analysis</h3>
+                          <p>
+                            {(() => {
+                              const firstScore = timeSeriesData[0].score;
+                              const lastScore = timeSeriesData[timeSeriesData.length - 1].score;
+                              const difference = lastScore - firstScore;
+                              
+                              if (difference > 10) {
+                                return "Your scores show significant improvement over time. Keep up the good work!";
+                              } else if (difference > 0) {
+                                return "Your scores are gradually improving. Continue with your current study approach.";
+                              } else if (difference === 0) {
+                                return "Your performance has been consistent. Consider trying new study techniques to improve further.";
+                              } else if (difference > -10) {
+                                return "There's a slight decline in your recent scores. Review your study habits and focus on weak areas.";
+                              } else {
+                                return "Your scores show a significant decline. Consider seeking additional help or changing your study approach.";
+                              }
+                            })()}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <h3 className="font-medium mb-2">Recommendations</h3>
+                        <ul className="space-y-2 list-disc pl-5">
+                          {topicPerformance.filter(topic => topic.score < 60).slice(0, 2).map((topic, i) => (
+                            <li key={i}>
+                              Focus on improving your understanding of <span className="font-medium">{topic.name}</span>
+                            </li>
+                          ))}
+                          {filteredResults.length < 5 && (
+                            <li>Take more practice exams to get a more accurate assessment of your performance</li>
+                          )}
+                          {averageScore < 70 && (
+                            <li>Consider increasing your study time for better results</li>
+                          )}
+                          <li>Review your mistakes from previous exams to avoid repeating them</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
+              <BarChart3 className="h-8 w-8 text-muted-foreground" />
             </div>
+            <h3 className="text-lg font-medium mb-2">No Performance Data Available</h3>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              Complete some exams to see your performance analytics and track your progress over time.
+            </p>
           </div>
         )}
       </CardContent>
