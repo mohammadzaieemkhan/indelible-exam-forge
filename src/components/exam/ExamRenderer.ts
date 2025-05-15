@@ -34,6 +34,14 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
     questionWeights[idx] = weight;
   });
 
+  // Group questions by type
+  const groupedQuestions = {
+    mcq: uniqueQuestions.filter(q => q.type === 'mcq'),
+    truefalse: uniqueQuestions.filter(q => q.type === 'truefalse'),
+    shortanswer: uniqueQuestions.filter(q => q.type === 'shortanswer'),
+    essay: uniqueQuestions.filter(q => q.type === 'essay')
+  };
+
   // HTML content for the exam
   return `
     <!DOCTYPE html>
@@ -47,12 +55,15 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
           line-height: 1.6;
           color: #333;
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
+          margin: 0;
+          padding: 0;
+          height: 100vh;
+          overflow: hidden;
         }
         #exam-container {
-          position: relative;
+          display: flex;
+          height: 100vh;
+          width: 100%;
         }
         #timer {
           position: fixed;
@@ -78,15 +89,60 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
           100% { transform: scale(1); }
         }
         .header {
-          margin-bottom: 30px;
+          margin-bottom: 20px;
           border-bottom: 1px solid #e2e8f0;
-          padding-bottom: 20px;
+          padding-bottom: 15px;
+        }
+        .nav-panel {
+          width: 250px;
+          background-color: #f8f9fa;
+          border-right: 1px solid #e2e8f0;
+          padding: 20px 0;
+          overflow-y: auto;
+          flex-shrink: 0;
+        }
+        .nav-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        .nav-item {
+          padding: 12px 20px;
+          cursor: pointer;
+          transition: background 0.2s;
+          border-left: 4px solid transparent;
+        }
+        .nav-item:hover {
+          background-color: #edf2f7;
+        }
+        .nav-item.active {
+          border-left-color: #2563eb;
+          background-color: #ebf4ff;
+          font-weight: 600;
+        }
+        .content-panel {
+          flex: 1;
+          padding: 20px;
+          overflow-y: auto;
+        }
+        .section {
+          display: none;
+        }
+        .section.active {
+          display: block;
+        }
+        .section-title {
+          font-size: 1.5rem;
+          margin-bottom: 20px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #e2e8f0;
         }
         .question-container {
           margin-bottom: 30px;
           padding: 20px;
           border: 1px solid #e2e8f0;
           border-radius: 8px;
+          background: white;
         }
         .question {
           font-weight: bold;
@@ -102,8 +158,22 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
           align-items: flex-start;
           gap: 10px;
         }
+        .option label {
+          display: flex;
+          align-items: flex-start;
+          width: 100%;
+          padding: 10px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .option label:hover {
+          background-color: #f8f9fa;
+        }
         input[type="radio"] {
           margin-top: 4px;
+          margin-right: 10px;
         }
         textarea {
           width: 100%;
@@ -114,6 +184,32 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
           font-family: inherit;
           font-size: 16px;
           resize: vertical;
+          margin-bottom: 10px;
+        }
+        input[type="text"] {
+          width: 100%;
+          padding: 10px;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          font-family: inherit;
+          font-size: 16px;
+          margin-bottom: 10px;
+        }
+        .upload-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background-color: #f3f4f6;
+          color: #4b5563;
+          border: 1px solid #e5e7eb;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: all 0.2s;
+        }
+        .upload-btn:hover {
+          background-color: #e5e7eb;
         }
         .actions {
           margin-top: 30px;
@@ -137,43 +233,138 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
         .hidden {
           display: none;
         }
+        @media (max-width: 768px) {
+          #exam-container {
+            flex-direction: column;
+          }
+          .nav-panel {
+            width: 100%;
+            height: auto;
+            border-right: none;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          .nav-list {
+            display: flex;
+            overflow-x: auto;
+            padding-bottom: 10px;
+          }
+          .nav-item {
+            white-space: nowrap;
+            border-left: none;
+            border-bottom: 3px solid transparent;
+          }
+          .nav-item.active {
+            border-left-color: transparent;
+            border-bottom-color: #2563eb;
+          }
+        }
       </style>
     </head>
     <body>
       <div id="exam-container">
         <div id="timer">Time Remaining: ${exam.duration}:00</div>
         
-        <div class="header">
-          <h1>${exam.name}</h1>
-          <p><strong>Duration:</strong> ${exam.duration} minutes</p>
-          <p><strong>Topics:</strong> ${exam.topics.join(", ")}</p>
-          <p><strong>Difficulty:</strong> ${exam.difficulty}</p>
+        <div class="nav-panel">
+          <div class="header">
+            <h2>${exam.name}</h2>
+            <p><strong>Duration:</strong> ${exam.duration} minutes</p>
+          </div>
+          <ul class="nav-list">
+            <li class="nav-item active" data-section="mcq">Multiple Choice Questions</li>
+            <li class="nav-item" data-section="truefalse">True / False Questions</li>
+            <li class="nav-item" data-section="shortanswer">Short Answer Questions</li>
+            <li class="nav-item" data-section="essay">Essay Type Questions</li>
+          </ul>
         </div>
         
-        <form id="exam-form">
-          ${uniqueQuestions.map((q, idx) => `
-            <div class="question-container">
-              <div class="question">${q.question}</div>
-              ${q.type === 'mcq' ? `
+        <div class="content-panel">
+          <div class="section active" id="mcq-section">
+            <h2 class="section-title">Multiple Choice Questions</h2>
+            ${groupedQuestions.mcq.map((q, idx) => `
+              <div class="question-container">
+                <div class="question">Q${idx + 1}: ${q.question}</div>
                 <div class="options">
-                  ${q.options.map((option: string, optIdx: number) => `
+                  ${q.options.map((option, optIdx) => `
                     <div class="option">
-                      <input type="radio" id="q${idx}-opt${optIdx}" name="q${idx}" value="${option}" />
-                      <label for="q${idx}-opt${optIdx}">${option}</label>
+                      <label>
+                        <input type="radio" name="q${idx}" value="${option}" />
+                        ${option}
+                      </label>
                     </div>
                   `).join('')}
                 </div>
-              ` : `
-                <textarea name="q${idx}" placeholder="Type your answer here..."></textarea>
-              `}
-            </div>
-          `).join('')}
+              </div>
+            `).join('') || '<p>No multiple choice questions available</p>'}
+          </div>
+          
+          <div class="section" id="truefalse-section">
+            <h2 class="section-title">True / False Questions</h2>
+            ${groupedQuestions.truefalse.map((q, idx) => `
+              <div class="question-container">
+                <div class="question">Q${idx + 1}: ${q.question}</div>
+                <div class="options">
+                  <div class="option">
+                    <label>
+                      <input type="radio" name="tf${idx}" value="true" />
+                      True
+                    </label>
+                  </div>
+                  <div class="option">
+                    <label>
+                      <input type="radio" name="tf${idx}" value="false" />
+                      False
+                    </label>
+                  </div>
+                </div>
+              </div>
+            `).join('') || '<p>No true/false questions available</p>'}
+          </div>
+          
+          <div class="section" id="shortanswer-section">
+            <h2 class="section-title">Short Answer Questions</h2>
+            ${groupedQuestions.shortanswer.map((q, idx) => `
+              <div class="question-container">
+                <div class="question">Q${idx + 1}: ${q.question}</div>
+                <div>
+                  <input type="text" id="sa${idx}" placeholder="Enter your answer here..." />
+                  <button type="button" class="upload-btn" onclick="initiateImageUpload('sa${idx}', 'shortanswer')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+                      <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3h4v-.5a2.5 2.5 0 0 1 5 0V3h4a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2zM14 2H8v-.5a1.5 1.5 0 1 0-3 0V2H1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                    </svg>
+                    Upload Image
+                  </button>
+                </div>
+              </div>
+            `).join('') || '<p>No short answer questions available</p>'}
+          </div>
+          
+          <div class="section" id="essay-section">
+            <h2 class="section-title">Essay Type Questions</h2>
+            ${groupedQuestions.essay.map((q, idx) => `
+              <div class="question-container">
+                <div class="question">Q${idx + 1}: ${q.question}</div>
+                <div>
+                  <textarea id="essay${idx}" placeholder="Write your answer here..."></textarea>
+                  <button type="button" class="upload-btn" onclick="initiateImageUpload('essay${idx}', 'essay')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+                      <path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3h4v-.5a2.5 2.5 0 0 1 5 0V3h4a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2zM14 2H8v-.5a1.5 1.5 0 1 0-3 0V2H1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                    </svg>
+                    Upload Image
+                  </button>
+                </div>
+              </div>
+            `).join('') || '<p>No essay questions available</p>'}
+          </div>
           
           <div class="actions">
-            <button type="submit" id="submit-btn">Submit Exam</button>
+            <button type="button" id="submit-btn" onclick="submitExam()">Submit Exam</button>
           </div>
-        </form>
+        </div>
       </div>
+      
+      <input type="file" id="image-upload-input" accept="image/*" style="display: none;">
       
       <script>
         // Store exam information
@@ -224,25 +415,109 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
           }
         }
         
-        // Form submission
-        document.getElementById('exam-form').addEventListener('submit', function(e) {
-          e.preventDefault();
-          submitExam();
+        // Section navigation
+        const navItems = document.querySelectorAll('.nav-item');
+        const sections = document.querySelectorAll('.section');
+        
+        navItems.forEach(item => {
+          item.addEventListener('click', function() {
+            // Remove active class from all nav items and sections
+            navItems.forEach(i => i.classList.remove('active'));
+            sections.forEach(s => s.classList.remove('active'));
+            
+            // Add active class to clicked nav item
+            this.classList.add('active');
+            
+            // Show corresponding section
+            const sectionId = this.getAttribute('data-section') + '-section';
+            document.getElementById(sectionId).classList.add('active');
+          });
         });
         
+        // Handle image upload
+        let currentInputId = null;
+        let currentInputType = null;
+        
+        function initiateImageUpload(inputId, type) {
+          currentInputId = inputId;
+          currentInputType = type;
+          document.getElementById('image-upload-input').click();
+        }
+        
+        document.getElementById('image-upload-input').addEventListener('change', async function(e) {
+          if (!e.target.files || !e.target.files[0]) return;
+          
+          const file = e.target.files[0];
+          
+          // Convert to base64
+          const reader = new FileReader();
+          reader.onload = function(event) {
+            const base64 = event.target.result.toString().split(',')[1];
+            
+            // Show loading state
+            const inputElement = document.getElementById(currentInputId);
+            const originalValue = inputElement.value;
+            inputElement.value = "Processing image...";
+            inputElement.disabled = true;
+            
+            // Send to parent window for OCR
+            window.opener.postMessage({
+              type: 'extractText',
+              imageBase64: base64,
+              questionId: currentInputId
+            }, "*");
+            
+            // Listen for response
+            window.addEventListener('message', function extractTextHandler(evt) {
+              if (evt.data && evt.data.type === 'textExtracted' && evt.data.questionId === currentInputId) {
+                // Update input with extracted text
+                inputElement.value = evt.data.text;
+                inputElement.disabled = false;
+                
+                // Save the answer
+                saveAnswer(currentInputId, evt.data.text);
+                
+                // Remove this specific event listener
+                window.removeEventListener('message', extractTextHandler);
+              }
+            });
+          };
+          reader.readAsDataURL(file);
+          
+          // Reset file input
+          e.target.value = '';
+        });
+        
+        // Collect answers
+        function saveAnswer(questionId, value) {
+          examData.answers[questionId] = value;
+        }
+        
+        // Form submission
         function submitExam(autoSubmit = false) {
           clearInterval(timerInterval);
+          
+          // Collect all answers from inputs
+          document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+            saveAnswer(radio.name, radio.value);
+          });
+          
+          document.querySelectorAll('input[type="text"]').forEach(input => {
+            if (input.value.trim()) {
+              saveAnswer(input.id, input.value);
+            }
+          });
+          
+          document.querySelectorAll('textarea').forEach(textarea => {
+            if (textarea.value.trim()) {
+              saveAnswer(textarea.id, textarea.value);
+            }
+          });
           
           // Calculate time taken
           const endTime = Date.now();
           const timeTaken = formatElapsedTime(startTime, endTime);
           examData.timeTaken = timeTaken;
-          
-          // Collect all answers
-          const formData = new FormData(document.getElementById('exam-form'));
-          for (const [name, value] of formData.entries()) {
-            examData.answers[name] = value;
-          }
           
           // Save results to localStorage
           localStorage.setItem('completedExamId', examData.examId);
@@ -261,13 +536,14 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
           }
           
           // Show submission message
-          document.getElementById('exam-container').innerHTML = \`
-            <div class="header">
+          document.body.innerHTML = \`
+            <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 20px;">
               <h1>Exam Submitted</h1>
               <p>Thank you for completing the exam "${exam.name}".</p>
               <p>Time taken: \${timeTaken}</p>
               \${autoSubmit ? '<p><strong>Note:</strong> The exam was automatically submitted as the time limit was reached.</p>' : ''}
               <p>Your responses have been recorded. You can close this window now.</p>
+              <button onclick="window.close()" style="margin-top: 20px;">Close Window</button>
             </div>
           \`;
           
