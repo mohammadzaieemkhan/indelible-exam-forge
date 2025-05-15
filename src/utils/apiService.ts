@@ -79,7 +79,7 @@ export const sendWhatsAppNotification = async (
  */
 export const parseSyllabusContent = async (
   syllabusContent: string
-): Promise<{ success: boolean; topics?: string[]; error?: string }> => {
+): Promise<{ success: boolean; topics?: string[]; error?: string; markdown?: string }> => {
   try {
     console.log("Parsing syllabus content with Gemini AI");
     
@@ -103,7 +103,6 @@ export const parseSyllabusContent = async (
     }
     
     // Extract topics from the AI response
-    // This is a simplified implementation - in production you might want to parse the response more carefully
     const topicsText = data.response;
     const topics = topicsText
       .split(/[\n,:]/)
@@ -115,7 +114,17 @@ export const parseSyllabusContent = async (
         topic.length > 1
       );
     
-    return { success: true, topics };
+    // Format response as markdown
+    const markdownContent = `# Syllabus Analysis
+
+## Extracted Topics
+${topics.map(topic => `- ${topic}`).join('\n')}
+
+## Original AI Response
+${data.response}
+`;
+    
+    return { success: true, topics, markdown: markdownContent };
   } catch (error) {
     console.error("Error parsing syllabus:", error);
     return { success: false, error: error.message };

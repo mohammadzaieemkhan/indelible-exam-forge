@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import * as z from "zod";
 import { useForm } from "react-hook-form";
@@ -8,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
@@ -26,7 +26,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon, LoaderCircle, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
@@ -68,7 +67,6 @@ const GenerateExamTab = ({
   generatedExam,
   setGeneratedExam,
 }: GenerateExamTabProps) => {
-  const [activeTab, setActiveTab] = useState<string>("form");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [syllabus, setSyllabus] = useState<string>("");
@@ -77,6 +75,7 @@ const GenerateExamTab = ({
   const [examQuestions, setExamQuestions] = useState<string>("");
   const [examSections, setExamSections] = useState<any[]>([]);
   const [questionWeights, setQuestionWeights] = useState<Record<number, number>>({});
+  const [syllabusMarkdown, setSyllabusMarkdown] = useState<string>("");
   const { toast } = useToast();
   
   // Add state to track which question types are selected
@@ -113,7 +112,7 @@ const GenerateExamTab = ({
   const extractTopics = async () => {
     try {
       const response = await useGeminiAI({
-        task: "parse_syllabus", // Changed from "extract_topics" to "parse_syllabus"
+        task: "parse_syllabus",
         prompt: `Extract the main topics from this syllabus: ${syllabus}`,
       });
 
@@ -169,7 +168,7 @@ const GenerateExamTab = ({
       console.error("Error extracting topics:", error);
       toast({
         title: "Error",
-        description: "An error occurred while extracting topics.",
+        description: "An unexpected error occurred while extracting topics.",
         variant: "destructive",
       });
     }
@@ -197,6 +196,11 @@ const GenerateExamTab = ({
   // Handle syllabus upload
   const handleSyllabusUpload = (text: string) => {
     setSyllabus(text);
+  };
+
+  // Handle markdown generation
+  const handleMarkdownGenerated = (markdown: string) => {
+    setSyllabusMarkdown(markdown);
   };
 
   // Update this handler to include question type configuration
@@ -282,7 +286,7 @@ const GenerateExamTab = ({
 
     try {
       const response = await useGeminiAI({
-        task: "generate_questions", // Changed from "generate_exam" to "generate_questions"
+        task: "generate_questions",
         prompt: prompt,
       });
 
@@ -320,11 +324,11 @@ const GenerateExamTab = ({
         };
 
         setGeneratedExam(newExam);
-        setActiveTab("preview");
+        onSaveExam(newExam);
 
         toast({
           title: "Exam Generated",
-          description: "Your exam has been successfully generated.",
+          description: "Your exam has been successfully generated and saved.",
         });
       } else {
         setGenerationError("Failed to generate exam. Please try again.");
@@ -347,13 +351,6 @@ const GenerateExamTab = ({
     }
   };
 
-  // Handle saving the exam
-  const handleSaveExam = () => {
-    if (generatedExam) {
-      onSaveExam(generatedExam);
-    }
-  };
-  
   // Add a function to handle question type selection
   const handleQuestionTypeChange = (value: string) => {
     form.setValue("questionTypes", value);
@@ -380,401 +377,361 @@ const GenerateExamTab = ({
         <CardDescription>Create a new exam based on your syllabus</CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="form" className="mb-8" onValueChange={setActiveTab} value={activeTab}>
-          <TabsList className="grid grid-cols-2 w-full max-w-md mx-auto mb-6">
-            <TabsTrigger value="form">Config</TabsTrigger>
-            <TabsTrigger value="preview" disabled={!generatedExam}>Preview</TabsTrigger>
-          </TabsList>
-          
-          {/* Form Tab */}
-          <div className={activeTab === "form" ? "block" : "hidden"}>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleGenerateExam)} className="space-y-6">
-                {/* Basic Exam Information */}
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="examName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Exam Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Midterm Exam" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="examDate"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Exam Date</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant={"outline"}
-                                  className="w-full pl-3 text-left font-normal"
-                                >
-                                  {field.value ? (
-                                    format(field.value, "PPP")
-                                  ) : (
-                                    <span>Pick a date</span>
-                                  )}
-                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={field.value}
-                                onSelect={field.onChange}
-                                disabled={(date) => date < new Date()}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="examTime"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Exam Time</FormLabel>
-                          <FormControl>
-                            <Input type="time" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="examDuration"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Duration (minutes)</FormLabel>
-                          <FormControl>
-                            <Input type="number" min="5" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="numberOfQuestions"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Number of Questions</FormLabel>
-                          <FormControl>
-                            <Input type="number" min="1" max="50" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Syllabus and Topics */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Syllabus & Topics</h3>
-                  
-                  <SyllabusUploader 
-                    onSyllabusContent={handleSyllabusUpload}
-                    onTopicsExtracted={(topics) => setAvailableTopics(topics)} 
-                  />
-                  
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add custom topics (comma separated)"
-                      value={customTopics}
-                      onChange={(e) => setCustomTopics(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button type="button" variant="outline" onClick={handleAddCustomTopics}>
-                      Add
-                    </Button>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="topics"
-                    render={() => (
-                      <FormItem>
-                        <div className="mb-4">
-                          <FormLabel>Select Topics</FormLabel>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                          {availableTopics.map((topic) => (
-                            <FormField
-                              key={topic}
-                              control={form.control}
-                              name="topics"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={topic}
-                                    className="flex flex-row items-start space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(topic)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...field.value, topic])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== topic
-                                                )
-                                              );
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      {topic}
-                                    </FormLabel>
-                                  </FormItem>
-                                );
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <Separator />
-
-                {/* Exam Configuration */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Exam Configuration</h3>
-
-                  <FormField
-                    control={form.control}
-                    name="difficulty"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Difficulty Level</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select difficulty" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="easy">Easy</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="hard">Hard</SelectItem>
-                            <SelectItem value="mixed">Mixed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Question Types Field - Updated to handle customized configuration */}
-                  <FormField
-                    control={form.control}
-                    name="questionTypes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Question Types</FormLabel>
-                        <Select
-                          onValueChange={(value) => handleQuestionTypeChange(value)}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select question types" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="mcq">Multiple Choice Only</SelectItem>
-                            <SelectItem value="shortAnswer">Short Answer Only</SelectItem>
-                            <SelectItem value="essay">Essay Only</SelectItem>
-                            <SelectItem value="trueFalse">True/False Only</SelectItem>
-                            <SelectItem value="mixed">Mixed (Auto-distributed)</SelectItem>
-                            <SelectItem value="customized">Customized Distribution</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {/* Question Type Configuration - Only show when "customized" is selected */}
-                  {form.watch("questionTypes") === "customized" && (
-                    <div className="space-y-4 pl-4 border-l-2 border-muted-foreground/20 mt-4">
-                      <FormField
-                        control={form.control}
-                        name="mcqCount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Multiple Choice Questions</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="0" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="shortAnswerCount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Short Answer Questions</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="0" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="essayCount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Essay Questions</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="0" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="trueFalseCount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>True/False Questions</FormLabel>
-                            <FormControl>
-                              <Input type="number" min="0" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-
-                  <FormField
-                    control={form.control}
-                    name="includeQuestionWeights"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>
-                            Include question weights
-                          </FormLabel>
-                          <p className="text-sm text-muted-foreground">
-                            Assign different point values to questions based on difficulty
-                          </p>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Submit Button */}
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isGenerating || generationError !== null}
-                >
-                  {isGenerating ? (
-                    <>
-                      <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                      Generating Exam...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate Exam
-                    </>
-                  )}
-                </Button>
-
-                {generationError && (
-                  <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md">
-                    {generationError}
-                  </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleGenerateExam)} className="space-y-6">
+            {/* Basic Exam Information */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="examName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Exam Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Midterm Exam" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </form>
-            </Form>
-          </div>
-          
-          {/* Preview Tab */}
-          <div className={activeTab === "preview" ? "block" : "hidden"}>
-            {generatedExam ? (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-2xl font-bold">{generatedExam.name}</h2>
-                    <p className="text-muted-foreground">
-                      {generatedExam.topics.join(", ")} • {generatedExam.difficulty} difficulty • {generatedExam.duration} minutes
-                    </p>
-                  </div>
-                  <Button onClick={handleSaveExam}>Save Exam</Button>
-                </div>
-                
-                <Separator />
-                
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <h3>Exam Questions</h3>
-                  <div className="whitespace-pre-wrap bg-muted p-4 rounded-md">
-                    {examQuestions}
-                  </div>
-                </div>
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="examDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Exam Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className="w-full pl-3 text-left font-normal"
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="examTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Exam Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-            ) : (
-              <div className="text-center py-12">
-                <h3 className="text-xl font-medium mb-2">No Exam Generated Yet</h3>
-                <p className="text-muted-foreground">
-                  Configure and generate an exam to preview it here.
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4"
-                  onClick={() => setActiveTab("form")}
-                >
-                  Go to Config
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="examDuration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Duration (minutes)</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="5" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="numberOfQuestions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Number of Questions</FormLabel>
+                      <FormControl>
+                        <Input type="number" min="1" max="50" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Syllabus and Topics */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Syllabus & Topics</h3>
+              
+              <SyllabusUploader 
+                onSyllabusContent={handleSyllabusUpload}
+                onTopicsExtracted={(topics) => setAvailableTopics(topics)}
+                onMarkdownGenerated={handleMarkdownGenerated}
+              />
+              
+              {syllabusMarkdown && (
+                <div className="mt-4 p-4 border rounded-md bg-muted/50">
+                  <h4 className="text-md font-medium mb-2">Syllabus Analysis</h4>
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <pre className="whitespace-pre-wrap text-sm">{syllabusMarkdown}</pre>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add custom topics (comma separated)"
+                  value={customTopics}
+                  onChange={(e) => setCustomTopics(e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" onClick={handleAddCustomTopics}>
+                  Add
                 </Button>
+              </div>
+
+              <FormField
+                control={form.control}
+                name="topics"
+                render={() => (
+                  <FormItem>
+                    <div className="mb-4">
+                      <FormLabel>Select Topics</FormLabel>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {availableTopics.map((topic) => (
+                        <FormField
+                          key={topic}
+                          control={form.control}
+                          name="topics"
+                          render={({ field }) => {
+                            return (
+                              <FormItem
+                                key={topic}
+                                className="flex flex-row items-start space-x-3 space-y-0"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(topic)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...field.value, topic])
+                                        : field.onChange(
+                                            field.value?.filter(
+                                              (value) => value !== topic
+                                            )
+                                          );
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  {topic}
+                                </FormLabel>
+                              </FormItem>
+                            );
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Exam Configuration */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Exam Configuration</h3>
+
+              <FormField
+                control={form.control}
+                name="difficulty"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Difficulty Level</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select difficulty" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="easy">Easy</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="hard">Hard</SelectItem>
+                        <SelectItem value="mixed">Mixed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Question Types Field - Updated to handle customized configuration */}
+              <FormField
+                control={form.control}
+                name="questionTypes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Question Types</FormLabel>
+                    <Select
+                      onValueChange={(value) => handleQuestionTypeChange(value)}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select question types" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="mcq">Multiple Choice Only</SelectItem>
+                        <SelectItem value="shortAnswer">Short Answer Only</SelectItem>
+                        <SelectItem value="essay">Essay Only</SelectItem>
+                        <SelectItem value="trueFalse">True/False Only</SelectItem>
+                        <SelectItem value="mixed">Mixed (Auto-distributed)</SelectItem>
+                        <SelectItem value="customized">Customized Distribution</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {/* Question Type Configuration - Only show when "customized" is selected */}
+              {form.watch("questionTypes") === "customized" && (
+                <div className="space-y-4 pl-4 border-l-2 border-muted-foreground/20 mt-4">
+                  <FormField
+                    control={form.control}
+                    name="mcqCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Multiple Choice Questions</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="shortAnswerCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Short Answer Questions</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="essayCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Essay Questions</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="trueFalseCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>True/False Questions</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              <FormField
+                control={form.control}
+                name="includeQuestionWeights"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Include question weights
+                      </FormLabel>
+                      <p className="text-sm text-muted-foreground">
+                        Assign different point values to questions based on difficulty
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Submit Button */}
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isGenerating || generationError !== null}
+            >
+              {isGenerating ? (
+                <>
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  Generating Exam...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Exam
+                </>
+              )}
+            </Button>
+
+            {generationError && (
+              <div className="p-3 text-sm text-red-500 bg-red-50 rounded-md">
+                {generationError}
               </div>
             )}
-          </div>
-        </Tabs>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );

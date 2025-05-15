@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,12 +9,14 @@ interface SyllabusUploaderProps {
   onTopicsExtracted: (topics: string[]) => void;
   onSyllabusContent: (content: string) => void;
   onSyllabusUploaded?: (content: string) => void;
+  onMarkdownGenerated?: (markdown: string) => void;
 }
 
 const SyllabusUploader = ({ 
   onTopicsExtracted, 
   onSyllabusContent, 
-  onSyllabusUploaded 
+  onSyllabusUploaded,
+  onMarkdownGenerated
 }: SyllabusUploaderProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -76,6 +79,12 @@ const SyllabusUploader = ({
       
       if (result.success && result.topics) {
         onTopicsExtracted(result.topics);
+        
+        // Pass markdown content if available and handler exists
+        if (result.markdown && onMarkdownGenerated) {
+          onMarkdownGenerated(result.markdown);
+        }
+        
         toast({
           title: "Syllabus Processed",
           description: `${result.topics.length} topics extracted`,
