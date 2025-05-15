@@ -32,12 +32,6 @@ const UpcomingExamsTab = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const { toast } = useToast();
   
-  // Handle exam deletion
-  const handleDeleteClick = (exam: IExam) => {
-    setExamToDelete(exam);
-    setDeleteConfirmOpen(true);
-  };
-  
   // Handle confirmed deletion
   const handleConfirmDelete = () => {
     if (examToDelete && examToDelete.id && onDeleteExam) {

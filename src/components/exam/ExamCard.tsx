@@ -166,11 +166,11 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder }: ExamCardP
         {onTake && (
           <Button 
             onClick={onTake} 
-            disabled={!isToday && !isPast} 
+            disabled={!isToday} 
             className="gap-1"
-            variant={isToday ? "default" : isPast ? "secondary" : "outline"}
+            variant={isToday ? "default" : "outline"}
           >
-            <span>{isPast ? "Review" : "Take Exam"}</span>
+            <span>Take Exam</span>
             <ArrowRight className="h-4 w-4" />
           </Button>
         )}
