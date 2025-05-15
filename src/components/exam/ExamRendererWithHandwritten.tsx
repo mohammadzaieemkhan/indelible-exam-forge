@@ -39,16 +39,76 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
       onExamWindowOpen(examWindow);
     }
     
-    // Generate the HTML content for the exam window
-    const parsedQuestions = parseQuestions(exam.questions || "");
-    
-    // Generate HTML content for exam
-    const examContent = generateExamHtml(exam, parsedQuestions);
-    
-    // Write the content to the new window
-    examWindow.document.open();
-    examWindow.document.write(examContent);
-    examWindow.document.close();
+    try {
+      // Generate the HTML content for the exam window
+      // Check if questions is a string before parsing
+      const questions = exam.questions || "";
+      const parsedQuestions = typeof questions === 'string' ? parseQuestions(questions) : [];
+      
+      if (parsedQuestions.length === 0) {
+        console.warn("No questions found or unable to parse questions");
+        // Generate a basic HTML with a message if no questions
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>${exam.name}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+              .error { color: #e53e3e; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <h1>${exam.name}</h1>
+            <p>This exam has no questions or the questions couldn't be loaded.</p>
+            <button onclick="window.close()">Close</button>
+          </body>
+          </html>
+        `;
+        examWindow.document.open();
+        examWindow.document.write(errorHtml);
+        examWindow.document.close();
+        return;
+      }
+      
+      // Generate HTML content for exam with questions
+      const examContent = generateExamHtml(exam, parsedQuestions);
+      
+      // Write the content to the new window
+      examWindow.document.open();
+      examWindow.document.write(examContent);
+      examWindow.document.close();
+    } catch (error) {
+      console.error("Error rendering exam:", error);
+      // Show error in the exam window
+      examWindow.document.open();
+      examWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Error</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+            .error { color: #e53e3e; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <h1>Error Rendering Exam</h1>
+          <p class="error">There was a problem loading this exam. Please try again or contact support.</p>
+          <pre>${error instanceof Error ? error.message : 'Unknown error'}</pre>
+          <button onclick="window.close()">Close</button>
+        </body>
+        </html>
+      `);
+      examWindow.document.close();
+      
+      // Also show a toast
+      toast({
+        title: "Error Loading Exam",
+        description: "There was a problem loading this exam. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Return an object with the function instead of rendering a component
