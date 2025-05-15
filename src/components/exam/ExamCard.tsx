@@ -28,14 +28,20 @@ const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
   const isToday = examDate !== 0 && 
                  new Date(examDate).toDateString() === new Date().toDateString();
 
-  // Get the description and total questions if they exist or set defaults
-  const description = exam.hasOwnProperty('description') ? exam.description : 
-                      exam.hasOwnProperty('topics') ? exam.topics?.join(', ') : 
-                      "No description provided";
+  // Get the description and total questions using type-safe property access
+  const description = 
+    'description' in exam && exam.description ? 
+      exam.description : 
+    'topics' in exam && exam.topics ? 
+      exam.topics.join(', ') : 
+      "No description provided";
                       
-  const totalQuestions = exam.hasOwnProperty('totalQuestions') ? exam.totalQuestions : 
-                        exam.hasOwnProperty('numberOfQuestions') ? exam.numberOfQuestions : 
-                        undefined;
+  const totalQuestions = 
+    'totalQuestions' in exam && exam.totalQuestions ? 
+      exam.totalQuestions : 
+    'numberOfQuestions' in exam && exam.numberOfQuestions ? 
+      exam.numberOfQuestions : 
+      undefined;
 
   return (
     <Card className={`overflow-hidden border ${
