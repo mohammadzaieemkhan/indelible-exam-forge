@@ -1,4 +1,3 @@
-
 import React from "react";
 import {
   Bar,
@@ -15,7 +14,8 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { IExam, IExamResult } from "@/components/ExamTabs";
+import { IExam } from "@/components/ExamTabs";
+import { IExamResult } from "@/components/tabs/PerformanceTab";
 
 interface ExamScore {
   examId: string;

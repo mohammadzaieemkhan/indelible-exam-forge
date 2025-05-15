@@ -11,6 +11,7 @@ import GenerateExamTab from "./tabs/GenerateExamTab";
 import PerformanceTab from "./tabs/PerformanceTab";
 import PreviousExamsTab from "./tabs/PreviousExamsTab";
 import UpcomingExamsTab from "./tabs/UpcomingExamsTab";
+import { IExamResult } from "./tabs/PerformanceTab";
 
 export interface IExam {
   id?: string;
@@ -28,23 +29,6 @@ export interface IExam {
   questionWeights?: Record<number, number>;
   questionTypeConfig?: Record<string, number>; // New field for question type configuration
   created_at?: string; // Add this field to resolve property access issue
-}
-
-interface IExamResult {
-  examId: string;
-  examName: string;
-  date: string;
-  answers: Record<string, string>;
-  timeTaken: string;
-  questionTypes: Array<string>;
-  questionWeights: Record<number, number>;
-  percentage: number; // Add percentage to match the expected interface
-  questions: Array<{
-    question: string;
-    type: string;
-    options?: string[];
-    answer?: string;
-  }>;
 }
 
 const ExamTabs = () => {
@@ -185,7 +169,7 @@ const ExamTabs = () => {
         if (lastExamResults) {
           try {
             console.log("Found last exam results in localStorage:", lastExamResults);
-            const examData = JSON.parse(lastExamResults) as ExamResult;
+            const examData = JSON.parse(lastExamResults) as IExamResult;
             await processCompletedExam(examData);
             localStorage.removeItem('completedExamId');
             localStorage.removeItem('lastExamResults');
@@ -206,7 +190,7 @@ const ExamTabs = () => {
   }, [upcomingExams]);
   
   // Process a completed exam
-  const processCompletedExam = async (examData: ExamResult) => {
+  const processCompletedExam = async (examData: IExamResult) => {
     console.log("Processing completed exam:", examData);
     // Find the exam in upcoming exams
     const examIndex = upcomingExams.findIndex(exam => exam.id === examData.examId);
@@ -520,6 +504,41 @@ const ExamTabs = () => {
     localStorage.setItem('upcomingExams', JSON.stringify(updatedExams));
   };
   
+  // Handle deleting an exam result
+  const handleDeleteExamResult = (examId: string) => {
+    console.log("Deleting exam result with ID:", examId);
+    
+    // Get exam results from localStorage
+    const savedResults = localStorage.getItem('examResults');
+    if (savedResults) {
+      try {
+        // Parse stored results
+        const examResults = JSON.parse(savedResults);
+        
+        // Filter out the exam to delete
+        const updatedResults = examResults.filter(result => result.examId !== examId);
+        
+        // Save updated results back to localStorage
+        localStorage.setItem('examResults', JSON.stringify(updatedResults));
+        
+        toast({
+          title: "Exam Result Deleted",
+          description: "The exam result has been removed from your performance history",
+        });
+        
+        // Force a re-render by updating state
+        setActiveTab("performance");
+      } catch (error) {
+        console.error('Error deleting exam result:', error);
+        toast({
+          title: "Delete Failed",
+          description: "Could not delete the exam result. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+  
   return (
     <>
       <Tabs defaultValue="generate" className="space-y-6" value={activeTab} onValueChange={handleTabChange}>
@@ -549,7 +568,10 @@ const ExamTabs = () => {
         
         {/* Performance Tab */}
         <TabsContent value="performance" className="space-y-6 animate-fade-in">
-          <PerformanceTab examsWithResults={prepareExamsWithResults()} />
+          <PerformanceTab 
+            examsWithResults={prepareExamsWithResults()} 
+            onDeleteExam={handleDeleteExamResult} 
+          />
         </TabsContent>
         
         {/* Previous Exams Tab */}

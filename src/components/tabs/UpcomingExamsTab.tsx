@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -106,6 +105,15 @@ const UpcomingExamsTab = ({
   
   const handleSendReminder = (exam: IExam) => {
     onSendReminder(exam);
+  };
+
+  const handleDelete = (examId: string) => {
+    // Find the exam to delete
+    const exam = exams.find(e => e.id === examId);
+    if (exam) {
+      setExamToDelete(exam);
+      setDeleteConfirmOpen(true);
+    }
   };
   
   return (
