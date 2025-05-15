@@ -305,14 +305,19 @@ export const generateExamHtml = (exam, questions) => {
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div class="options">
-                  ${(q.options || []).map((option, optIdx) => `
+                  ${(q.options || []).map((option, optIdx) => {
+                    // Extract just the option letter and text from the full option string
+                    const optionLetter = option.charAt(0);
+                    const optionText = option.substring(option.indexOf(')') + 1).trim();
+                    
+                    return `
                     <div class="option">
                       <label>
-                        <input type="radio" name="q${idx}" value="${option}" />
-                        ${option}
+                        <input type="radio" name="q${idx}" value="${optionLetter}" />
+                        ${optionText}
                       </label>
                     </div>
-                  `).join('')}
+                  `}).join('')}
                 </div>
               </div>
             `).join('')}
