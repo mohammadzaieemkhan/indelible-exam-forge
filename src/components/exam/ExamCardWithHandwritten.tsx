@@ -4,6 +4,7 @@ import ExamCard from './ExamCard';
 import { IExam } from '@/components/ExamTabs';
 import ExamHandwrittenUploadHandler from './ExamHandwrittenUploadHandler';
 import ExamRendererWithHandwritten from './ExamRendererWithHandwritten';
+import { toast } from '@/hooks/use-toast';
 
 interface ExamCardWithHandwrittenProps {
   exam: IExam;
@@ -37,13 +38,22 @@ const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) 
     }
   };
   
+  // Handle sending reminder
+  const handleSendReminder = () => {
+    toast({
+      title: "Reminder Set",
+      description: `You'll be reminded about "${props.exam.name}" exam on ${props.exam.date}.`,
+      duration: 3000,
+    });
+  };
+  
   return (
     <>
       <ExamCard 
         exam={props.exam}
-        onSendReminder={() => {}} // Add this required prop
+        onSendReminder={handleSendReminder}
         onDeleteClick={() => props.onDeleteClick?.()} 
-        onViewExam={() => handleView()} // Use our custom handler
+        onViewExam={handleView}
       />
       <ExamHandwrittenUploadHandler examWindowRef={examWindowRef} />
     </>

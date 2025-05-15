@@ -1,7 +1,6 @@
 
 import React from "react";
 import { IExam } from "@/components/ExamTabs";
-import DeleteExamDialog from "@/components/exam/DeleteExamDialog"; // Fix import
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit, Copy } from "lucide-react";
@@ -15,7 +14,6 @@ interface UpcomingExamsTabProps {
 }
 
 const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: UpcomingExamsTabProps) => {
-  // Use our custom ExamCardWithHandwritten component instead of ExamCard
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
       {exams.length > 0 ? (
@@ -35,7 +33,7 @@ const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
             <div className="flex flex-col sm:flex-row gap-2 justify-center">
               <Button
                 variant="outline"
-                onClick={() => document.getElementById("create-exam-tab")?.click()}
+                onClick={() => document.getElementById("generate-exam-tab")?.click()}
                 className="inline-flex items-center"
               >
                 <Edit className="mr-2 h-4 w-4" />
