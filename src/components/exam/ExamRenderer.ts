@@ -354,7 +354,7 @@ export const generateExamHtml = (exam, questions) => {
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
-                  <input type="text" id="sa${idx}" placeholder="Enter your answer here..." data-question-id="${idx}" onchange="saveAnswer('sa${idx}', this.value, 'shortAnswer')"/>
+                  <input type="text" id="sa${idx}" placeholder="Enter your answer here..." data-question-id="${idx}" onchange="saveAnswer('sa${idx}', this.value, 'shortAnswer')" oninput="saveAnswer('sa${idx}', this.value, 'shortAnswer')"/>
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('sa${idx}', 'shortanswer')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
@@ -374,7 +374,7 @@ export const generateExamHtml = (exam, questions) => {
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
-                  <textarea id="essay${idx}" class="essay-input" placeholder="Write your answer here..." data-question-id="${idx}" onchange="saveAnswer('essay${idx}', this.value, 'essay')"></textarea>
+                  <textarea id="essay${idx}" class="essay-input" placeholder="Write your answer here..." data-question-id="${idx}" onchange="saveAnswer('essay${idx}', this.value, 'essay')" oninput="saveAnswer('essay${idx}', this.value, 'essay')"></textarea>
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('essay${idx}', 'essay')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
@@ -549,6 +549,13 @@ export const generateExamHtml = (exam, questions) => {
           document.querySelectorAll('input[type="radio"]').forEach(radio => {
             radio.addEventListener('change', function() {
               saveAnswer(this.name, this.value, this.name.startsWith('q') ? 'mcq' : 'trueFalse');
+              console.log('Change event saved:', this.name, this.value);
+            });
+            
+            // Also check for clicks to ensure the handler is triggered
+            radio.addEventListener('click', function() {
+              saveAnswer(this.name, this.value, this.name.startsWith('q') ? 'mcq' : 'trueFalse');
+              console.log('Click event saved:', this.name, this.value);
             });
           });
           
@@ -556,6 +563,12 @@ export const generateExamHtml = (exam, questions) => {
           document.querySelectorAll('input[type="text"]').forEach(input => {
             input.addEventListener('input', function() {
               saveAnswer(this.id, this.value, 'shortAnswer');
+              console.log('Input event saved:', this.id, this.value);
+            });
+            
+            input.addEventListener('blur', function() {
+              saveAnswer(this.id, this.value, 'shortAnswer');
+              console.log('Blur event saved:', this.id, this.value);
             });
           });
           
@@ -563,6 +576,12 @@ export const generateExamHtml = (exam, questions) => {
           document.querySelectorAll('textarea').forEach(textarea => {
             textarea.addEventListener('input', function() {
               saveAnswer(this.id, this.value, 'essay');
+              console.log('Input event saved:', this.id, this.value.substring(0, 20) + '...');
+            });
+            
+            textarea.addEventListener('blur', function() {
+              saveAnswer(this.id, this.value, 'essay');
+              console.log('Blur event saved:', this.id, this.value.substring(0, 20) + '...');
             });
           });
         });

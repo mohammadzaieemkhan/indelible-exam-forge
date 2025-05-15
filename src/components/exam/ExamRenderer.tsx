@@ -34,7 +34,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         const cleanOption = option.replace(/^\s*[A-D][).]\s*/, '').trim();
         return `
           <div class="option">
-            <input type="radio" name="question-${question.id}" id="option-${question.id}-${optionLetter}" value="${optionLetter}" onchange="saveAnswer(${question.id}, this.value, 'mcq')">
+            <input type="radio" name="question-${question.id}" id="option-${question.id}-${optionLetter}" value="${optionLetter}" onchange="saveAnswer(${question.id}, '${optionLetter}', 'mcq')">
             <label for="option-${question.id}-${optionLetter}" class="markdown-content">${cleanOption}</label>
           </div>
         `;
@@ -42,11 +42,11 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     } else if (question.type === 'trueFalse') {
       optionsHtml = `
         <div class="option">
-          <input type="radio" name="question-${question.id}" id="option-${question.id}-true" value="True" onchange="saveAnswer(${question.id}, this.value, 'trueFalse')">
+          <input type="radio" name="question-${question.id}" id="option-${question.id}-true" value="True" onchange="saveAnswer(${question.id}, 'True', 'trueFalse')">
           <label for="option-${question.id}-true">True</label>
         </div>
         <div class="option">
-          <input type="radio" name="question-${question.id}" id="option-${question.id}-false" value="False" onchange="saveAnswer(${question.id}, this.value, 'trueFalse')">
+          <input type="radio" name="question-${question.id}" id="option-${question.id}-false" value="False" onchange="saveAnswer(${question.id}, 'False', 'trueFalse')">
           <label for="option-${question.id}-false">False</label>
         </div>
       `;
@@ -69,7 +69,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     }
     
     // Extract just the question part (without instructions like "Select one:" etc.)
-    // Add null check before using replace
     const questionText = cleanText ? cleanText.trim() : `Question ${question.id}`;
     
     return `
@@ -518,7 +517,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         // Track question statuses
         const questionStatus = {};
         const allQuestions = ${JSON.stringify(questions.map(q => q.id))};
-        let currentQuestion = 1;
+        let currentQuestion = allQuestions[0] || 1;
         
         // Track user answers
         const userAnswers = {};
@@ -529,7 +528,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         });
         
         // Set the first question as the current one
-        questionStatus[1] = 'current';
+        questionStatus[currentQuestion] = 'current';
         updateQuestionNumbers();
         
         // Parse markdown content on page load
@@ -538,7 +537,9 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           const markdownElements = document.querySelectorAll('.markdown-content');
           markdownElements.forEach(element => {
             try {
-              element.innerHTML = marked.parse(element.textContent || '');
+              if (element && element.textContent) {
+                element.innerHTML = marked.parse(element.textContent || '');
+              }
             } catch (e) {
               console.error('Error parsing markdown:', e);
             }
@@ -554,13 +555,21 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           document.querySelectorAll('input[type="radio"]').forEach(radio => {
             radio.addEventListener('change', function() {
               const questionId = parseInt(this.name.split('-')[1]);
-              saveAnswer(questionId, this.value, this.name.includes('true') || this.name.includes('false') ? 'trueFalse' : 'mcq');
+              const type = this.name.includes('true') || this.name.includes('false') ? 'trueFalse' : 'mcq';
+              saveAnswer(questionId, this.value, type);
             });
           });
           
           // For textareas (Short Answer and Essay)
           document.querySelectorAll('textarea').forEach(textarea => {
             textarea.addEventListener('input', function() {
+              const questionId = parseInt(this.name.split('-')[1]);
+              const type = this.classList.contains('essay-input') ? 'essay' : 'shortAnswer';
+              saveAnswer(questionId, this.value, type);
+            });
+            
+            // Also add blur event to ensure answer is saved when focus is lost
+            textarea.addEventListener('blur', function() {
               const questionId = parseInt(this.name.split('-')[1]);
               const type = this.classList.contains('essay-input') ? 'essay' : 'shortAnswer';
               saveAnswer(questionId, this.value, type);
@@ -572,19 +581,58 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         function saveAnswer(questionId, answer, type) {
           console.log('Saving answer for question', questionId, ':', answer, '(', type, ')');
           
-          // Save the answer
-          userAnswers[questionId] = {
+          // Save the answer with the correct key format that will be expected when processing results
+          if (type === 'mcq') {
+            // Convert index to actual question position for MCQ
+            const mcqIndex = allQuestions.indexOf(questionId);
+            if (mcqIndex >= 0) {
+              userAnswers['q' + mcqIndex] = answer;
+            }
+          } else if (type === 'trueFalse') {
+            // Convert index to actual question position for True/False
+            const tfIndex = allQuestions.filter(id => {
+              const element = document.querySelector(\`#question-content-\${id}\`);
+              return element && element.innerHTML.includes('True') && element.innerHTML.includes('False');
+            }).indexOf(questionId);
+            
+            if (tfIndex >= 0) {
+              userAnswers['tf' + tfIndex] = answer.toLowerCase();
+            }
+          } else if (type === 'shortAnswer') {
+            const saIndex = allQuestions.filter(id => {
+              const element = document.querySelector(\`#question-content-\${id}\`);
+              return element && element.querySelector('.short-answer-input');
+            }).indexOf(questionId);
+            
+            if (saIndex >= 0) {
+              userAnswers['sa' + saIndex] = answer;
+            }
+          } else if (type === 'essay') {
+            const essayIndex = allQuestions.filter(id => {
+              const element = document.querySelector(\`#question-content-\${id}\`);
+              return element && element.querySelector('.essay-input');
+            }).indexOf(questionId);
+            
+            if (essayIndex >= 0) {
+              userAnswers['essay' + essayIndex] = answer;
+            }
+          }
+          
+          // Also save a direct mapping of question ID to answer for backup
+          userAnswers['question-' + questionId] = {
             value: answer,
             type: type
           };
           
           // Update question status based on answer
-          if (type === 'mcq' || type === 'trueFalse') {
+          if (answer && answer.trim() !== '') {
             questionStatus[questionId] = 'answered';
-          } else if (type === 'shortAnswer' || type === 'essay') {
-            // For text inputs, only mark as answered if there's content
-            questionStatus[questionId] = answer.trim() !== '' ? 'answered' : 'unanswered';
+          } else {
+            questionStatus[questionId] = 'unanswered';
           }
+          
+          // Debug
+          console.log('Current answers:', userAnswers);
           
           // Update the visual state of question numbers
           updateQuestionNumbers();
@@ -670,6 +718,9 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
               timerElement.style.backgroundColor = 'rgba(255, 152, 0, 0.7)';
             }
           }, 1000);
+          
+          // Save the interval ID to be able to clear it later
+          window.timerInterval = interval;
         }
         
         // Start the timer
@@ -678,12 +729,12 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         // Confirm before submitting
         function confirmSubmit() {
           const unansweredCount = Object.values(questionStatus).filter(
-            status => status === 'unanswered' || status === 'not-visited'
+            status => status === 'unanswered' || status === 'not-visited' || status === 'marked'
           ).length;
           
           if (unansweredCount > 0) {
             const confirm = window.confirm(
-              \`You have \${unansweredCount} unanswered questions. Are you sure you want to submit?\`
+              \`You have \${unansweredCount} unanswered or marked questions. Are you sure you want to submit?\`
             );
             if (confirm) {
               submitExam();
@@ -695,19 +746,16 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         
         // Submit the exam
         function submitExam() {
-          // Collect all answers
-          const answers = {};
-          
-          // Use the saved userAnswers for submission
-          for (const [questionId, answerObj] of Object.entries(userAnswers)) {
-            answers[questionId] = answerObj.value;
+          // Clear the timer
+          if (window.timerInterval) {
+            clearInterval(window.timerInterval);
           }
           
           // Get question text and type for each question
           const examQuestions = [];
-          ${JSON.stringify(questions)}.forEach(question => {
+          ${JSON.stringify(questions)}.forEach((question, index) => {
             let options = undefined;
-            if (question.options) {
+            if (question.options && question.options.length > 0) {
               options = question.options;
             }
             
@@ -733,47 +781,49 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
             date: "${new Date().toISOString().split('T')[0]}",
             topics: ${JSON.stringify(exam.topics || [])},
             questions: examQuestions,
-            answers: answers,
+            answers: userAnswers,
             timeTaken: timeTaken,
             questionTypes: examQuestions.map(q => q.type),
-            questionWeights: ${JSON.stringify(exam.questionWeights || {})}
+            questionWeights: ${JSON.stringify(exam.questionWeights || {})},
           };
           
           console.log('Submitting exam data with answers:', examData);
           
-          // Submit the exam data
-          if (typeof submitExam === 'function') {
-            submitExam(examData);
-          } else {
-            console.log('Exam submitted with answers:', examData);
-            
-            // Store the data in localStorage as backup
-            localStorage.setItem('lastExamResults', JSON.stringify(examData));
-            localStorage.setItem('completedExamId', examData.examId);
-            
-            // Show completion message
-            document.body.innerHTML = \`
-              <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 30px; background-color: #004d40; color: white; border-radius: 10px;">
-                <h1>Exam Submitted</h1>
-                <p>Thank you for completing the exam. Your answers have been recorded.</p>
-                <p>Your exam is being evaluated and results will be available in the Performance tab.</p>
-              </div>
-            \`;
-            
-            // Notify the parent window that the exam is complete
-            if (window.opener) {
-              try {
-                window.opener.postMessage({ type: 'examCompleted', examData }, '*');
-              } catch (e) {
-                console.error('Could not send message to parent window:', e);
-              }
+          // Store the data in localStorage as backup
+          localStorage.setItem('lastExamResults', JSON.stringify(examData));
+          localStorage.setItem('completedExamId', examData.examId);
+          
+          // Show completion message
+          document.body.innerHTML = \`
+            <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 30px; background-color: #004d40; color: white; border-radius: 10px;">
+              <h1>Exam Submitted</h1>
+              <p>Thank you for completing the exam. Your answers have been recorded.</p>
+              <p>Your exam is being evaluated and results will be available in the Performance tab.</p>
+            </div>
+          \`;
+          
+          // Notify the parent window that the exam is complete
+          if (window.opener) {
+            try {
+              window.opener.postMessage({ type: 'examCompleted', examData }, '*');
+              console.log('Message sent to parent window:', examData);
+            } catch (e) {
+              console.error('Could not send message to parent window:', e);
+              
+              // As a failsafe, try to close and reload
+              setTimeout(() => {
+                window.close();
+                if (window.opener) {
+                  window.opener.location.reload();
+                }
+              }, 3000);
             }
-            
-            // Close the window after a delay
-            setTimeout(() => {
-              window.close();
-            }, 3000);
           }
+          
+          // Close the window after a delay
+          setTimeout(() => {
+            window.close();
+          }, 3000);
         }
       </script>
     </body>
