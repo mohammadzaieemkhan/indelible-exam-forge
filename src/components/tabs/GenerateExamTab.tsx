@@ -100,6 +100,27 @@ const GenerateExamTab = ({
     },
   });
 
+  // Auto-update total number of questions when customized distribution changes
+  useEffect(() => {
+    if (form.watch("questionTypes") === "customized") {
+      const mcqCount = parseInt(form.watch("mcqCount") || "0");
+      const shortAnswerCount = parseInt(form.watch("shortAnswerCount") || "0");
+      const essayCount = parseInt(form.watch("essayCount") || "0");
+      const trueFalseCount = parseInt(form.watch("trueFalseCount") || "0");
+      
+      const totalCount = mcqCount + shortAnswerCount + essayCount + trueFalseCount;
+      if (totalCount > 0) {
+        form.setValue("numberOfQuestions", totalCount.toString());
+      }
+    }
+  }, [
+    form.watch("mcqCount"),
+    form.watch("shortAnswerCount"),
+    form.watch("essayCount"),
+    form.watch("trueFalseCount"),
+    form.watch("questionTypes")
+  ]);
+
   // Handle adding custom topics
   const handleAddCustomTopics = () => {
     if (customTopics.trim()) {
@@ -148,6 +169,35 @@ const GenerateExamTab = ({
     }
   };
 
+  // Validate customized question counts
+  const validateCustomizedQuestions = (values: FormValues): { isValid: boolean; message?: string } => {
+    if (values.questionTypes === "customized") {
+      const mcqCount = parseInt(values.mcqCount || "0");
+      const shortAnswerCount = parseInt(values.shortAnswerCount || "0");
+      const essayCount = parseInt(values.essayCount || "0");
+      const trueFalseCount = parseInt(values.trueFalseCount || "0");
+      
+      const totalQuestions = mcqCount + shortAnswerCount + essayCount + trueFalseCount;
+      const requestedQuestions = parseInt(values.numberOfQuestions);
+      
+      if (totalQuestions === 0) {
+        return { 
+          isValid: false, 
+          message: "Please specify at least one question type count" 
+        };
+      }
+      
+      if (totalQuestions !== requestedQuestions) {
+        return { 
+          isValid: false, 
+          message: `The sum of question type counts (${totalQuestions}) must equal the total number of questions (${requestedQuestions})` 
+        };
+      }
+    }
+    
+    return { isValid: true };
+  };
+
   // Update this handler to include question type configuration
   const handleGenerateExam = async (values: FormValues) => {
     setIsGenerating(true);
@@ -156,6 +206,14 @@ const GenerateExamTab = ({
     // Validate that at least one topic is selected
     if (values.topics.length === 0) {
       setGenerationError("Please select at least one topic");
+      setIsGenerating(false);
+      return;
+    }
+    
+    // Validate customized question counts
+    const validation = validateCustomizedQuestions(values);
+    if (!validation.isValid) {
+      setGenerationError(validation.message || "Invalid question configuration");
       setIsGenerating(false);
       return;
     }
@@ -415,8 +473,20 @@ const GenerateExamTab = ({
                     <FormItem>
                       <FormLabel>Number of Questions</FormLabel>
                       <FormControl>
-                        <Input type="number" min="1" max="50" {...field} />
+                        <Input 
+                          type="number" 
+                          min="1" 
+                          max="50" 
+                          {...field}
+                          readOnly={form.watch("questionTypes") === "customized"}
+                          className={form.watch("questionTypes") === "customized" ? "bg-gray-100" : ""}
+                        />
                       </FormControl>
+                      {form.watch("questionTypes") === "customized" && (
+                        <p className="text-xs text-muted-foreground">
+                          Auto-calculated from question type distribution
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
