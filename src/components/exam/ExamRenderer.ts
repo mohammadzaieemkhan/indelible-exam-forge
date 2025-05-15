@@ -403,6 +403,19 @@ export const generateExamHtml = (exam, questions) => {
         // Log the exam data to help with debugging
         console.log("Exam questions loaded:", ${JSON.stringify(uniqueQuestions.length)} + " questions");
         
+        // Store correct answers for validation during submission
+        const correctAnswers = {
+          ${uniqueQuestions.map((q, idx) => {
+            // Only include if answer is provided
+            if (q.answer) {
+              return `"q${idx}": "${q.answer}"`;
+            }
+            return '';
+          }).filter(Boolean).join(',\n          ')}
+        };
+        
+        console.log("Correct answers loaded:", correctAnswers);
+        
         // Store exam information
         const examData = {
           examId: "${exam.id || ''}",
@@ -410,13 +423,15 @@ export const generateExamHtml = (exam, questions) => {
           date: new Date().toISOString(),
           answers: {},
           timeTaken: "",
+          topics: ${JSON.stringify(exam.topics || [])},
+          difficulty: "${exam.difficulty || 'medium'}",
           questionTypes: ${JSON.stringify(questionTypes)},
           questionWeights: ${JSON.stringify(questionWeights)},
           questions: ${JSON.stringify(uniqueQuestions.map(q => ({
             question: q.text || '',
             type: q.type || 'unknown',
             options: q.options || [],
-            answer: ''  // Don't include correct answers here
+            answer: q.answer || ''  // Include correct answers for evaluation
           })))}
         };
         
@@ -528,8 +543,14 @@ export const generateExamHtml = (exam, questions) => {
         function saveAnswer(questionId, value, type) {
           console.log("Saving answer for:", questionId, "Value:", value, "Type:", type);
           
+          // Store answers in the format expected by the evaluation system
+          // For MCQs, we remove the 'q' prefix to get the actual question index
+          let actualQuestionId = questionId;
+          
           // First store in answers object with the ID format expected by the evaluation code
           examData.answers[questionId] = value;
+          
+          console.log("Updated exam data answers:", examData.answers);
           
           // Add visual feedback that answer was saved
           if (type === 'mcq' || type === 'trueFalse') {
@@ -544,21 +565,62 @@ export const generateExamHtml = (exam, questions) => {
             }
           }
           
-          // Debug the answers state
-          console.log("Current answers state:", JSON.stringify(examData.answers));
+          // Debug the answers state - full dump for troubleshooting
+          console.log("Current answers state (complete):", JSON.stringify(examData.answers));
+          
+          // Store answers in localStorage as backup
+          try {
+            localStorage.setItem('currentExamAnswers', JSON.stringify(examData.answers));
+          } catch (e) {
+            console.error("Failed to save answers to localStorage:", e);
+          }
         }
         
-        // Add event listeners for input changes when DOM is loaded
+        // Immediately initialize answer collection when page loads
         document.addEventListener('DOMContentLoaded', function() {
           console.log("DOM loaded, attaching event listeners for answers");
           
+          // Load any previously saved answers from localStorage
+          try {
+            const savedAnswers = localStorage.getItem('currentExamAnswers');
+            if (savedAnswers) {
+              const parsedAnswers = JSON.parse(savedAnswers);
+              // Restore answers to UI
+              for (const [questionId, value] of Object.entries(parsedAnswers)) {
+                // Only restore if we're in the same exam session
+                if (questionId) {
+                  examData.answers[questionId] = value;
+                  // Find the corresponding UI element and set its value
+                  if (questionId.startsWith('q')) {
+                    // MCQ question
+                    const radioEl = document.querySelector(\`input[name="\${questionId}"][value="\${value}"]\`);
+                    if (radioEl) radioEl.checked = true;
+                  } else if (questionId.startsWith('tf')) {
+                    // True/False question
+                    const radioEl = document.querySelector(\`input[name="\${questionId}"][value="\${value}"]\`);
+                    if (radioEl) radioEl.checked = true;
+                  } else if (questionId.startsWith('sa') || questionId.startsWith('essay')) {
+                    // Short answer or essay question
+                    const inputEl = document.getElementById(questionId);
+                    if (inputEl) inputEl.value = value;
+                  }
+                }
+              }
+              console.log("Restored saved answers:", examData.answers);
+            }
+          } catch (e) {
+            console.error("Failed to restore saved answers:", e);
+          }
+          
           // For radio buttons (MCQ and True/False)
           document.querySelectorAll('input[type="radio"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-              const qId = this.getAttribute('name');
-              const qType = this.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
-              saveAnswer(qId, this.value, qType);
-              console.log('Radio change event: Saved ' + qId + ' = ' + this.value);
+            ['change', 'click'].forEach(eventType => {
+              radio.addEventListener(eventType, function() {
+                const qId = this.getAttribute('name');
+                const qType = this.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
+                saveAnswer(qId, this.value, qType);
+                console.log(eventType + ' event: Saved ' + qId + ' = ' + this.value);
+              });
             });
           });
           
@@ -584,25 +646,6 @@ export const generateExamHtml = (exam, questions) => {
                 console.log(eventType + ' event: Saved ' + qId + ' = ' + this.value.substring(0, 20) + '...');
               });
             });
-          });
-        });
-        
-        // Also attach the same event listeners immediately (in case DOMContentLoaded already fired)
-        // For radio buttons (MCQ and True/False)
-        document.querySelectorAll('input[type="radio"]').forEach(radio => {
-          radio.addEventListener('change', function() {
-            const qId = this.getAttribute('name');
-            const qType = this.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
-            saveAnswer(qId, this.value, qType);
-            console.log('Radio change event (immediate): Saved ' + qId + ' = ' + this.value);
-          });
-          
-          // Add click handler too (for extra reliability)
-          radio.addEventListener('click', function() {
-            const qId = this.getAttribute('name');
-            const qType = this.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
-            saveAnswer(qId, this.value, qType);
-            console.log('Radio click event: Saved ' + qId + ' = ' + this.value);
           });
         });
         
@@ -641,14 +684,14 @@ export const generateExamHtml = (exam, questions) => {
             }
           });
           
-          // Debug the entire exam data object
-          console.log("FINAL EXAM DATA FOR SUBMISSION:", JSON.stringify(examData));
-          console.log("Answers collected:", Object.keys(examData.answers).length);
-          
           // Calculate time taken
           const endTime = Date.now();
           const timeTaken = formatElapsedTime(startTime, endTime);
           examData.timeTaken = timeTaken;
+          
+          // Debug the entire exam data object
+          console.log("FINAL EXAM DATA FOR SUBMISSION:", JSON.stringify(examData));
+          console.log("Answers collected:", Object.keys(examData.answers).length);
           
           // Save results to localStorage as backup
           localStorage.setItem('completedExamId', examData.examId);
@@ -662,7 +705,7 @@ export const generateExamHtml = (exam, questions) => {
                 examData: examData
               }, '*');
               
-              console.log("Exam data sent to parent window:", examData);
+              console.log("Exam data sent to parent window");
             }
           } catch (error) {
             console.error("Error sending exam data to parent:", error);
@@ -711,4 +754,3 @@ export const generateExamHtml = (exam, questions) => {
 
 // Export functions for use in other modules
 export { parseQuestions };
-

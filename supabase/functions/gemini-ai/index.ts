@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -43,7 +42,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, task, syllabus, syllabusContent, topics, difficulty, questionTypes, numberOfQuestions } = await req.json();
+    const { prompt, task, syllabus, syllabusContent, topics, difficulty, questionTypes, numberOfQuestions, examData } = await req.json();
 
     // Choose the appropriate system prompt based on the task
     let systemPrompt = DEFAULT_SYSTEM_PROMPT;
@@ -97,12 +96,101 @@ serve(async (req) => {
                    
                    ${mcqFormatInstructions}`;
         break;
+        
       case "evaluate_answer":
         systemPrompt = "You are an AI specialized in evaluating and grading student answers. Provide constructive feedback and suggestions for improvement.";
+        
+        // Enhanced evaluation prompt if we have exam data
+        if (examData) {
+          console.log("Evaluating exam submission with Gemini AI");
+          
+          // Get the correct answers for comparison
+          let correctAnswersMap = {};
+          if (examData.questions && Array.isArray(examData.questions)) {
+            examData.questions.forEach((q, idx) => {
+              if (q.type === 'mcq' || q.type === 'trueFalse') {
+                // For MCQ questions, convert index to question ID format used in the answers
+                correctAnswersMap[`q${idx}`] = q.answer;
+              }
+            });
+          }
+          
+          // Format questions and user responses for evaluation
+          let formattedPrompt = `Evaluate the following exam responses:
+        
+      Exam: ${examData.examName}
+      Topic(s): ${examData.topics ? examData.topics.join(", ") : "General Knowledge"}
+      Difficulty: ${examData.difficulty || "medium"}
+      
+      Questions and Responses:
+      `;
+          
+          // Add each question and response
+          if (examData.questions && Array.isArray(examData.questions)) {
+            examData.questions.forEach((q, idx) => {
+              const questionId = `q${idx}`;
+              const userAnswer = examData.answers && examData.answers[questionId] 
+                ? examData.answers[questionId] 
+                : "Not answered";
+              
+              const weight = examData.questionWeights?.[idx] || 1;
+              const options = q.options && Array.isArray(q.options) 
+                ? q.options.join(" | ") 
+                : "No options provided";
+              
+              formattedPrompt += `
+        Question ${idx + 1} (${q.type}, weight: ${weight}): ${q.question}
+        Options: ${options}
+        Correct Answer: ${correctAnswersMap[questionId] || "N/A"}
+        User Answer: ${userAnswer}
+        \n\n`;
+            });
+          }
+          
+          // Add evaluation instructions
+          formattedPrompt += `
+      For each question, provide:
+      1. Whether the answer is correct (full points), partially correct (partial points), or incorrect (0 points)
+      2. A brief explanation/feedback
+      3. The points awarded out of the question weight
+      
+      Also provide:
+      - Total score (sum of awarded points)
+      - Total possible score (sum of question weights)
+      - Percentage score
+      - Performance breakdown by topic
+      
+      Use the following JSON format for your response:
+      {
+        "questionDetails": [
+          {
+            "question": "Question text",
+            "type": "question type",
+            "isCorrect": true/false/partial,
+            "feedback": "Brief feedback",
+            "marksObtained": number,
+            "totalMarks": number,
+            "userAnswer": "user's answer",
+            "correctAnswer": "correct answer"
+          }
+        ],
+        "totalScore": number,
+        "totalPossible": number,
+        "percentage": number,
+        "topicPerformance": {
+          "topic1": percentage,
+          "topic2": percentage
+        }
+      }`;
+          
+          userPrompt = formattedPrompt;
+        }
         break;
+        
       case "performance_insights":
         systemPrompt = "You are an AI specialized in analyzing educational performance data and providing actionable insights to help students improve.";
         break;
+        
       case "parse_syllabus":
         systemPrompt = "You are an AI specialized in extracting structured information from educational syllabi. Extract the main topics, subtopics, and key concepts that would be important for exam questions.";
         userPrompt = `Please analyze the following syllabus and extract the main topics that would be relevant for creating exam questions: ${syllabusContent}`;

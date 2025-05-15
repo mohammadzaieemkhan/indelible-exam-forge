@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -239,30 +240,23 @@ For True/False questions, clearly state if the answer is True or False at the en
     
     // Add evaluation logic for exam submissions
     if (params.task === "evaluate_answer" && params.examData) {
-      console.log("Evaluating exam submission with Gemini AI");
-      // Enhanced prompt for better evaluation
-      const evaluationPrompt = `
-        Evaluate this exam submission and provide detailed feedback.
-        
-        Exam name: ${params.examData.examName}
-        
-        For each question, compare the student's answer with the correct answer and determine if it's correct.
-        Assign full marks if correct, zero if incorrect.
-        
-        For short answer and essay questions, evaluate based on:
-        - Correctness of key points
-        - Completeness of response
-        - Clarity of explanation
-        
-        Provide a JSON response with:
-        1. Overall score (percentage)
-        2. Total marks
-        3. Number of correct/incorrect answers
-        4. Performance by topic
-      `;
+      console.log("Evaluating exam submission with Gemini AI:", params.examData);
       
-      // Update or create the prompt
-      params.prompt = evaluationPrompt;
+      // Log the answers directly for debugging
+      console.log("Answers for evaluation:", params.examData.answers);
+      
+      // Convert the answers format if needed to match the expected format
+      const formattedAnswers = {};
+      if (params.examData.answers) {
+        Object.entries(params.examData.answers).forEach(([key, value]) => {
+          formattedAnswers[key] = value;
+        });
+      }
+      
+      // Update the answers in the exam data
+      params.examData.answers = formattedAnswers;
+      
+      console.log("Formatted answers for evaluation:", params.examData.answers);
     }
     
     const { data, error } = await supabase.functions.invoke('gemini-ai', {
@@ -297,89 +291,101 @@ For True/False questions, clearly state if the answer is True or False at the en
     if (params.task === "evaluate_answer" && params.examData) {
       // Process evaluation response and calculate results
       try {
+        // Try to parse the JSON response from Gemini
+        let evaluationData;
+        const responseText = data.response;
+        
+        // Extract JSON if it's wrapped in markdown code blocks
+        if (responseText.includes('```json')) {
+          const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+          if (jsonMatch && jsonMatch[1]) {
+            try {
+              evaluationData = JSON.parse(jsonMatch[1].trim());
+              console.log("Successfully parsed JSON evaluation from code block:", evaluationData);
+            } catch (jsonError) {
+              console.error("Error parsing JSON from code block:", jsonError);
+            }
+          }
+        }
+        
+        // If we couldn't extract from code block, try as raw JSON
+        if (!evaluationData) {
+          try {
+            // Look for a JSON object in the string
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              evaluationData = JSON.parse(jsonMatch[0]);
+              console.log("Successfully parsed raw JSON evaluation:", evaluationData);
+            }
+          } catch (jsonError) {
+            console.error("Error parsing raw JSON:", jsonError);
+          }
+        }
+        
         // Store the evaluated results in localStorage
         const examResults = localStorage.getItem('examResults') ? 
           JSON.parse(localStorage.getItem('examResults')!) : [];
         
-        // Basic evaluation if Gemini fails to provide structured data
-        const defaultEvaluation = {
+        // Use parsed data or create basic evaluation if parsing failed
+        const evaluation = evaluationData || {
+          questionDetails: params.examData.questions.map((q, idx) => {
+            const questionId = `q${idx}`;
+            const userAnswer = params.examData.answers[questionId] || "Not answered";
+            
+            return {
+              question: q.question,
+              type: q.type,
+              isCorrect: false,
+              feedback: "The question was not answered correctly.",
+              marksObtained: 0,
+              totalMarks: 1,
+              userAnswer: userAnswer,
+              correctAnswer: q.answer
+            };
+          }),
+          totalScore: 0,
+          totalPossible: params.examData.questions.length,
+          percentage: 0,
+          topicPerformance: {}
+        };
+        
+        // Create a final result object
+        const result = {
           examId: params.examData.examId,
           examName: params.examData.examName,
           date: new Date().toISOString().split('T')[0],
-          score: 0,
-          totalMarks: params.examData.questions.length,
-          percentage: 0,
+          score: evaluation.totalScore || 0,
+          totalMarks: evaluation.totalPossible || params.examData.questions.length,
+          percentage: evaluation.percentage || 0,
           timeTaken: params.examData.timeTaken || "N/A",
           questionStats: {
-            correct: 0,
-            incorrect: 0,
-            unattempted: 0
+            correct: evaluation.questionDetails?.filter(q => q.isCorrect === true).length || 0,
+            incorrect: evaluation.questionDetails?.filter(q => q.isCorrect === false).length || 0,
+            unattempted: evaluation.questionDetails?.filter(q => q.userAnswer === "Not answered").length || 0,
+            total: params.examData.questions.length
           },
-          topicPerformance: {},
-          questionDetails: []
+          topicPerformance: evaluation.topicPerformance || {},
+          questionDetails: evaluation.questionDetails || [],
+          questions: params.examData.questions,
+          answers: params.examData.answers
         };
         
-        // Calculate basic score based on matching answers
-        let correctCount = 0;
-        const questionDetails = [];
-        
-        for (let i = 0; i < params.examData.questions.length; i++) {
-          const question = params.examData.questions[i];
-          const questionId = (i + 1).toString();
-          const userAnswer = params.examData.answers[questionId];
-          
-          // FIX: Use a numeric value for isCorrect instead of boolean/number mix
-          let isCorrectValue = 0; // 0 means incorrect, 1 means correct, 0.5 means partial
-          
-          if (question.type === 'mcq' || question.type === 'trueFalse') {
-            // For MCQ and true/false, direct comparison
-            isCorrectValue = (userAnswer && userAnswer.toString().trim().toLowerCase() === 
-                         question.answer.toString().trim().toLowerCase()) ? 1 : 0;
-          } else if (userAnswer && userAnswer.trim() !== '') {
-            // For short answer and essay, mark as attempted but need manual review
-            // Give partial credit (50%) for attempting
-            isCorrectValue = 0.5;
-          }
-          
-          // Use the numeric value directly for marking and counting
-          const marksObtained = isCorrectValue;
-          correctCount += marksObtained;
-          
-          questionDetails.push({
-            question: question.question,
-            type: question.type,
-            userAnswer: userAnswer || "Not attempted",
-            correctAnswer: question.answer,
-            marksObtained: marksObtained,
-            totalMarks: 1
-          });
-        }
-        
-        // Calculate percentage
-        const percentage = Math.round((correctCount / params.examData.questions.length) * 100);
-        
-        // Update the evaluation
-        defaultEvaluation.score = correctCount;
-        defaultEvaluation.percentage = percentage;
-        defaultEvaluation.questionStats.correct = correctCount;
-        defaultEvaluation.questionStats.incorrect = params.examData.questions.length - correctCount;
-        defaultEvaluation.questionDetails = questionDetails;
-        
-        // Also try to extract topics performance
-        if (params.examData.topics) {
-          const topicPerformance = {};
+        // If no topic performance was provided, use the topics from the exam
+        if (Object.keys(result.topicPerformance).length === 0 && params.examData.topics) {
           params.examData.topics.forEach(topic => {
-            topicPerformance[topic] = percentage; // Assign overall percentage to each topic
+            result.topicPerformance[topic] = result.percentage;
           });
-          defaultEvaluation.topicPerformance = topicPerformance;
         }
+        
+        console.log("Created exam result object:", result);
         
         // Add to results and save
-        examResults.push(defaultEvaluation);
+        examResults.push(result);
         localStorage.setItem('examResults', JSON.stringify(examResults));
         
         // Mark exam as completed
         if (params.examData.examId) {
+          console.log("Moving exam from upcoming to previous...");
           // Get existing exams
           const examsJson = localStorage.getItem('exams');
           if (examsJson) {
@@ -391,6 +397,7 @@ For True/False questions, clearly state if the answer is True or False at the en
               exams[examIndex].completed = true;
               // Update localStorage
               localStorage.setItem('exams', JSON.stringify(exams));
+              console.log("Exam successfully processed and moved to previous exams");
             }
           }
         }
@@ -398,13 +405,13 @@ For True/False questions, clearly state if the answer is True or False at the en
         // Show success toast
         toast({
           title: "Exam Evaluated",
-          description: `Your exam has been evaluated! Score: ${percentage}%`,
+          description: `Your exam has been evaluated! Score: ${result.percentage}%`,
         });
         
         return { 
           success: true, 
           response: data.response,
-          evaluationResult: defaultEvaluation
+          evaluationResult: result
         };
       } catch (evalError) {
         console.error("Error processing evaluation:", evalError);
