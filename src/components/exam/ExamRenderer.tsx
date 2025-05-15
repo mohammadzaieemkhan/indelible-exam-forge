@@ -238,6 +238,382 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           padding: 0;
         }
         
+        * {
+          box-sizing: border-box;
+        }
+        
+        #exam-container {
+          display: flex;
+          height: 100vh;
+          overflow: hidden;
+        }
+        
+        /* Sidebar styles */
+        .sidebar {
+          width: 300px;
+          background-color: var(--accent);
+          padding: 20px;
+          border-right: 1px solid var(--border);
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+        }
+        
+        .sidebar-header {
+          margin-bottom: 20px;
+          border-bottom: 1px solid var(--border);
+          padding-bottom: 15px;
+        }
+        
+        .sidebar-header h2 {
+          margin: 0 0 5px 0;
+          font-size: 1.2rem;
+        }
+        
+        .sidebar-header p {
+          margin: 0;
+          color: var(--muted-foreground);
+          font-size: 0.9rem;
+        }
+        
+        .sidebar-timer {
+          background-color: var(--muted);
+          padding: 15px;
+          border-radius: 8px;
+          text-align: center;
+          margin-bottom: 20px;
+          font-size: 1.5rem;
+          font-weight: bold;
+        }
+        
+        .sidebar-progress {
+          margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+          height: 8px;
+          background-color: var(--muted);
+          border-radius: 4px;
+          margin: 8px 0;
+          overflow: hidden;
+        }
+        
+        .progress-value {
+          height: 100%;
+          background-color: var(--primary);
+          width: 0%;
+          transition: width 0.3s ease;
+        }
+        
+        .progress-stats {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.85rem;
+          color: var(--muted-foreground);
+        }
+        
+        .question-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
+          margin-bottom: 20px;
+        }
+        
+        .question-number {
+          background-color: var(--muted);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: all 0.2s ease;
+        }
+        
+        .question-number:hover {
+          background-color: var(--accent);
+          border-color: var(--border-hover);
+        }
+        
+        .question-number.current {
+          background-color: var(--primary);
+          color: var(--primary-foreground);
+          border-color: var(--primary-hover);
+        }
+        
+        .question-number.answered {
+          background-color: #10b981;
+          color: white;
+          border-color: #059669;
+        }
+        
+        .question-number.review {
+          background-color: #f59e0b;
+          color: white;
+          border-color: #d97706;
+        }
+        
+        .sidebar-legend {
+          margin-bottom: 20px;
+          padding-top: 15px;
+          border-top: 1px solid var(--border);
+        }
+        
+        .legend-title {
+          font-weight: 500;
+          margin-bottom: 10px;
+        }
+        
+        .legend-item {
+          display: flex;
+          align-items: center;
+          margin-bottom: 8px;
+          font-size: 0.85rem;
+        }
+        
+        .legend-color {
+          width: 16px;
+          height: 16px;
+          border-radius: 4px;
+          margin-right: 8px;
+        }
+        
+        .legend-current {
+          background-color: var(--primary);
+        }
+        
+        .legend-answered {
+          background-color: #10b981;
+        }
+        
+        .legend-review {
+          background-color: #f59e0b;
+        }
+        
+        .legend-unanswered {
+          background-color: var(--muted);
+          border: 1px solid var(--border);
+        }
+        
+        .sidebar-actions {
+          margin-top: auto;
+          padding-top: 20px;
+        }
+        
+        /* Main content styles */
+        .main-content {
+          flex: 1;
+          padding: 30px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .section-container {
+          margin-bottom: 30px;
+        }
+        
+        .section-header {
+          margin-bottom: 20px;
+        }
+        
+        .section-header h2 {
+          margin: 0;
+          font-size: 1.5rem;
+        }
+        
+        .section-header p {
+          margin: 5px 0 0 0;
+          color: var(--muted-foreground);
+        }
+        
+        .question-container {
+          background-color: white;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 25px;
+          margin-bottom: 20px;
+        }
+        
+        .question-header {
+          margin-bottom: 15px;
+        }
+        
+        .question-header h3 {
+          margin: 0;
+          font-size: 1.1rem;
+          font-weight: 600;
+        }
+        
+        .question-content {
+          margin-bottom: 25px;
+        }
+        
+        .question-content p {
+          margin: 0 0 15px 0;
+          font-size: 1rem;
+        }
+        
+        .answer-section {
+          margin-top: 30px;
+        }
+        
+        /* Options styles */
+        .options {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        
+        .option {
+          position: relative;
+        }
+        
+        .option-label {
+          display: flex;
+          align-items: flex-start;
+          cursor: pointer;
+          padding: 10px;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          transition: all 0.2s ease;
+        }
+        
+        .option-label:hover {
+          border-color: var(--border-hover);
+          background-color: var(--muted);
+        }
+        
+        .radio-input {
+          position: absolute;
+          opacity: 0;
+        }
+        
+        .radio-custom {
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          margin-right: 10px;
+          border: 2px solid var(--border);
+          border-radius: 50%;
+          position: relative;
+          flex-shrink: 0;
+          margin-top: 2px;
+        }
+        
+        .radio-input:checked + .radio-custom::after {
+          content: "";
+          position: absolute;
+          width: 10px;
+          height: 10px;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          border-radius: 50%;
+          background-color: var(--primary);
+        }
+        
+        .option-text {
+          flex: 1;
+        }
+        
+        /* Text input styles */
+        .text-input-container {
+          width: 100%;
+        }
+        
+        .text-input {
+          width: 100%;
+          padding: 10px 15px;
+          font-size: 1rem;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          transition: border-color 0.2s ease;
+        }
+        
+        .text-input:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+        
+        /* Textarea styles */
+        .textarea-container {
+          width: 100%;
+        }
+        
+        .essay-input {
+          width: 100%;
+          min-height: 200px;
+          padding: 15px;
+          font-size: 1rem;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          transition: border-color 0.2s ease;
+          resize: vertical;
+          font-family: inherit;
+        }
+        
+        .essay-input:focus {
+          outline: none;
+          border-color: var(--primary);
+          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+        
+        /* Navigation styles */
+        .navigation {
+          display: flex;
+          justify-content: space-between;
+          margin-top: auto;
+          padding-top: 20px;
+          margin-bottom: 40px;
+        }
+        
+        /* Button styles */
+        .button {
+          padding: 10px 20px;
+          border-radius: 6px;
+          font-size: 1rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .button.primary {
+          background-color: var(--primary);
+          color: var(--primary-foreground);
+        }
+        
+        .button.primary:hover {
+          background-color: var(--primary-hover);
+        }
+        
+        .button.secondary {
+          background-color: var(--accent);
+          color: var(--accent-foreground);
+          border: 1px solid var(--border);
+        }
+        
+        .button.secondary:hover {
+          background-color: var(--muted);
+          border-color: var(--border-hover);
+        }
+        
+        .button.review {
+          background-color: #f59e0b;
+          color: white;
+        }
+        
+        .button.review:hover {
+          background-color: #d97706;
+        }
+        
         /* Styles for the upload button */
         .upload-image-button {
           display: flex;
@@ -268,7 +644,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         #image-upload-input {
           display: none;
         }
-        
       </style>
     </head>
     <body>
@@ -323,7 +698,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           </div>
           
           <div class="sidebar-actions">
-            <button class="button" id="submit-button" onclick="submitExam()">Submit Exam</button>
+            <button class="button primary" id="submit-button" onclick="submitExam()">Submit Exam</button>
           </div>
         </div>
         
@@ -343,6 +718,11 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
       <script>
         let currentUploadQuestionId = null;
         let isProcessingImage = false;
+        let currentQuestionIndex = 0;
+        let answeredQuestions = {};
+        let reviewedQuestions = {};
+        let examStartTime = new Date();
+        let examTimerInterval;
         
         // Set up image upload buttons
         document.addEventListener('DOMContentLoaded', () => {
@@ -365,6 +745,182 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           // Handle file selection
           document.getElementById('image-upload-input').addEventListener('change', handleImageUpload);
         });
+        
+        // Initialize exam
+        function initExam() {
+          // Start timer
+          examStartTime = new Date();
+          examTimerInterval = setInterval(updateTimer, 1000);
+          
+          // Show first question
+          showQuestion(0);
+          
+          // Update progress indicators
+          updateProgress();
+        }
+        
+        // Update the timer display
+        function updateTimer() {
+          const now = new Date();
+          const diffMs = now - examStartTime;
+          
+          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+          
+          const formattedTime = 
+            String(hours).padStart(2, '0') + ':' +
+            String(minutes).padStart(2, '0') + ':' +
+            String(seconds).padStart(2, '0');
+          
+          document.getElementById('timer-value').textContent = formattedTime;
+        }
+        
+        // Show a specific question
+        function showQuestion(index) {
+          const questions = document.querySelectorAll('.question-container');
+          const buttons = document.querySelectorAll('.question-number');
+          
+          if (index < 0) index = 0;
+          if (index >= questions.length) index = questions.length - 1;
+          
+          // Hide all questions
+          questions.forEach(q => q.style.display = 'none');
+          
+          // Show the selected question
+          questions[index].style.display = 'block';
+          
+          // Update buttons
+          buttons.forEach(b => b.classList.remove('current'));
+          buttons[index].classList.add('current');
+          
+          currentQuestionIndex = index;
+        }
+        
+        // Navigate to previous question
+        function prevQuestion() {
+          showQuestion(currentQuestionIndex - 1);
+        }
+        
+        // Navigate to next question
+        function nextQuestion() {
+          showQuestion(currentQuestionIndex + 1);
+        }
+        
+        // Mark current question for review
+        function markForReview() {
+          const buttonEl = document.getElementById(\`question-button-\${currentQuestionIndex}\`);
+          
+          if (buttonEl.classList.contains('review')) {
+            buttonEl.classList.remove('review');
+            delete reviewedQuestions[currentQuestionIndex];
+          } else {
+            buttonEl.classList.add('review');
+            reviewedQuestions[currentQuestionIndex] = true;
+          }
+        }
+        
+        // Save answer for the current question (for multiple choice)
+        function selectOption(questionIndex, optionIndex) {
+          answeredQuestions[questionIndex] = optionIndex;
+          
+          // Mark the question as answered in the grid
+          const buttonEl = document.getElementById(\`question-button-\${questionIndex}\`);
+          buttonEl.classList.add('answered');
+          
+          // Update progress
+          updateProgress();
+        }
+        
+        // Save answer for text/essay questions
+        function saveAnswer(questionIndex, answer) {
+          if (answer && answer.trim() !== '') {
+            answeredQuestions[questionIndex] = answer;
+            
+            // Mark the question as answered in the grid
+            const buttonEl = document.getElementById(\`question-button-\${questionIndex}\`);
+            buttonEl.classList.add('answered');
+          } else {
+            delete answeredQuestions[questionIndex];
+            
+            // Remove answered class if there's no answer
+            const buttonEl = document.getElementById(\`question-button-\${questionIndex}\`);
+            buttonEl.classList.remove('answered');
+          }
+          
+          // Update progress
+          updateProgress();
+        }
+        
+        // Update progress indicators
+        function updateProgress() {
+          const totalQuestions = ${questions.length};
+          const answeredCount = Object.keys(answeredQuestions).length;
+          const percentage = Math.round((answeredCount / totalQuestions) * 100);
+          
+          // Update progress bar
+          document.getElementById('progress-bar').style.width = \`\${percentage}%\`;
+          
+          // Update text
+          document.getElementById('progress-text').textContent = \`\${answeredCount} of \${totalQuestions} answered\`;
+          document.getElementById('progress-percentage').textContent = \`\${percentage}%\`;
+        }
+        
+        // Submit the exam
+        function submitExam() {
+          const totalQuestions = ${questions.length};
+          const answeredCount = Object.keys(answeredQuestions).length;
+          
+          if (answeredCount < totalQuestions) {
+            const confirmSubmit = confirm(\`You've only answered \${answeredCount} out of \${totalQuestions} questions. Are you sure you want to submit?\`);
+            if (!confirmSubmit) return;
+          } else {
+            const confirmSubmit = confirm('Are you sure you want to submit your exam?');
+            if (!confirmSubmit) return;
+          }
+          
+          // Stop the timer
+          clearInterval(examTimerInterval);
+          
+          // Collect all answers
+          const answers = answeredQuestions;
+          
+          // Create summary page
+          const mainContent = document.querySelector('.main-content');
+          mainContent.innerHTML = \`
+            <div class="section-container">
+              <div class="section-header">
+                <h2>Exam Submitted</h2>
+                <p>Your answers have been recorded</p>
+              </div>
+              <div class="question-container">
+                <div class="question-content">
+                  <p>You've completed the exam with \${answeredCount} out of \${totalQuestions} questions answered.</p>
+                  <p>Your responses have been submitted successfully.</p>
+                </div>
+                <button class="button primary" onclick="window.close()" style="margin-top: 20px;">
+                  Close Exam
+                </button>
+              </div>
+            </div>
+          \`;
+          
+          // Disable navigation
+          document.querySelector('.navigation').style.display = 'none';
+          
+          // Try to send answers to parent window if available
+          try {
+            window.opener.postMessage({
+              type: 'examSubmitted',
+              answers: answers,
+              examId: '${exam.id || ''}',
+              completedQuestions: answeredCount,
+              totalQuestions: totalQuestions
+            }, '*');
+          } catch (e) {
+            console.error('Could not send results to parent window:', e);
+          }
+        }
         
         // Handle image upload and text extraction
         async function handleImageUpload(event) {
@@ -500,20 +1056,16 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
           const { imageBase64, questionId } = event.data;
           
           // Call the OCR service
-          const result = await fetch('/api/extract-text', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64 })
-          }).then(res => res.json());
+          const result = await extractTextFromImage(imageBase64);
           
-          if (result.success && result.data?.text) {
+          if (result.success && result.text) {
             // Send the extracted text back to the iframe
             const examIframe = document.querySelector('iframe') as HTMLIFrameElement;
             
             if (examIframe && examIframe.contentWindow) {
               examIframe.contentWindow.postMessage({
                 type: 'textExtracted',
-                text: result.data.text,
+                text: result.text,
                 questionId: questionId
               }, '*');
             }
