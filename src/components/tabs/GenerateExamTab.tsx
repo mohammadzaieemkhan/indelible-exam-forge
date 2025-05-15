@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
@@ -322,7 +321,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
           questions: result.response,
           sections: useSections ? sections : [],
           questionWeights,
-          isActive: false
+          isActive: false // Ensure isActive is always set
         };
         
         // Direct save to upcoming exams without showing preview

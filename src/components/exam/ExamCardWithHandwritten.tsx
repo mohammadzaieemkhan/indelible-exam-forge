@@ -32,7 +32,7 @@ const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) 
     if (props.onView) {
       props.onView();
     } else {
-      // Call the function directly instead of using new keyword
+      // Call the function directly 
       renderer.handleViewExam();
     }
   };
@@ -42,7 +42,7 @@ const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) 
       <ExamCard 
         exam={props.exam}
         onSendReminder={() => {}} // Add this required prop
-        onDeleteClick={() => props.onDeleteClick?.()}
+        onDeleteClick={() => props.onDeleteClick?.()} 
         onViewExam={() => handleView()} // Use our custom handler
       />
       <ExamHandwrittenUploadHandler examWindowRef={examWindowRef} />

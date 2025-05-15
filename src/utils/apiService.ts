@@ -137,6 +137,8 @@ export interface GeminiAIParams {
     numberOfQuestions: number | string;
     difficulty: string;
   }[];
+  syllabusContent?: string; // Add missing property
+  questionWeights?: Record<string, number>; // Add missing property
 }
 
 // Function to call Gemini AI via Supabase Edge Function
