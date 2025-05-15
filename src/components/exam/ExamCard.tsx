@@ -32,6 +32,11 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
   const isPast = examDate < now && examDate !== 0;
   const isToday = examDate !== 0 && 
                  new Date(examDate).toDateString() === new Date().toDateString();
+  
+  // Specifically check if the exam is currently active based on date and time
+  const isActive = exam.isActive || (isToday && exam.time && 
+    new Date().toTimeString().slice(0, 5) >= exam.time);
+                 
   const formattedTime = exam.time || "No time set";
 
   // Get the description and total questions with safe type checking
@@ -66,8 +71,12 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
     if (isPast) {
       return "This exam has already passed";
     }
+    if (isActive) {
+      return "This exam is available now";
+    }
     if (isToday) {
-      return "This exam is available today";
+      // If it's today but not active yet, show the time it will be available
+      return `Available today at ${exam.time}`;
     }
     if (examDate !== 0) {
       const daysLeft = Math.ceil((examDate - now) / (1000 * 60 * 60 * 24));
@@ -86,12 +95,12 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
   return (
     <Card className={`overflow-hidden border ${
       isPast ? 'border-gray-200' : 
-      isToday ? 'border-primary' : 
+      isActive ? 'border-primary' : 
       'border-blue-200'
     }`}>
       <CardHeader className={`pb-3 ${
         isPast ? '' : 
-        isToday ? 'bg-primary/5 border-b border-primary/20' : 
+        isActive ? 'bg-primary/5 border-b border-primary/20' : 
         'bg-blue-50 dark:bg-blue-950/20'
       }`}>
         <div className="flex justify-between items-start">
@@ -142,11 +151,11 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
             )}
             
             <span className={`text-xs px-2 py-1 rounded-full ${
-              isToday ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 
+              isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 
               isPast ? 'bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-400' :
               'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
             }`}>
-              {isToday ? 'Available now' : isPast ? 'Past exam' : 'Upcoming'}
+              {isActive ? 'Available now' : isPast ? 'Past exam' : 'Upcoming'}
             </span>
             
             {exam.difficulty && (
@@ -184,9 +193,9 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
         {onTake && (
           <Button 
             onClick={onTake} 
-            disabled={!isToday} 
+            disabled={!isActive} 
             className="gap-1"
-            variant={isToday ? "default" : "outline"}
+            variant={isActive ? "default" : "outline"}
           >
             <span>Take Exam</span>
             <ArrowRight className="h-4 w-4" />

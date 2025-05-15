@@ -14,3 +14,19 @@ export interface ExamAnswer {
   value: string;
   type: string;
 }
+
+export interface ExamSubmissionData {
+  examId: string;
+  examName: string;
+  date: string;
+  questions: Array<{
+    question: string;
+    type: string;
+    options?: string[];
+    answer?: string;
+  }>;
+  answers: Record<string, string>;
+  timeTaken: string;
+  questionTypes: Array<string>;
+  questionWeights: Record<number, number>;
+}

@@ -1,5 +1,6 @@
 
 import { formatExamWithLayout } from "./utils/examParser";
+import { ParsedQuestion } from "./types/examTypes";
 
 // This function will be used instead of the original ExamRenderer
 // when we want the two-panel layout
@@ -30,8 +31,27 @@ export const renderExamWithNumbersPanel = (exam) => {
               examData: examData
             }, '*');
             console.log('Sent exam completion data to parent window');
+            
+            // Show a success message to the user
+            const resultEl = document.getElementById('submission-result');
+            if (resultEl) {
+              resultEl.innerHTML = '<div class="alert success">Exam submitted successfully! Your results will be available in the Performance tab.</div>';
+              resultEl.style.display = 'block';
+            }
+
+            // Close window after a short delay
+            setTimeout(() => {
+              window.close();
+            }, 3000);
           } catch (error) {
             console.error('Failed to send message to parent window:', error);
+            
+            // Show an error message but note that results are still saved
+            const resultEl = document.getElementById('submission-result');
+            if (resultEl) {
+              resultEl.innerHTML = '<div class="alert warning">Connection issue, but your results are saved. You can close this window.</div>';
+              resultEl.style.display = 'block';
+            }
           }
         }
       </script>
