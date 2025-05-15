@@ -1,6 +1,6 @@
 
 import { formatExamWithLayout } from "./utils/examParser";
-import { ParsedQuestion } from "./types/examTypes";
+import { ParsedQuestion, ExamSubmissionData } from "./types/examTypes";
 
 // This function will be used instead of the original ExamRenderer
 // when we want the two-panel layout
@@ -20,9 +20,28 @@ export const renderExamWithNumbersPanel = (exam) => {
     const completionScript = `
       <script>
         function submitExam(examData) {
+          console.log("Submitting exam data:", examData);
+          
           // Store the data in localStorage as backup
           localStorage.setItem('lastExamResults', JSON.stringify(examData));
           localStorage.setItem('completedExamId', examData.examId);
+          
+          // Add a div for showing submission results
+          if (!document.getElementById('submission-result')) {
+            const resultDiv = document.createElement('div');
+            resultDiv.id = 'submission-result';
+            resultDiv.style.position = 'fixed';
+            resultDiv.style.top = '50%';
+            resultDiv.style.left = '50%';
+            resultDiv.style.transform = 'translate(-50%, -50%)';
+            resultDiv.style.padding = '20px';
+            resultDiv.style.borderRadius = '8px';
+            resultDiv.style.backgroundColor = 'white';
+            resultDiv.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            resultDiv.style.zIndex = '999';
+            resultDiv.style.display = 'none';
+            document.body.appendChild(resultDiv);
+          }
           
           // Try to send message to parent window
           try {
@@ -35,7 +54,7 @@ export const renderExamWithNumbersPanel = (exam) => {
             // Show a success message to the user
             const resultEl = document.getElementById('submission-result');
             if (resultEl) {
-              resultEl.innerHTML = '<div class="alert success">Exam submitted successfully! Your results will be available in the Performance tab.</div>';
+              resultEl.innerHTML = '<div class="alert success" style="color: #155724; background-color: #d4edda; padding: 15px; border-radius: 4px;">Exam submitted successfully! Your results will be available in the Performance tab.</div>';
               resultEl.style.display = 'block';
             }
 
@@ -49,7 +68,7 @@ export const renderExamWithNumbersPanel = (exam) => {
             // Show an error message but note that results are still saved
             const resultEl = document.getElementById('submission-result');
             if (resultEl) {
-              resultEl.innerHTML = '<div class="alert warning">Connection issue, but your results are saved. You can close this window.</div>';
+              resultEl.innerHTML = '<div class="alert warning" style="color: #856404; background-color: #fff3cd; padding: 15px; border-radius: 4px;">Connection issue, but your results are saved. You can close this window.</div>';
               resultEl.style.display = 'block';
             }
           }

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,11 @@ const UpcomingExamsTab = ({
           title: "Popup Blocked",
           description: "Please allow popups for this site to take the exam.",
           variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Exam Started",
+          description: "Your exam has been opened in a new window. Good luck!"
         });
       }
     } catch (error) {

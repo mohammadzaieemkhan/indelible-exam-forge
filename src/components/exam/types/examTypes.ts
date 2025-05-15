@@ -29,4 +29,7 @@ export interface ExamSubmissionData {
   timeTaken: string;
   questionTypes: Array<string>;
   questionWeights: Record<number, number>;
+  percentage?: number; // Added to ensure this property is available for display
+  score?: number; // Added to track raw score
+  totalMarks?: number; // Added to track total possible marks
 }
