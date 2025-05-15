@@ -1,4 +1,3 @@
-
 import { formatExamWithLayout } from "./utils/examParser";
 import { parseQuestions } from "./utils/examParser";
 import { ParsedQuestion, ExamSubmissionData } from "./types/examTypes";
@@ -65,6 +64,20 @@ export const renderExamWithNumbersPanel = (exam) => {
     console.warn("Exam questions format is invalid. Expected string or array.");
     examWithoutAnswers.questions = [];
     parsedQuestions = [];
+  }
+  
+  // Handle custom distribution if provided
+  if (exam.questionDistribution && typeof exam.questionDistribution === 'object') {
+    console.log("Custom question distribution detected:", exam.questionDistribution);
+    
+    // Get the questions that will be used for the actual exam based on distribution
+    const distributedQuestions = applyCustomDistribution(
+      examWithoutAnswers.questions || [],
+      exam.questionDistribution
+    );
+    
+    console.log(`Applied custom distribution: ${distributedQuestions.length} questions selected`);
+    examWithoutAnswers.questions = distributedQuestions;
   }
   
   // Keep original questions for evaluation
@@ -173,3 +186,75 @@ export const renderExamWithNumbersPanel = (exam) => {
   
   return { openExamWindow };
 };
+
+// Helper function to apply custom distribution to questions
+function applyCustomDistribution(questions, distribution) {
+  if (!questions || questions.length === 0) {
+    console.warn("No questions to distribute");
+    return [];
+  }
+  
+  // Group questions by type
+  const questionsByType = {};
+  questions.forEach(question => {
+    const type = question.type || 'mcq'; // Default to mcq if no type
+    if (!questionsByType[type]) {
+      questionsByType[type] = [];
+    }
+    questionsByType[type].push(question);
+  });
+  
+  console.log("Questions grouped by type:", Object.keys(questionsByType).map(type => 
+    `${type}: ${questionsByType[type].length} questions`
+  ));
+  
+  // Create a new array with the specified distribution
+  const distributedQuestions = [];
+  
+  // Process each question type according to distribution
+  Object.keys(distribution).forEach(type => {
+    const count = distribution[type];
+    const availableQuestions = questionsByType[type] || [];
+    
+    if (availableQuestions.length === 0) {
+      console.warn(`No questions available for type: ${type}`);
+      return;
+    }
+    
+    // If we have fewer questions than requested, use them all
+    const selectedQuestions = availableQuestions.length <= count ? 
+      [...availableQuestions] : 
+      // Otherwise, select random questions up to the count
+      shuffleAndSelect(availableQuestions, count);
+    
+    console.log(`Selected ${selectedQuestions.length} questions of type ${type}`);
+    distributedQuestions.push(...selectedQuestions);
+  });
+  
+  // If no questions were selected using distribution, return all questions
+  if (distributedQuestions.length === 0) {
+    console.warn("Distribution resulted in zero questions, using all available questions");
+    return questions;
+  }
+  
+  // Assign sequential IDs to questions
+  return distributedQuestions.map((q, idx) => ({
+    ...q,
+    id: idx + 1
+  }));
+}
+
+// Helper function to shuffle an array and select n elements
+function shuffleAndSelect(array, n) {
+  // Create a copy of the array
+  const shuffled = [...array];
+  
+  // Fisher-Yates shuffle algorithm
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  
+  // Return the first n elements
+  return shuffled.slice(0, n);
+}

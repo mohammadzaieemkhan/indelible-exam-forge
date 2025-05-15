@@ -1,6 +1,6 @@
 
 import { useState, useMemo } from "react";
-import { Filter, Eye } from "lucide-react";
+import { Filter, Eye, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,17 +8,23 @@ import { IExam } from "@/components/ExamTabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import DeleteExamDialog from "@/components/exam/DeleteExamDialog";
 
 interface PreviousExamsTabProps {
   exams: IExam[];
+  onDeleteExam?: (examId: string) => void; 
 }
 
-const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
+const PreviousExamsTab = ({ exams, onDeleteExam }: PreviousExamsTabProps) => {
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState<boolean>(false);
   const [filterSubject, setFilterSubject] = useState<string>("");
   const [filterDate, setFilterDate] = useState<string>("");
   const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [examToDelete, setExamToDelete] = useState<IExam | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const { toast } = useToast();
   
   // Extract unique subjects from all exams
   const uniqueSubjects = useMemo(() => {
@@ -57,6 +63,29 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
   const handleViewExam = (exam: IExam) => {
     setSelectedExam(exam);
     setViewDialogOpen(true);
+  };
+  
+  // Handle delete button click
+  const handleDelete = (examId: string) => {
+    // Find the exam to delete
+    const exam = exams.find(e => e.id === examId);
+    if (exam) {
+      setExamToDelete(exam);
+      setDeleteConfirmOpen(true);
+    }
+  };
+  
+  // Handle confirmed deletion
+  const handleConfirmDelete = () => {
+    if (examToDelete && examToDelete.id && onDeleteExam) {
+      onDeleteExam(examToDelete.id);
+      toast({
+        title: "Exam Deleted",
+        description: `${examToDelete.name} has been deleted successfully.`
+      });
+    }
+    setDeleteConfirmOpen(false);
+    setExamToDelete(null);
   };
   
   // Simple function to convert markdown to HTML for preview
@@ -345,6 +374,17 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
                           Report
                         </Button>
                       )}
+                      {onDeleteExam && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleDelete(exam.id || '')}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
+                        >
+                          <Trash className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -404,6 +444,14 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <DeleteExamDialog 
+        open={deleteConfirmOpen}
+        examToDelete={examToDelete}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirmDelete={handleConfirmDelete}
+      />
     </Card>
   );
 };
