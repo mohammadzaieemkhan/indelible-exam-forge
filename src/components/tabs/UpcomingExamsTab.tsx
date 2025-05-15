@@ -75,17 +75,13 @@ const UpcomingExamsTab = ({
     console.log("Opening exam:", exam.name, "with ID:", exam.id);
     
     // Import the necessary functions from ExamRenderer
-    import('@/components/exam/ExamRenderer').then(module => {
-      const { parseQuestions, generateExamHtml } = module;
-      
-      // Parse questions and generate HTML for the exam
-      const parsedQuestions = parseQuestions(exam.questions || "");
-      console.log("Parsed questions:", parsedQuestions);
-      const examContent = generateExamHtml(exam, parsedQuestions);
+    import('@/components/exam/utils/examParser').then(module => {
+      const { formatExamWithLayout } = module;
+      const examHtml = formatExamWithLayout(exam);
       
       // Write content to the new window
       examWindow.document.open();
-      examWindow.document.write(examContent);
+      examWindow.document.write(examHtml);
       examWindow.document.close();
       
       // Request fullscreen after a short delay
@@ -158,7 +154,7 @@ const UpcomingExamsTab = ({
                   onView={() => {
                     toast({
                       title: "Exam Details",
-                      description: `${exam.name} is scheduled for ${exam.date} at ${exam.time}.`,
+                      description: `${exam.name} is scheduled for ${exam.date} at ${exam.time}.`
                     });
                   }}
                   onTake={() => handleViewExam(exam)}
