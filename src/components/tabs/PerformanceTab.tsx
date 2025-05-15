@@ -112,7 +112,12 @@ const PerformanceTab = () => {
   }, []);
 
   const handleDelete = (examId: string) => {
-    setExamResults(prev => prev.filter(result => result.examId !== examId));
+    // Remove from state
+    const updatedResults = examResults.filter(result => result.examId !== examId);
+    setExamResults(updatedResults);
+    
+    // Update localStorage
+    localStorage.setItem('examResults', JSON.stringify(updatedResults));
   };
 
   if (isLoading) {

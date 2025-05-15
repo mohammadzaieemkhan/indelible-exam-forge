@@ -32,7 +32,7 @@ const UpcomingExamsTab = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const { toast } = useToast();
   
-  // Handle delete exam button click
+  // Handle exam deletion
   const handleDeleteClick = (exam: IExam) => {
     setExamToDelete(exam);
     setDeleteConfirmOpen(true);
@@ -110,6 +110,10 @@ const UpcomingExamsTab = ({
     });
   };
   
+  const handleSendReminder = (exam: IExam) => {
+    onSendReminder(exam);
+  };
+  
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -148,7 +152,14 @@ const UpcomingExamsTab = ({
                 <ExamCard 
                   key={exam.id || index}
                   exam={{...exam, isActive: isActive}}
-                  onView={() => handleViewExam(exam)}
+                  onView={() => {
+                    toast({
+                      title: "Exam Details",
+                      description: `${exam.name} is scheduled for ${exam.date} at ${exam.time}.`,
+                    });
+                  }}
+                  onTake={() => handleViewExam(exam)}
+                  onSendReminder={() => handleSendReminder(exam)}
                   onRefresh={() => {
                     if (onDeleteExam) onDeleteExam(exam.id || "");
                   }}

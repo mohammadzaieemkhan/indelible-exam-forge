@@ -3,7 +3,6 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Trash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { deleteExam } from '@/utils/apiService';
 
 interface DeleteExamHandlerProps {
   examId: string;
@@ -34,16 +33,34 @@ const DeleteExamHandler: React.FC<DeleteExamHandlerProps> = ({
     const confirmDelete = window.confirm("Are you sure you want to delete this exam?");
     
     if (confirmDelete) {
-      const success = deleteExam(examId);
-      if (success) {
+      try {
+        // For upcoming exams
+        const savedExams = localStorage.getItem('upcomingExams');
+        if (savedExams) {
+          const exams = JSON.parse(savedExams);
+          const updatedExams = exams.filter(exam => exam.id !== examId);
+          localStorage.setItem('upcomingExams', JSON.stringify(updatedExams));
+        }
+        
+        // For exam results in performance tab
+        const examResults = localStorage.getItem('examResults');
+        if (examResults) {
+          const results = JSON.parse(examResults);
+          const updatedResults = results.filter(result => result.examId !== examId);
+          localStorage.setItem('examResults', JSON.stringify(updatedResults));
+        }
+        
+        // Execute callback if provided
         if (onDelete) {
           onDelete();
         }
+        
         toast({
           title: "Exam Deleted",
           description: "The exam has been successfully deleted",
         });
-      } else {
+      } catch (error) {
+        console.error("Error deleting exam:", error);
         toast({
           title: "Delete Failed",
           description: "Could not delete the exam. Please try again.",
