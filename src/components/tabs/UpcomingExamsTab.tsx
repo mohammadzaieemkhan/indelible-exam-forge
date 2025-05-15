@@ -3,7 +3,7 @@ import React from "react";
 import { IExam } from "@/components/ExamTabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Copy } from "lucide-react";
+import { FileText } from "lucide-react";
 import ExamCardWithHandwritten from "@/components/exam/ExamCardWithHandwritten";
 
 interface UpcomingExamsTabProps {
@@ -30,21 +30,13 @@ const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
         <Card className="col-span-full">
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground mb-4">No upcoming exams found.</p>
-            <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <div className="flex justify-center">
               <Button
                 variant="outline"
                 onClick={() => document.getElementById("generate-exam-tab")?.click()}
                 className="inline-flex items-center"
               >
-                <Edit className="mr-2 h-4 w-4" />
-                Create Exam
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => document.getElementById("generate-exam-tab")?.click()}
-                className="inline-flex items-center"
-              >
-                <Copy className="mr-2 h-4 w-4" />
+                <FileText className="mr-2 h-4 w-4" />
                 Generate Exam
               </Button>
             </div>

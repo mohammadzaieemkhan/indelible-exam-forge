@@ -133,10 +133,10 @@ const ExamTabs: React.FC<{
         onValueChange={setActiveTab}
         className="w-full"
       >
-        <TabsList className="w-full grid grid-cols-4">
-          <TabsTrigger id="upcoming-exam-tab" value="upcoming-exams">Upcoming Exams</TabsTrigger>
-          <TabsTrigger id="generate-exam-tab" value="generate-exam">Generate Exam</TabsTrigger>
-          <TabsTrigger id="previous-exams-tab" value="previous-exams">Previous Exams</TabsTrigger>
+        <TabsList className="w-full grid-cols-2 sm:grid-cols-4 grid">
+          <TabsTrigger id="upcoming-exam-tab" value="upcoming-exams">Upcoming</TabsTrigger>
+          <TabsTrigger id="generate-exam-tab" value="generate-exam">Generate</TabsTrigger>
+          <TabsTrigger id="previous-exams-tab" value="previous-exams">Previous</TabsTrigger>
           <TabsTrigger id="performance-tab" value="performance">Performance</TabsTrigger>
         </TabsList>
 

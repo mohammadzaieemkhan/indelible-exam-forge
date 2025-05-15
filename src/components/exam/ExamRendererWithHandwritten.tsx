@@ -43,26 +43,84 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
       // Log the exam object to diagnose issues
       console.log("Rendering exam:", exam);
       
-      // Get questions from the exam
-      const questions = exam.questions;
-      
-      // Check if questions exist
-      if (!questions) {
-        throw new Error("No questions data available for this exam");
+      // Check if questions exist and are in the right format
+      if (!exam.questions) {
+        toast({
+          title: "No Questions Available",
+          description: "This exam has no questions. Try generating the exam again.",
+          variant: "destructive"
+        });
+        
+        examWindow.document.open();
+        examWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>${exam.name}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+              .error { color: #e53e3e; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <h1>${exam.name}</h1>
+            <p class="error">No questions are available for this exam.</p>
+            <p>Please go back and generate this exam again with questions.</p>
+            <button onclick="window.close()">Close</button>
+          </body>
+          </html>
+        `);
+        examWindow.document.close();
+        return;
       }
       
       // Parse questions and handle errors
       let parsedQuestions: ParsedQuestionItem[] = [];
       try {
-        parsedQuestions = parseQuestions(questions);
+        parsedQuestions = parseQuestions(exam.questions);
         console.log("Parsed questions:", parsedQuestions);
       } catch (parseError) {
         console.error("Error parsing questions:", parseError);
-        throw new Error("Failed to parse exam questions");
+        
+        toast({
+          title: "Error Parsing Questions",
+          description: "There was a problem with the exam questions format.",
+          variant: "destructive"
+        });
+        
+        examWindow.document.open();
+        examWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>${exam.name}</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+              .error { color: #e53e3e; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <h1>${exam.name}</h1>
+            <p class="error">There was a problem with the exam questions format.</p>
+            <p>Please go back and try generating this exam again.</p>
+            <pre class="text-left text-xs mt-4">${parseError instanceof Error ? parseError.message : 'Unknown error'}</pre>
+            <button onclick="window.close()">Close</button>
+          </body>
+          </html>
+        `);
+        examWindow.document.close();
+        return;
       }
       
       if (parsedQuestions.length === 0) {
         console.warn("No questions found or unable to parse questions");
+        
+        toast({
+          title: "No Questions Found",
+          description: "The exam was generated but no questions were found.",
+          variant: "destructive"
+        });
+        
         // Generate a basic HTML with a message if no questions
         const errorHtml = `
           <!DOCTYPE html>
