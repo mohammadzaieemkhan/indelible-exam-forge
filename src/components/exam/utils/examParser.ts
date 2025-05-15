@@ -1,195 +1,192 @@
 
-/**
- * Types for exam questions 
- */
+import { IExam } from "@/components/ExamTabs";
+
 export interface ParsedQuestionItem {
+  type: 'mcq' | 'truefalse' | 'shortanswer' | 'essay';
   question: string;
-  type: "mcq" | "truefalse" | "shortanswer" | "essay";
   options?: string[];
+  answer?: string;
   section?: string;
-  correctAnswer?: string | number;
 }
 
-/**
- * Convert markdown content to HTML with basic formatting
- */
-export const markdownToHtml = (markdown: string | any): string => {
-  // If input is not a string, convert to JSON string
-  if (typeof markdown !== 'string') {
-    try {
-      if (markdown && markdown.response) {
-        // Handle case where the response is nested inside a response property
-        return markdownToHtml(markdown.response);
+// Parse questions from raw content with improved logic for better extraction of separately formatted options
+export const parseQuestions = (content: string): ParsedQuestionItem[] => {
+  const questions: ParsedQuestionItem[] = [];
+  const lines = content.split('\n');
+  
+  let currentQuestion: Partial<ParsedQuestionItem> | null = null;
+  let currentOptions: string[] = [];
+  let currentSection: string = '';
+  let collectingOptions = false;
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) continue; // Skip empty lines
+    
+    // Check for section headers
+    if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
+      currentSection = trimmedLine.replace(/\*\*/g, '');
+      continue;
+    }
+    
+    // Alternative section header detection
+    if (/^(Section|SECTION)[\s:]+(.+)$/i.test(trimmedLine)) {
+      const match = trimmedLine.match(/^(Section|SECTION)[\s:]+(.+)$/i);
+      if (match) {
+        currentSection = match[2].trim();
       }
-      return `<pre>${JSON.stringify(markdown, null, 2)}</pre>`;
-    } catch (e) {
-      return '<p>Unable to display content</p>';
+      continue;
+    }
+    
+    // Detect questions by common patterns
+    const questionRegex = /^(\d+[\.\)]|Question\s+\d+:)/i;
+    if (questionRegex.test(trimmedLine)) {
+      // Save the previous question if exists
+      if (currentQuestion?.question) {
+        questions.push({
+          ...currentQuestion as ParsedQuestionItem,
+          options: currentOptions.length > 0 ? [...currentOptions] : undefined,
+          section: currentSection || undefined
+        });
+      }
+      
+      // Start a new question
+      currentQuestion = {
+        question: trimmedLine,
+        type: 'mcq', // Default, we'll update based on content
+        section: currentSection || undefined
+      };
+      currentOptions = [];
+      collectingOptions = false;
+    } 
+    // Detect options with improved regex for options on separate lines
+    else if (/^[A-D][\.\)][\s]*|^\([A-D]\)[\s]*/i.test(trimmedLine)) {
+      // Clean the option text to remove "Correct Answer" markers
+      let optionText = trimmedLine.trim();
+      currentOptions.push(optionText);
+      if (currentQuestion) {
+        currentQuestion.type = 'mcq';
+        collectingOptions = true;
+      }
+    }
+    // Detect answer lines after options
+    else if (/^Answer:[\s]*[A-D]$/i.test(trimmedLine) && currentQuestion) {
+      const answerMatch = trimmedLine.match(/^Answer:[\s]*([A-D])$/i);
+      if (answerMatch && currentQuestion) {
+        currentQuestion.answer = answerMatch[1].trim();
+        collectingOptions = false;
+      }
+    }
+    // Detect true/false questions
+    else if (/true|false/i.test(trimmedLine) && currentOptions.length < 2 && currentQuestion) {
+      if (trimmedLine.toLowerCase().includes('true') || trimmedLine.toLowerCase().includes('false')) {
+        if (currentQuestion && !currentQuestion.question.toLowerCase().includes('true or false')) {
+          currentQuestion.type = 'truefalse';
+        }
+      }
+    }
+    // Detect essay questions by keywords
+    else if (/essay|explain|describe|discuss|elaborate/i.test(trimmedLine) && currentQuestion) {
+      currentQuestion.type = 'essay';
+    }
+    // Add the line to the current question if it's a continuation
+    else if (currentQuestion && trimmedLine.length > 0) {
+      // Check if it contains an answer
+      if (trimmedLine.toLowerCase().includes('answer:') && !collectingOptions) {
+        const answerMatch = trimmedLine.match(/answer:(.+)/i);
+        if (answerMatch && currentQuestion) {
+          currentQuestion.answer = answerMatch[1].trim();
+        }
+      } else {
+        // If we're not collecting options, this is part of the question text
+        if (!collectingOptions) {
+          currentQuestion.question += ' ' + trimmedLine;
+        }
+        // If we are collecting options but this doesn't match the option pattern,
+        // it could be additional text for the last option or the end of options
+        else if (!/^[A-D][\.\)][\s]*|^\([A-D]\)[\s]*/i.test(trimmedLine) && 
+                !/^Answer:[\s]*[A-D]$/i.test(trimmedLine)) {
+          // If this line doesn't look like an answer line, it's probably continuation of the last option
+          if (currentOptions.length > 0 && !trimmedLine.toLowerCase().includes('answer:')) {
+            // Append to the last option rather than creating a new one
+            currentOptions[currentOptions.length - 1] += ' ' + trimmedLine;
+          } else {
+            // Might be the end of options section
+            collectingOptions = false;
+          }
+        }
+      }
     }
   }
   
-  // Basic markdown processing
-  return markdown
-    // Convert headers
+  // Add the last question
+  if (currentQuestion?.question) {
+    questions.push({
+      ...currentQuestion as ParsedQuestionItem,
+      options: currentOptions.length > 0 ? [...currentOptions] : undefined,
+      section: currentSection || undefined
+    });
+  }
+  
+  return questions.map(q => {
+    // If no options and not already marked as essay, mark as short answer
+    if (!q.options || q.options.length === 0) {
+      if (q.type !== 'essay') {
+        return { ...q, type: 'shortanswer' };
+      }
+    }
+    // Look for word count guidance in essay questions
+    if (q.type === 'essay' && q.question.toLowerCase().includes('word count')) {
+      const wordCountMatch = q.question.match(/word count:?\s*(\d+)[-–](\d+)/i);
+      if (wordCountMatch) {
+        const minWords = parseInt(wordCountMatch[1]);
+        const maxWords = parseInt(wordCountMatch[2]);
+        q.question = `${q.question} (${minWords}-${maxWords} words)`;
+      }
+    }
+    return q;
+  });
+};
+
+// Simple function to convert markdown to HTML
+export const markdownToHtml = (markdown: string): string => {
+  if (!markdown) return '';
+  
+  // Basic markdown parsing - replace markdown syntax with HTML
+  let html = markdown
+    // Headers
     .replace(/^### (.*$)/gim, '<h3>$1</h3>')
     .replace(/^## (.*$)/gim, '<h2>$1</h2>')
     .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    // Convert bold text (must come before lists)
+    
+    // Emphasis (bold and italic)
     .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-    // Convert lists
-    .replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>')
-    .replace(/^- (.*$)/gim, '<ul><li>$1</li></ul>')
-    .replace(/^\d+\. (.*$)/gim, '<ol><li>$1</li></ol>')
-    // Convert italics
     .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-    .replace(/\_(.*?)\_/gim, '<em>$1</em>')
-    // Convert code blocks
-    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Convert links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
-    // Convert line breaks
-    .replace(/\n/g, '<br>');
-};
-
-/**
- * Parse questions from various formats into a standardized structure
- */
-export const parseQuestions = (questions: any): ParsedQuestionItem[] => {
-  console.log("Parsing questions:", questions);
+    .replace(/_(.*?)_/gim, '<em>$1</em>')
+    
+    // Lists - Unordered
+    .replace(/^\s*[-*+]\s+(.*$)/gim, '<ul><li>$1</li></ul>')
+    // Lists - Ordered
+    .replace(/^\s*(\d+)\.\s+(.*$)/gim, '<ol><li>$2</li></ol>')
+    
+    // Links
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank">$1</a>')
+    
+    // Code blocks
+    .replace(/`([^`]+)`/gim, '<code>$1</code>')
+    
+    // Paragraphs
+    .replace(/^\s*(\n)?(.+)/gim, function(m) {
+      return /^\s*(<(\/)?(h|ul|ol|li|blockquote|pre|p))/i.test(m) ? m : '<p>' + m + '</p>';
+    })
+    
+    // Line breaks
+    .replace(/\n/gim, '<br />');
   
-  if (!questions) {
-    console.warn("No questions provided to parseQuestions");
-    return [];
-  }
-
-  // If questions object has a response property (from the API), use that
-  if (questions.response) {
-    console.log("Questions has response property, using that:", questions.response);
-    questions = questions.response;
-  }
-
-  // If questions is already an array of properly formatted questions
-  if (Array.isArray(questions) && questions.length > 0 && questions[0].question) {
-    console.log("Questions is already properly formatted array");
-    return questions as ParsedQuestionItem[];
-  }
-
-  // If questions is a JSON string, parse it
-  if (typeof questions === 'string') {
-    try {
-      // Check if it's already JSON
-      const parsedQuestions = JSON.parse(questions);
-      if (Array.isArray(parsedQuestions)) {
-        console.log("Successfully parsed questions string as JSON array");
-        return parsedQuestions as ParsedQuestionItem[];
-      }
-    } catch (e) {
-      console.log("Questions is a string but not JSON, attempting to parse as markdown");
-      
-      // If it's a string but not JSON, it's likely markdown formatted questions
-      // This is a simple parser for markdown formatted multiple choice questions
-      try {
-        const lines = questions.split('\n');
-        const parsedQuestions: ParsedQuestionItem[] = [];
-        let currentQuestion: Partial<ParsedQuestionItem> | null = null;
-        let currentOptions: string[] = [];
-        
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-          
-          // Skip empty lines
-          if (!line) continue;
-          
-          // Check for question headers (numbered questions, multiple choice, etc.)
-          const questionMatch = line.match(/^(?:\*\*)?(\d+\.?\)?\s*(?:Multiple Choice|Essay|True\/False|Short Answer):?)?(?:\*\*)?(.+)/i);
-          
-          if (questionMatch && (line.includes("Multiple Choice") || line.includes("Essay") || 
-                               line.includes("True/False") || line.includes("Short Answer") ||
-                               (line.match(/^\d+\./) && i > 0 && !lines[i-1].trim()))) {
-            
-            // If we were working on a question, save it before starting a new one
-            if (currentQuestion && currentQuestion.question) {
-              if (currentOptions.length > 0) {
-                currentQuestion.options = currentOptions;
-              }
-              parsedQuestions.push(currentQuestion as ParsedQuestionItem);
-            }
-            
-            // Determine question type
-            let type: "mcq" | "truefalse" | "shortanswer" | "essay" = "mcq";
-            if (line.toLowerCase().includes("essay")) type = "essay";
-            else if (line.toLowerCase().includes("true/false")) type = "truefalse";
-            else if (line.toLowerCase().includes("short answer")) type = "shortanswer";
-            
-            // Start a new question
-            currentQuestion = {
-              question: questionMatch[2] || line,
-              type: type
-            };
-            currentOptions = [];
-          }
-          // Check for options (A, B, C, D or 1, 2, 3, 4)
-          else if (line.match(/^(?:\*\*)?[A-D]\)(?:\*\*)?\s+.+/) || line.match(/^(?:\*\*)?[A-D]\.(?:\*\*)?\s+.+/)) {
-            if (currentQuestion) {
-              currentQuestion.type = "mcq";
-              currentOptions.push(line);
-            }
-          }
-          // Check for "Answer:" lines
-          else if (line.toLowerCase().startsWith("answer:") && currentQuestion) {
-            currentQuestion.correctAnswer = line.substring(7).trim();
-          }
-          // If we have a current question, add the line to its question text
-          else if (currentQuestion && currentQuestion.question) {
-            // If it's not an option or an answer marker, it's part of the question
-            if (!line.match(/^[A-D][\.:\)]/) && !line.toLowerCase().startsWith("answer:")) {
-              currentQuestion.question += " " + line;
-            }
-          }
-        }
-        
-        // Don't forget to add the last question
-        if (currentQuestion && currentQuestion.question) {
-          if (currentOptions.length > 0) {
-            currentQuestion.options = currentOptions;
-          }
-          parsedQuestions.push(currentQuestion as ParsedQuestionItem);
-        }
-        
-        if (parsedQuestions.length > 0) {
-          console.log("Successfully parsed markdown into", parsedQuestions.length, "questions");
-          return parsedQuestions;
-        }
-      } catch (parseError) {
-        console.error("Error parsing markdown questions:", parseError);
-      }
-    }
-  }
-
-  // If questions is an object with sections
-  if (typeof questions === 'object' && questions !== null && !Array.isArray(questions)) {
-    const parsedQuestions: ParsedQuestionItem[] = [];
-    
-    // Check if it's structured by sections
-    Object.keys(questions).forEach(section => {
-      if (Array.isArray(questions[section])) {
-        questions[section].forEach((q: any) => {
-          if (q && typeof q === 'object' && q.question) {
-            parsedQuestions.push({
-              ...q,
-              section: section
-            });
-          }
-        });
-      }
-    });
-    
-    if (parsedQuestions.length > 0) {
-      console.log("Successfully parsed sectioned questions");
-      return parsedQuestions;
-    }
-  }
-
-  console.error("Could not parse questions, returning empty array:", questions);
-  return [];
+  // Fix duplicate tags caused by multi-line regex
+  html = html.replace(/<\/ul>\s*<ul>/gim, '')
+             .replace(/<\/ol>\s*<ol>/gim, '')
+             .replace(/<\/p>\s*<p>/gim, '<br />');
+  
+  return html;
 };

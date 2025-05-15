@@ -1,69 +1,161 @@
 
-import React from "react";
-import { IExam } from "@/components/ExamTabs";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react";
-import ExamCardWithHandwritten from "@/components/exam/ExamCardWithHandwritten";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { IExam } from "@/components/ExamTabs";
+import { useToast } from "@/hooks/use-toast";
+import { Info, Filter } from "lucide-react";
+import ExamCard from "@/components/exam/ExamCard";
+import DeleteExamDialog from "@/components/exam/DeleteExamDialog";
+import ExamRenderer from "@/components/exam/ExamRenderer";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 interface UpcomingExamsTabProps {
   exams: IExam[];
-  onDeleteExam: (examId: string) => void;
-  onEditExam: (examId: string) => void;
-  onDuplicateExam: (examId: string) => void;
+  onSendReminder: (exam: IExam) => void;
+  phoneNumber: string;
+  setPhoneNumber: (number: string) => void;
+  isWhatsAppSetup?: boolean;
+  onDeleteExam?: (examId: string) => void;
 }
 
-const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: UpcomingExamsTabProps) => {
-  // Function to handle redirect to the generate exam tab
-  const handleRedirectToGenerateExam = () => {
-    // Find the generate exam tab element and trigger a click
-    const generateExamTab = document.getElementById("generate-exam-tab");
-    if (generateExamTab) {
-      generateExamTab.click();
-    }
+const UpcomingExamsTab = ({ 
+  exams, 
+  onSendReminder, 
+  phoneNumber, 
+  setPhoneNumber, 
+  isWhatsAppSetup = false,
+  onDeleteExam 
+}: UpcomingExamsTabProps) => {
+  const [examToDelete, setExamToDelete] = useState<IExam | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const { toast } = useToast();
+  
+  // Handle delete exam button click
+  const handleDeleteClick = (exam: IExam) => {
+    setExamToDelete(exam);
+    setDeleteConfirmOpen(true);
   };
-
-  // Filter active exams only and ensure no duplicates by using unique IDs
-  const activeExams = exams.filter(exam => exam.isActive === true);
-  // Remove duplicates by ID
-  const uniqueActiveExams = activeExams.reduce((acc, current) => {
-    const existingExam = acc.find(exam => exam.id === current.id);
-    if (!existingExam) {
-      acc.push(current);
+  
+  // Handle confirmed deletion
+  const handleConfirmDelete = () => {
+    if (examToDelete && examToDelete.id && onDeleteExam) {
+      onDeleteExam(examToDelete.id);
+      toast({
+        title: "Exam Deleted",
+        description: `${examToDelete.name} has been deleted successfully.`
+      });
     }
-    return acc;
-  }, [] as IExam[]);
+    setDeleteConfirmOpen(false);
+    setExamToDelete(null);
+  };
+  
+  // Open exam in a new window
+  const handleViewExam = (exam: IExam) => {
+    // Directly call the handleViewExam method from ExamRenderer
+    if (!exam.isActive) {
+      toast({
+        title: "Exam Not Available",
+        description: "This exam is not yet available to take.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Create a new window for the exam
+    const examWindow = window.open('', '_blank', 'width=1024,height=768,scrollbars=yes');
+    
+    if (!examWindow) {
+      toast({
+        title: "Popup Blocked",
+        description: "Please allow popups for this site to take the exam.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Import the necessary functions from ExamRenderer
+    import('@/components/exam/ExamRenderer').then(module => {
+      const { parseQuestions, generateExamHtml } = module;
+      
+      // Parse questions and generate HTML for the exam
+      const parsedQuestions = parseQuestions(exam.questions || "");
+      const examContent = generateExamHtml(exam, parsedQuestions);
+      
+      // Write content to the new window
+      examWindow.document.open();
+      examWindow.document.write(examContent);
+      examWindow.document.close();
+      
+      // Request fullscreen after a short delay
+      setTimeout(() => {
+        try {
+          const examElement = examWindow.document.getElementById('exam-container');
+          if (examElement && examElement.requestFullscreen) {
+            examElement.requestFullscreen().catch(err => {
+              console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+          }
+        } catch (error) {
+          console.error("Could not enter fullscreen mode:", error);
+        }
+      }, 1000);
+    });
+  };
   
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-      {uniqueActiveExams.length > 0 ? (
-        uniqueActiveExams.map((exam) => (
-          <ExamCardWithHandwritten
-            key={exam.id}
-            exam={exam}
-            onDeleteClick={() => onDeleteExam(exam.id!)}
-            onEditClick={() => onEditExam(exam.id!)}
-            onDuplicateClick={() => onDuplicateExam(exam.id!)}
-          />
-        ))
-      ) : (
-        <Card className="col-span-full">
-          <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground mb-4">No upcoming exams found.</p>
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                onClick={handleRedirectToGenerateExam}
-                className="inline-flex items-center"
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Generate Exam
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Upcoming Exams</CardTitle>
+          <CardDescription>View and manage your scheduled exams</CardDescription>
+        </div>
+        {!isWhatsAppSetup && (
+          <div className="flex items-center gap-2">
+            <Input
+              type="text"
+              placeholder="WhatsApp number with country code"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="w-full max-w-xs"
+            />
+          </div>
+        )}
+      </CardHeader>
+      <CardContent>
+        {exams.length === 0 ? (
+          <Alert variant="default" className="bg-muted/50">
+            <Info className="h-4 w-4" />
+            <AlertTitle>No upcoming exams</AlertTitle>
+            <AlertDescription>
+              You don't have any upcoming exams scheduled. Go to the Generate Exam tab to create a new exam.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <div className="space-y-4">
+            {exams.map((exam, index) => (
+              <ExamCard 
+                key={exam.id || index}
+                exam={exam} 
+                onSendReminder={onSendReminder}
+                onDeleteClick={handleDeleteClick}
+                onViewExam={handleViewExam}
+              />
+            ))}
+          </div>
+        )}
+      </CardContent>
+      
+      {/* Delete confirmation dialog */}
+      <DeleteExamDialog 
+        open={deleteConfirmOpen}
+        examToDelete={examToDelete}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirmDelete={handleConfirmDelete}
+      />
+    </Card>
   );
 };
 

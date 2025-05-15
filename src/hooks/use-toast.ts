@@ -1,4 +1,3 @@
-
 import * as React from "react"
 
 import type {
@@ -190,5 +189,3 @@ function useToast() {
 }
 
 export { useToast, toast }
-// Re-export the types from toast.tsx for convenience
-export type { ToastProps, ToastActionElement } from "@/components/ui/toast"

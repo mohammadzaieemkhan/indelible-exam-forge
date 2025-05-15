@@ -1,6 +1,1 @@
-
 project_id = "lgiwtlodhacxqbhzrewe"
-
-[auth]
-site_url = "https://lgiwtlodhacxqbhzrewe.lovable.app"
-additional_redirect_urls = ["http://localhost:3000", "http://localhost:5173", "https://lgiwtlodhacxqbhzrewe.lovable.app"]

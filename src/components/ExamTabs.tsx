@@ -1,275 +1,535 @@
 
-import React, { useState, useEffect, Suspense } from "react";
+import { useState, useEffect } from "react";
+import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import UpcomingExamsTab from "@/components/tabs/UpcomingExamsTab";
-import PreviousExamsTab from "@/components/tabs/PreviousExamsTab";
-import PerformanceTab from "@/components/tabs/PerformanceTab";
-import GenerateExamTab from "@/components/tabs/GenerateExamTab";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { sendWhatsAppNotification, useGeminiAI } from "@/utils/apiService";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import GenerateExamTab from "./tabs/GenerateExamTab";
+import PerformanceTab from "./tabs/PerformanceTab";
+import PreviousExamsTab from "./tabs/PreviousExamsTab";
+import UpcomingExamsTab from "./tabs/UpcomingExamsTab";
 
 export interface IExam {
   id?: string;
   name: string;
-  description?: string;
   date: string;
-  time?: string;
-  duration: number;
-  isActive: boolean;
-  questions?: string | any;
-  questionWeights?: { [key: string]: number };
-  topics?: string[];
-  difficulty?: string;
-  numberOfQuestions?: number;
-  questionTypes?: string;
+  time: string;
+  duration: string;
+  numberOfQuestions: string;
+  topics: string[];
+  difficulty: string;
+  questionTypes: string;
+  isActive?: boolean;
+  questions?: string;
   sections?: any[];
+  questionWeights?: Record<number, number>;
+}
+
+interface ExamResult {
+  examId: string;
+  examName: string;
+  date: string;
+  answers: Record<string, string>;
+  timeTaken: string;
+  questionTypes: Array<string>;
+  questionWeights: Array<number>;
+  questions: Array<{
+    question: string;
+    type: string;
+    options?: string[];
+    answer?: string;
+  }>;
 }
 
 const ExamTabs = () => {
-  const [currentTab, setCurrentTab] = useState("generate");
-  const [exams, setExams] = useState<IExam[]>([]);
-  const [completedExams, setCompletedExams] = useState<any[]>([]);
-  const { toast } = useToast();
-  const isMobile = useIsMobile();
+  const [activeTab, setActiveTab] = useState<string>("generate");
+  const [generatedExam, setGeneratedExam] = useState<IExam | null>(null);
+  const [upcomingExams, setUpcomingExams] = useState<IExam[]>([]);
+  const [previousExams, setPreviousExams] = useState<IExam[]>([]);
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [isNotifying, setIsNotifying] = useState<boolean>(false);
+  const [notificationDialogOpen, setNotificationDialogOpen] = useState<boolean>(false);
+  const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
+  const [isWhatsAppSetup, setIsWhatsAppSetup] = useState<boolean>(false);
+  const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
 
-  // Load exams from localStorage on mount
+  const { toast } = useToast();
+  
+  // Load exams and phone number from localStorage on component mount
   useEffect(() => {
-    const savedExams = localStorage.getItem("exams");
+    const savedExams = localStorage.getItem('upcomingExams');
     if (savedExams) {
       try {
-        const parsedExams = JSON.parse(savedExams);
-        setExams(parsedExams);
+        setUpcomingExams(JSON.parse(savedExams));
       } catch (error) {
-        console.error("Error parsing saved exams:", error);
+        console.error('Error parsing saved exams:', error);
       }
     }
-
-    const savedCompletedExams = localStorage.getItem("completedExams");
-    if (savedCompletedExams) {
+    
+    const savedPrevExams = localStorage.getItem('previousExams');
+    if (savedPrevExams) {
       try {
-        const parsedCompletedExams = JSON.parse(savedCompletedExams);
-        setCompletedExams(parsedCompletedExams);
+        setPreviousExams(JSON.parse(savedPrevExams));
       } catch (error) {
-        console.error("Error parsing completed exams:", error);
+        console.error('Error parsing saved previous exams:', error);
       }
+    }
+    
+    // Load phone number if saved
+    const savedPhoneNumber = localStorage.getItem('whatsappNumber');
+    if (savedPhoneNumber) {
+      setPhoneNumber(savedPhoneNumber);
+      setIsWhatsAppSetup(true);
     }
   }, []);
-
-  // Save exams to localStorage whenever they change
+  
+  // Save exams to localStorage when they change
   useEffect(() => {
-    localStorage.setItem("exams", JSON.stringify(exams));
-  }, [exams]);
+    if (upcomingExams.length > 0) {
+      localStorage.setItem('upcomingExams', JSON.stringify(upcomingExams));
+    }
+  }, [upcomingExams]);
 
-  // Save completed exams to localStorage whenever they change
+  // Save previous exams to localStorage when they change
   useEffect(() => {
-    localStorage.setItem("completedExams", JSON.stringify(completedExams));
-  }, [completedExams]);
+    if (previousExams.length > 0) {
+      localStorage.setItem('previousExams', JSON.stringify(previousExams));
+    }
+  }, [previousExams]);
 
-  // Listen for exam completion events
+  // Save phone number to localStorage when it changes
   useEffect(() => {
-    const handleExamCompleted = (event: any) => {
-      try {
-        console.log("Exam completion detected:", event);
-        const examData = event.data?.examData || event.detail;
-        if (!examData) return;
-
-        console.log("Processing exam completion for:", examData);
-
-        // Add completion timestamp
-        const completedExam = {
-          ...examData,
-          completedAt: new Date().toISOString(),
-        };
-
-        // Mark the exam as inactive in the exams list
-        setExams(prevExams => 
-          prevExams.map(exam => 
-            exam.id === completedExam.id ? {...exam, isActive: false} : exam
-          )
-        );
-
-        // Update completed exams list
-        setCompletedExams((prev) => [...prev, completedExam]);
-
-        toast({
-          title: "Exam Completed",
-          description: "Your exam has been submitted successfully.",
-        });
-      } catch (error) {
-        console.error("Error processing exam completion:", error);
+    if (phoneNumber && phoneNumber.length > 5) {
+      localStorage.setItem('whatsappNumber', phoneNumber);
+      setIsWhatsAppSetup(true);
+    }
+  }, [phoneNumber]);
+  
+  // Check for exams that need to be activated
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      
+      // Check each exam if it's time to activate it
+      const updatedExams = upcomingExams.map(exam => {
+        if (!exam.isActive) {
+          const examDateTime = new Date(`${exam.date}T${exam.time}`);
+          
+          if (examDateTime <= now) {
+            // It's time to activate this exam!
+            // Send a WhatsApp notification if phone number is available
+            if (phoneNumber && phoneNumber.length > 5) {
+              console.log("Sending WhatsApp notification for exam activation:", exam.name);
+              sendWhatsAppNotification(
+                phoneNumber,
+                `Your exam "${exam.name}" is now available to take!`
+              ).then(result => {
+                console.log("WhatsApp notification result:", result);
+                if (!result.success) {
+                  toast({
+                    title: "Notification Error",
+                    description: "Could not send WhatsApp notification. Please check your phone number.",
+                    variant: "destructive",
+                  });
+                }
+              }).catch(err => console.error("Failed to send WhatsApp notification:", err));
+            }
+            
+            toast({
+              title: "Exam Available",
+              description: `${exam.name} is now available to take`,
+            });
+            
+            return { ...exam, isActive: true };
+          }
+        }
+        return exam;
+      });
+      
+      // Update the exams list if there are changes
+      const hasChanges = updatedExams.some(
+        (exam, i) => exam.isActive !== upcomingExams[i].isActive
+      );
+      
+      if (hasChanges) {
+        setUpcomingExams(updatedExams);
+      }
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [upcomingExams, toast, phoneNumber]);
+  
+  // Listen for exam completion events from the exam window
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'examCompleted' && event.data.examData) {
+        const examData = event.data.examData as ExamResult;
+        await processCompletedExam(examData);
       }
     };
-
-    // Listen for message from exam window
-    window.addEventListener("message", handleExamCompleted);
-    // Listen for custom event from exam window
-    document.addEventListener("examCompleted", handleExamCompleted);
-
-    // Auto-submission when exam time is up
-    document.addEventListener("examTimeUp", handleExamCompleted);
-
-    return () => {
-      window.removeEventListener("message", handleExamCompleted);
-      document.removeEventListener("examCompleted", handleExamCompleted);
-      document.removeEventListener("examTimeUp", handleExamCompleted);
+    
+    // Check the localStorage for a completed exam ID on component mount
+    const checkCompletedExam = async () => {
+      const completedExamId = localStorage.getItem('completedExamId');
+      if (completedExamId) {
+        const lastExamResults = localStorage.getItem('lastExamResults');
+        if (lastExamResults) {
+          try {
+            const examData = JSON.parse(lastExamResults) as ExamResult;
+            await processCompletedExam(examData);
+            localStorage.removeItem('completedExamId');
+            localStorage.removeItem('lastExamResults');
+          } catch (error) {
+            console.error('Error processing completed exam:', error);
+          }
+        }
+      }
     };
-  }, [toast]);
-
-  // Handle adding a new exam
-  const handleAddExam = (exam: IExam) => {
-    console.log("Adding new exam:", exam);
     
-    // Generate a unique ID for the exam if it doesn't have one
-    const id = exam.id || Math.random().toString(36).substring(2, 9);
+    window.addEventListener('message', handleMessage);
+    checkCompletedExam();
     
-    // Check if an exam with this ID already exists to prevent duplicates
-    const existingExamIndex = exams.findIndex(e => e.id === id);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [upcomingExams]);
+  
+  // Process a completed exam
+  const processCompletedExam = async (examData: ExamResult) => {
+    // Find the exam in upcoming exams
+    const examIndex = upcomingExams.findIndex(exam => exam.id === examData.examId);
+    if (examIndex === -1) return;
     
-    if (existingExamIndex >= 0) {
-      // Update existing exam
-      const updatedExams = [...exams];
-      updatedExams[existingExamIndex] = { ...exam, id };
-      setExams(updatedExams);
-    } else {
-      // Add new exam
-      const newExam = { ...exam, id, isActive: true };
-      setExams((prevExams) => [...prevExams, newExam]);
-    }
+    const completedExam = upcomingExams[examIndex];
+    if (!completedExam) return;
     
-    // Switch to the upcoming tab to view the new/updated exam
-    setCurrentTab("upcoming");
-    
+    setIsEvaluating(true);
     toast({
-      title: "Exam Created",
-      description: `${exam.name} has been ${existingExamIndex >= 0 ? 'updated' : 'created'} successfully.`,
+      title: "Evaluating Exam",
+      description: "Please wait while the AI evaluates your exam responses..."
     });
-  };
-
-  // Handle deleting an exam
-  const handleDeleteExam = (examId: string) => {
-    setExams((prevExams) => prevExams.filter((exam) => exam.id !== examId));
-    toast({
-      title: "Exam Deleted",
-      description: "The exam has been deleted successfully.",
-    });
-  };
-
-  // Handle editing an exam
-  const handleEditExam = (examId: string) => {
-    // Find the exam to edit
-    const examToEdit = exams.find((exam) => exam.id === examId);
-    if (examToEdit) {
-      // Logic for editing an exam would go here
-      // This is a placeholder that just displays a toast
-      toast({
-        title: "Edit Exam",
-        description: `Editing ${examToEdit.name}`,
+    
+    try {
+      // Evaluate the exam using Gemini AI
+      const evaluationPrompt = `Evaluate the following exam responses:
+        
+      Exam: ${completedExam.name}
+      Topic(s): ${completedExam.topics.join(", ")}
+      Difficulty: ${completedExam.difficulty}
+      
+      Questions and Responses:
+      ${examData.questions.map((q, idx) => {
+        const questionNumber = idx + 1;
+        const questionType = q.type;
+        const userAnswer = examData.answers[`q${idx}`] || 'Not answered';
+        const correctAnswer = q.answer || 'N/A';
+        const weight = examData.questionWeights[idx] || 1;
+        
+        return `
+        Question ${questionNumber} (${questionType}, weight: ${weight}): ${q.question}
+        ${q.options ? `Options: ${q.options.join(" | ")}` : ''}
+        Correct Answer: ${correctAnswer}
+        User Answer: ${userAnswer}
+        `;
+      }).join("\n\n")}
+      
+      For each question, provide:
+      1. Whether the answer is correct (full points), partially correct (partial points), or incorrect (0 points)
+      2. A brief explanation/feedback
+      3. The points awarded out of the question weight
+      
+      Also provide:
+      - Total score (sum of awarded points)
+      - Total possible score (sum of question weights)
+      - Percentage score
+      - Performance breakdown by topic
+      
+      Use the following JSON format for your response:
+      {
+        "questionDetails": [
+          {
+            "question": "Question text",
+            "type": "question type",
+            "isCorrect": true/false/partial,
+            "feedback": "Brief feedback",
+            "marksObtained": number,
+            "totalMarks": number,
+            "userAnswer": "user's answer",
+            "correctAnswer": "correct answer"
+          }
+        ],
+        "totalScore": number,
+        "totalPossible": number,
+        "percentage": number,
+        "topicPerformance": {
+          "topic1": percentage,
+          "topic2": percentage
+        }
+      }`;
+      
+      const evaluationResult = await useGeminiAI({
+        task: "evaluate_answer",
+        prompt: evaluationPrompt
       });
-    }
-  };
-
-  // Handle duplicating an exam
-  const handleDuplicateExam = (examId: string) => {
-    const examToDuplicate = exams.find((exam) => exam.id === examId);
-    if (examToDuplicate) {
-      const duplicatedExam = {
-        ...examToDuplicate,
-        id: Math.random().toString(36).substring(2, 9),
-        name: `Copy of ${examToDuplicate.name}`,
+      
+      if (!evaluationResult.success || !evaluationResult.response) {
+        throw new Error("Failed to evaluate exam responses");
+      }
+      
+      // Parse the evaluation results
+      let parsedEvaluation;
+      try {
+        // Extract JSON from the response (may be wrapped in markdown code block)
+        const jsonMatch = evaluationResult.response.match(/```json\s*([\s\S]*?)\s*```/) || 
+                          evaluationResult.response.match(/{[\s\S]*}/);
+                          
+        const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : evaluationResult.response;
+        parsedEvaluation = JSON.parse(jsonStr);
+      } catch (error) {
+        console.error("Failed to parse evaluation results:", error);
+        console.log("Raw evaluation response:", evaluationResult.response);
+        throw new Error("Failed to parse evaluation results");
+      }
+      
+      // Create the exam result object
+      const examResult = {
+        examId: examData.examId,
+        examName: examData.examName,
+        date: examData.date,
+        score: parsedEvaluation.totalScore,
+        totalMarks: parsedEvaluation.totalPossible,
+        percentage: parsedEvaluation.percentage,
+        timeTaken: examData.timeTaken,
+        questionStats: {
+          correct: parsedEvaluation.questionDetails.filter((q: any) => q.isCorrect === true).length,
+          incorrect: parsedEvaluation.questionDetails.filter((q: any) => q.isCorrect === false).length,
+          unattempted: parsedEvaluation.questionDetails.filter((q: any) => !q.userAnswer || q.userAnswer === 'Not answered').length,
+          total: parsedEvaluation.questionDetails.length
+        },
+        topicPerformance: parsedEvaluation.topicPerformance,
+        questionDetails: parsedEvaluation.questionDetails
       };
-      setExams((prevExams) => [...prevExams, duplicatedExam]);
+      
+      // Save the exam result
+      const savedResults = localStorage.getItem('examResults');
+      let examResults = savedResults ? JSON.parse(savedResults) : [];
+      examResults.push(examResult);
+      localStorage.setItem('examResults', JSON.stringify(examResults));
+      
+      // Move the exam from upcoming to previous
+      setPreviousExams(prev => [...prev, completedExam]);
+      setUpcomingExams(prev => prev.filter(exam => exam.id !== completedExam.id));
+      
       toast({
-        title: "Exam Duplicated",
-        description: `${duplicatedExam.name} has been created.`,
+        title: "Exam Evaluated",
+        description: `You scored ${parsedEvaluation.percentage}% on ${completedExam.name}`
       });
+      
+      // Switch to the performance tab to show results
+      setActiveTab("performance");
+      
+    } catch (error) {
+      console.error("Error evaluating exam:", error);
+      toast({
+        title: "Evaluation Error",
+        description: "Failed to evaluate exam responses. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsEvaluating(false);
     }
   };
-
+  
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+  
+  // Handle saving an exam
+  const handleSaveExam = (exam: IExam) => {
+    // Set some defaults if missing
+    const currentDate = new Date();
+    const examDate = exam.date || new Date(currentDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const examTime = exam.time || currentDate.toTimeString().slice(0, 5);
+    
+    const newExam = {
+      ...exam,
+      id: `exam-${Date.now()}`, // Simple ID for tracking
+      date: examDate,
+      time: examTime,
+      isActive: false, // Initially not active - exams can only be taken after scheduled time
+      questionWeights: exam.questionWeights || {} // Store question weightages
+    };
+    
+    setUpcomingExams([...upcomingExams, newExam]);
+    setGeneratedExam(null);
+    
+    // Automatically switch to upcoming tab
+    setActiveTab("upcoming");
+    
+    toast({
+      title: "Exam Saved",
+      description: "The exam has been moved to upcoming exams"
+    });
+  };
+  
+  // Handle WhatsApp notification sending
+  const handleSendReminder = async () => {
+    if (!selectedExam) return;
+    
+    if (!phoneNumber || phoneNumber.length < 5) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid phone number with country code",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsNotifying(true);
+    
+    try {
+      console.log("Sending WhatsApp reminder for exam:", selectedExam.name);
+      
+      // Format the message
+      const message = `Reminder: Your exam "${selectedExam.name}" is scheduled for ${selectedExam.date} at ${selectedExam.time}. The exam will be ${selectedExam.duration} minutes long. Good luck!`;
+      
+      // Send the WhatsApp notification
+      const result = await sendWhatsAppNotification(phoneNumber, message);
+      
+      if (result.success) {
+        toast({
+          title: "Reminder Sent",
+          description: "WhatsApp reminder sent successfully!",
+        });
+        setIsWhatsAppSetup(true);
+      } else {
+        console.error("Failed to send WhatsApp reminder:", result.error);
+        toast({
+          title: "Error",
+          description: "Failed to send WhatsApp reminder. Check console for details.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send WhatsApp reminder",
+        variant: "destructive",
+      });
+    } finally {
+      setIsNotifying(false);
+      setNotificationDialogOpen(false);
+    }
+  };
+  
+  // Open notification dialog for a specific exam
+  const openNotificationDialog = (exam: IExam) => {
+    setSelectedExam(exam);
+    setNotificationDialogOpen(true);
+  };
+  
+  // Add delete exam functionality
+  const handleDeleteExam = (examId: string) => {
+    // Filter out the exam with the specified ID
+    const updatedExams = upcomingExams.filter(exam => exam.id !== examId);
+    setUpcomingExams(updatedExams);
+    
+    // Save the updated exams to localStorage
+    localStorage.setItem('upcomingExams', JSON.stringify(updatedExams));
+  };
+  
   return (
-    <div className="container mx-auto py-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Exam Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-            <div className="overflow-x-auto">
-              <TabsList className={`${isMobile ? 'grid grid-cols-4 gap-2 w-full mb-2' : 'flex space-x-2'}`}>
-                <TabsTrigger 
-                  id="generate-exam-tab"
-                  value="generate"
-                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
-                >
-                  Generate Exam
-                </TabsTrigger>
-                <TabsTrigger
-                  id="performance-tab"
-                  value="performance"
-                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
-                >
-                  Performance
-                </TabsTrigger>
-                <TabsTrigger
-                  id="previous-tab" 
-                  value="previous"
-                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
-                >
-                  Previous Exams
-                </TabsTrigger>
-                <TabsTrigger 
-                  id="upcoming-tab" 
-                  value="upcoming"
-                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
-                >
-                  Upcoming Exams
-                </TabsTrigger>
-              </TabsList>
+    <>
+      <Tabs defaultValue="generate" className="space-y-6" value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid grid-cols-1 md:grid-cols-4 gap-2">
+          <TabsTrigger value="generate" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <BookOpen className="h-4 w-4 mr-2" /> Generate Exam
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <BarChart className="h-4 w-4 mr-2" /> Performance
+          </TabsTrigger>
+          <TabsTrigger value="previous" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <FileText className="h-4 w-4 mr-2" /> Previous Exams
+          </TabsTrigger>
+          <TabsTrigger value="upcoming" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Calendar className="h-4 w-4 mr-2" /> Upcoming
+          </TabsTrigger>
+        </TabsList>
+        
+        {/* Generate Exam Tab */}
+        <TabsContent value="generate" className="space-y-6 animate-fade-in">
+          <GenerateExamTab 
+            onSaveExam={handleSaveExam} 
+            generatedExam={generatedExam} 
+            setGeneratedExam={setGeneratedExam} 
+          />
+        </TabsContent>
+        
+        {/* Performance Tab */}
+        <TabsContent value="performance" className="space-y-6 animate-fade-in">
+          <PerformanceTab />
+        </TabsContent>
+        
+        {/* Previous Exams Tab */}
+        <TabsContent value="previous" className="space-y-6 animate-fade-in">
+          <PreviousExamsTab exams={previousExams} />
+        </TabsContent>
+        
+        {/* Upcoming Exams Tab */}
+        <TabsContent value="upcoming" className="space-y-6 animate-fade-in">
+          <UpcomingExamsTab 
+            exams={upcomingExams}
+            onSendReminder={openNotificationDialog}
+            phoneNumber={phoneNumber}
+            setPhoneNumber={setPhoneNumber}
+            isWhatsAppSetup={isWhatsAppSetup}
+            onDeleteExam={handleDeleteExam}
+          />
+        </TabsContent>
+      </Tabs>
+      
+      {/* Notification Dialog */}
+      <Dialog open={notificationDialogOpen} onOpenChange={setNotificationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send WhatsApp Reminder</DialogTitle>
+            <DialogDescription>
+              Send a WhatsApp notification to remind about the upcoming exam.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="phone-number">WhatsApp Number</Label>
+              <Input
+                id="phone-number"
+                placeholder="+1234567890"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Include the country code (e.g., +1 for US). For WhatsApp to work, you may need to send a message to the Twilio number first.
+              </p>
             </div>
-
-            <TabsContent value="generate" className="space-y-4">
-              <Suspense fallback={<div>Loading...</div>}>
-                <GenerateExamTab 
-                  onSaveExam={handleAddExam} 
-                  onExamGenerated={handleAddExam}
-                />
-              </Suspense>
-            </TabsContent>
-
-            <TabsContent value="performance" className="space-y-4">
-              <Suspense fallback={<div>Loading...</div>}>
-                <PerformanceTab 
-                  completedExams={completedExams}
-                />
-              </Suspense>
-            </TabsContent>
-            
-            <TabsContent value="previous" className="space-y-4">
-              <Suspense fallback={<div>Loading...</div>}>
-                <PreviousExamsTab
-                  exams={exams.filter((exam) => !exam.isActive)}
-                  onDeleteExam={handleDeleteExam}
-                  onEditExam={handleEditExam}
-                  onDuplicateExam={handleDuplicateExam}
-                />
-              </Suspense>
-            </TabsContent>
-
-            <TabsContent value="upcoming" className="space-y-4">
-              <Suspense fallback={<div>Loading...</div>}>
-                <UpcomingExamsTab
-                  exams={exams.filter((exam) => exam.isActive)}
-                  onDeleteExam={handleDeleteExam}
-                  onEditExam={handleEditExam}
-                  onDuplicateExam={handleDuplicateExam}
-                />
-              </Suspense>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              onClick={handleSendReminder}
+              disabled={isNotifying}
+            >
+              {isNotifying ? "Sending..." : "Send Reminder"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

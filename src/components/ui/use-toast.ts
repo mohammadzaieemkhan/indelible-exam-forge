@@ -1,11 +1,8 @@
 
-// Correctly re-export the useToast hook from the hooks directory
+// Export the useToast hook correctly from the right place
 import * as React from "react";
-import { useToast as useToastHook, toast as toastFunction, ToastProps, ToastActionElement } from "@/hooks/use-toast";
+import { useToast as useToastHook, toast as toastFunction } from "@/hooks/use-toast";
 
 // Re-export the hook and toast function
 export const useToast = useToastHook;
 export const toast = toastFunction;
-
-// Export toast types for convenience
-export type { ToastProps, ToastActionElement };

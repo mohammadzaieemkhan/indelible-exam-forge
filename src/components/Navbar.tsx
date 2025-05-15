@@ -4,8 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { Menu, X, BookOpen, User, LogOut } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,26 +18,11 @@ const Navbar = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userProfile, setUserProfile] = useState<{name?: string; email?: string} | null>(null);
   const navigate = useNavigate();
-  const { toast } = useToast();
   
   // Check if user is authenticated on mount
   useEffect(() => {
-    const checkAuth = async () => {
-      // First check with Supabase
-      const { data } = await supabase.auth.getSession();
-      
-      if (data.session) {
-        // Get user details from Supabase
-        const { user } = data.session;
-        setIsAuthenticated(true);
-        setUserProfile({
-          name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
-          email: user.email
-        });
-        return;
-      }
-      
-      // Fallback to localStorage for backward compatibility
+    const checkAuth = () => {
+      // For now we'll use localStorage until we have a real auth system
       const userJson = localStorage.getItem('userData');
       if (userJson) {
         try {
@@ -50,98 +33,25 @@ const Navbar = () => {
           setIsAuthenticated(false);
           setUserProfile(null);
         }
-      } else {
-        setIsAuthenticated(false);
-        setUserProfile(null);
       }
     };
     
     checkAuth();
     
     // Listen for auth changes
-    const authListener = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        setIsAuthenticated(true);
-        setUserProfile({
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-          email: session.user.email
-        });
-        
-        // Store in localStorage for other components
-        const userData = {
-          name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-          email: session.user.email,
-          phone: session.user.phone || "",
-          role: session.user.user_metadata?.role || "Student"
-        };
-        localStorage.setItem('userData', JSON.stringify(userData));
-        
-        // Dispatch storage event for other components
-        window.dispatchEvent(new Event('storage'));
-      } else if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
-        setUserProfile(null);
-        localStorage.removeItem('userData');
-        window.dispatchEvent(new Event('storage'));
-      }
-    });
-    
-    // Listen for storage changes
-    const storageChangeHandler = () => {
-      const userJson = localStorage.getItem('userData');
-      if (userJson) {
-        try {
-          const userData = JSON.parse(userJson);
-          setIsAuthenticated(true);
-          setUserProfile(userData);
-        } catch (e) {
-          setIsAuthenticated(false);
-          setUserProfile(null);
-        }
-      } else {
-        setIsAuthenticated(false);
-        setUserProfile(null);
-      }
-    };
-    
-    window.addEventListener('storage', storageChangeHandler);
-    
-    return () => {
-      // Clean up listeners
-      authListener.data.subscription.unsubscribe();
-      window.removeEventListener('storage', storageChangeHandler);
-    };
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
   }, []);
   
   // Handle logout
-  const handleLogout = async () => {
-    // Sign out from Supabase
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      toast({
-        title: "Logout Failed",
-        description: error.message,
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    // Clear local storage
+  const handleLogout = () => {
     localStorage.removeItem('userData');
-    
-    // Update state
     setIsAuthenticated(false);
     setUserProfile(null);
-    
-    // Show toast
-    toast({
-      title: "Logged Out",
-      description: "You have been logged out successfully"
-    });
-    
-    // Navigate to home
     navigate('/');
+    
+    // Show a temporary toast (using alert for now)
+    alert("You have been logged out successfully");
   };
   
   const navItems = [
@@ -184,10 +94,7 @@ const Navbar = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>
-                      {userProfile?.name || 'User'}
-                      {userProfile?.email && <p className="text-xs text-muted-foreground">{userProfile.email}</p>}
-                    </DropdownMenuLabel>
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link to="/profile">Profile</Link>

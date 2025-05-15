@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from "react";
 import { Filter, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,29 +8,23 @@ import { IExam } from "@/components/ExamTabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { markdownToHtml } from "@/components/exam/utils/examParser";
 
 interface PreviousExamsTabProps {
   exams: IExam[];
-  onDeleteExam?: (examId: string) => void;
-  onEditExam?: (examId: string) => void;
-  onDuplicateExam?: (examId: string) => void;
 }
 
-const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: PreviousExamsTabProps) => {
+const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState<boolean>(false);
-  const [filterSubject, setFilterSubject] = useState<string>("all-subjects");
-  const [filterDate, setFilterDate] = useState<string>("all-dates");
+  const [filterSubject, setFilterSubject] = useState<string>("");
+  const [filterDate, setFilterDate] = useState<string>("");
   const [showFilters, setShowFilters] = useState<boolean>(false);
   
   // Extract unique subjects from all exams
   const uniqueSubjects = useMemo(() => {
     const subjects = new Set<string>();
     exams.forEach(exam => {
-      if (exam.topics) {
-        exam.topics.forEach(topic => subjects.add(topic));
-      }
+      exam.topics.forEach(topic => subjects.add(topic));
     });
     return Array.from(subjects);
   }, [exams]);
@@ -46,22 +41,65 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
   // Filter exams based on subject and date
   const filteredExams = useMemo(() => {
     return exams.filter(exam => {
-      const matchesSubject = filterSubject === "all-subjects" || (exam.topics && exam.topics.includes(filterSubject));
-      const matchesDate = filterDate === "all-dates" || exam.date === filterDate;
+      const matchesSubject = !filterSubject || exam.topics.includes(filterSubject);
+      const matchesDate = !filterDate || exam.date === filterDate;
       return matchesSubject && matchesDate;
     });
   }, [exams, filterSubject, filterDate]);
   
   // Reset filters
   const handleResetFilters = () => {
-    setFilterSubject("all-subjects");
-    setFilterDate("all-dates");
+    setFilterSubject("");
+    setFilterDate("");
   };
   
   // Open dialog to view exam details
   const handleViewExam = (exam: IExam) => {
     setSelectedExam(exam);
     setViewDialogOpen(true);
+  };
+  
+  // Simple function to convert markdown to HTML for preview
+  const markdownToHtml = (markdown: string): string => {
+    if (!markdown) return '';
+    
+    // Basic markdown parsing - replace markdown syntax with HTML
+    let html = markdown
+      // Headers
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      
+      // Emphasis (bold and italic)
+      .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+      .replace(/_(.*?)_/gim, '<em>$1</em>')
+      
+      // Lists - Unordered
+      .replace(/^\s*[-*+]\s+(.*$)/gim, '<ul><li>$1</li></ul>')
+      // Lists - Ordered
+      .replace(/^\s*(\d+)\.\s+(.*$)/gim, '<ol><li>$2</li></ol>')
+      
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank">$1</a>')
+      
+      // Code blocks
+      .replace(/`([^`]+)`/gim, '<code>$1</code>')
+      
+      // Paragraphs
+      .replace(/^\s*(\n)?(.+)/gim, function(m) {
+        return /^\s*(<(\/)?(h|ul|ol|li|blockquote|pre|p))/i.test(m) ? m : '<p>' + m + '</p>';
+      })
+      
+      // Line breaks
+      .replace(/\n/gim, '<br />');
+    
+    // Fix duplicate tags caused by multi-line regex
+    html = html.replace(/<\/ul>\s*<ul>/gim, '')
+               .replace(/<\/ol>\s*<ol>/gim, '')
+               .replace(/<\/p>\s*<p>/gim, '<br />');
+    
+    return html;
   };
   
   // Generate and download report card for an exam
@@ -208,7 +246,7 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
                   <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all-subjects">All Subjects</SelectItem>
+                  <SelectItem value="">All Subjects</SelectItem>
                   {uniqueSubjects.map(subject => (
                     <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                   ))}
@@ -223,7 +261,7 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
                   <SelectValue placeholder="Select date" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all-dates">All Dates</SelectItem>
+                  <SelectItem value="">All Dates</SelectItem>
                   {uniqueDates.map(date => (
                     <SelectItem key={date} value={date}>{date}</SelectItem>
                   ))}
@@ -231,7 +269,7 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
               </Select>
             </div>
             
-            {(filterSubject !== "all-subjects" || filterDate !== "all-dates") && (
+            {(filterSubject || filterDate) && (
               <div className="flex items-end">
                 <Button variant="ghost" size="sm" onClick={handleResetFilters}>
                   Clear Filters
@@ -277,12 +315,12 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
                     <td className="p-2">{exam.name}</td>
                     <td className="p-2">{exam.date}</td>
                     <td className="p-2">
-                      {exam.topics && exam.topics.slice(0, 2).map((topic, i) => (
+                      {exam.topics.slice(0, 2).map((topic, i) => (
                         <span key={i} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full mr-1">
                           {topic}
                         </span>
                       ))}
-                      {exam.topics && exam.topics.length > 2 && (
+                      {exam.topics.length > 2 && (
                         <span className="text-xs text-muted-foreground">
                           +{exam.topics.length - 2} more
                         </span>
@@ -307,28 +345,13 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
                           Report
                         </Button>
                       )}
-                      {onDeleteExam && (
-                        <Button variant="outline" size="sm" onClick={() => onDeleteExam(exam.id || '')}>
-                          Delete
-                        </Button>
-                      )}
-                      {onEditExam && (
-                        <Button variant="outline" size="sm" onClick={() => onEditExam(exam.id || '')}>
-                          Edit
-                        </Button>
-                      )}
-                      {onDuplicateExam && (
-                        <Button variant="outline" size="sm" onClick={() => onDuplicateExam(exam.id || '')}>
-                          Duplicate
-                        </Button>
-                      )}
                     </td>
                   </tr>
                 );
               }) : (
                 <tr>
                   <td colSpan={6} className="p-4 text-center text-muted-foreground">
-                    No previous exams found{(filterSubject !== "all-subjects" || filterDate !== "all-dates") ? ' matching your filter criteria' : ''}.
+                    No previous exams found{filterSubject || filterDate ? ' matching your filter criteria' : ''}.
                   </td>
                 </tr>
               )}
@@ -347,7 +370,7 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
             {selectedExam?.questions ? (
               <div className="space-y-6">
                 <div className="flex flex-wrap gap-2">
-                  {selectedExam.topics && selectedExam.topics.map((topic, i) => (
+                  {selectedExam.topics.map((topic, i) => (
                     <span key={i} className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
                       {topic}
                     </span>
@@ -357,18 +380,14 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
                 <div>
                   <h3 className="text-lg font-medium mb-3">Questions</h3>
                   <div className="space-y-4 pl-4 border-l-2 border-muted">
-                    <div dangerouslySetInnerHTML={{ 
-                      __html: typeof selectedExam.questions === 'string' ? 
-                        markdownToHtml(selectedExam.questions) : 
-                        'Question content not available in text format.'
-                    }} />
+                    <div dangerouslySetInnerHTML={{ __html: markdownToHtml(selectedExam.questions) }} />
                   </div>
                 </div>
                 
                 <div className="text-sm text-muted-foreground">
                   <p>Date: {selectedExam.date}</p>
                   <p>Duration: {selectedExam.duration} minutes</p>
-                  {selectedExam.difficulty && <p>Difficulty: {selectedExam.difficulty}</p>}
+                  <p>Difficulty: {selectedExam.difficulty}</p>
                 </div>
               </div>
             ) : (
