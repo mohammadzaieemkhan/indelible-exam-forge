@@ -1,9 +1,9 @@
-
 import React from "react";
 import { ParsedQuestionItem, parseQuestions, markdownToHtml } from "./utils/examParser";
 import { IExam } from "@/components/ExamTabs";
 import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { extractTextFromImage, fileToBase64 } from "@/utils/ocrUtils";
 
 interface ExamRendererProps {
   exam: IExam;
@@ -74,6 +74,21 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
           <input type="text" class="text-input" id="answer-${index}" 
             placeholder="Enter your short answer here..." 
             onchange="saveAnswer(${index}, this.value)" />
+          <div class="mt-2">
+            <button
+              type="button" 
+              class="upload-image-button"
+              data-question-id="${index}"
+              data-question-type="shortanswer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                <circle cx="9" cy="9" r="2"></circle>
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+              </svg>
+              Upload from Photo
+            </button>
+          </div>
         </div>
       `;
     case 'essay':
@@ -82,6 +97,21 @@ export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) 
           <textarea class="essay-input" id="answer-${index}" 
             placeholder="Write your essay here..."
             onchange="saveAnswer(${index}, this.value)"></textarea>
+          <div class="mt-2">
+            <button
+              type="button" 
+              class="upload-image-button"
+              data-question-id="${index}"
+              data-question-type="essay"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                <circle cx="9" cy="9" r="2"></circle>
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+              </svg>
+              Upload from Photo
+            </button>
+          </div>
         </div>
       `;
     default:
@@ -195,476 +225,49 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           --accent-foreground: #0f172a;
           --destructive: #ef4444;
           --destructive-foreground: white;
-          --warning: #f59e0b;
-          --warning-foreground: #78350f;
-          --success: #10b981;
-          --success-foreground: white;
-          --card: #ffffff;
-          --card-foreground: #0f172a;
-        }
-        
-        /* Dark mode support */
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --primary: #3b82f6;
-            --primary-hover: #2563eb;
-            --primary-foreground: white;
-            --background: #0f172a;
-            --foreground: #f8fafc;
-            --accent: #1e293b;
-            --accent-foreground: #f1f5f9;
-            --muted: #1e293b;
-            --muted-foreground: #94a3b8;
-            --border: #334155;
-            --border-hover: #475569;
-            --card: #1e293b;
-            --card-foreground: #f1f5f9;
-            --text: #f1f5f9;
-          }
         }
         
         /* General styles */
         body {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           line-height: 1.6;
-          color: var(--card-foreground);
+          color: var(--accent-foreground);
           background-color: var(--background);
           margin: 0;
           padding: 0;
         }
         
-        * {
-          box-sizing: border-box;
-        }
-        
-        #exam-container {
+        /* Styles for the upload button */
+        .upload-image-button {
           display: flex;
-          height: 100vh;
-        }
-        
-        /* Sidebar styles */
-        .sidebar {
-          width: 250px;
-          flex-shrink: 0;
-          border-right: 1px solid var(--border);
-          overflow-y: auto;
+          align-items: center;
+          padding: 6px 12px;
           background-color: var(--accent);
-          display: flex;
-          flex-direction: column;
-          box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
           color: var(--accent-foreground);
-        }
-        
-        .sidebar-header {
-          padding: 20px;
-          border-bottom: 1px solid var(--border);
-          background-color: var(--primary);
-          color: var(--primary-foreground);
-        }
-        
-        .sidebar-header h2 {
-          margin: 0;
-          font-size: 18px;
-          color: var(--primary-foreground);
-        }
-        
-        .sidebar-header p {
-          margin: 5px 0 0 0;
-          font-size: 14px;
-          color: rgba(255, 255, 255, 0.9);
-        }
-        
-        .sidebar-timer {
-          padding: 15px 20px;
-          border-bottom: 1px solid var(--border);
-          font-size: 16px;
-          font-weight: 600;
-          color: var(--accent-foreground);
-          background-color: var(--muted);
-          text-align: center;
-        }
-        
-        .sidebar-progress {
-          padding: 15px 20px;
-          border-bottom: 1px solid var(--border);
-        }
-        
-        .progress-bar {
-          height: 8px;
-          background-color: var(--muted);
-          border-radius: 4px;
-          overflow: hidden;
-          margin-top: 10px;
-        }
-        
-        .progress-value {
-          height: 100%;
-          background-color: var(--primary);
-          width: 0%;
-          transition: width 0.3s ease;
-        }
-        
-        .progress-stats {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 8px;
-          font-size: 12px;
-          color: var(--muted-foreground);
-        }
-        
-        .question-grid {
-          padding: 15px;
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 8px;
-          border-bottom: 1px solid var(--border);
-        }
-        
-        .question-number {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 14px;
-          cursor: pointer;
-          background-color: var(--muted);
-          color: var(--muted-foreground);
-          transition: all 0.2s ease;
-        }
-        
-        .question-number:hover {
-          transform: scale(1.05);
-          box-shadow: 0 0 0 2px var(--border-hover);
-        }
-        
-        .question-number.current {
-          background-color: var(--primary);
-          color: var(--primary-foreground);
-          font-weight: 600;
-        }
-        
-        .question-number.answered {
-          background-color: var(--success);
-          color: var(--success-foreground);
-        }
-        
-        .question-number.for-review {
-          background-color: var(--warning);
-          color: var(--warning-foreground);
-        }
-        
-        .sidebar-legend {
-          padding: 15px 20px;
-          border-bottom: 1px solid var(--border);
-        }
-        
-        .legend-item {
-          display: flex;
-          align-items: center;
-          margin-bottom: 8px;
-          font-size: 12px;
-        }
-        
-        .legend-color {
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          margin-right: 8px;
-        }
-        
-        .legend-current { background-color: var(--primary); }
-        .legend-answered { background-color: var(--success); }
-        .legend-review { background-color: var(--warning); }
-        .legend-unanswered { background-color: var(--muted); }
-        
-        .sidebar-actions {
-          padding: 15px 20px;
-          margin-top: auto;
-        }
-        
-        /* Section styling */
-        .section-container {
-          margin-bottom: 20px;
-        }
-        
-        .section-header {
-          margin-bottom: 15px;
-          padding-bottom: 10px;
-          border-bottom: 2px solid var(--primary);
-        }
-        
-        .section-header h2 {
-          font-size: 20px;
-          margin: 0;
-          color: var(--accent-foreground);
-        }
-        
-        /* Main content styles */
-        .main-content {
-          flex-grow: 1;
-          padding: 20px;
-          overflow-y: auto;
-          background-color: var(--background);
-          color: var(--accent-foreground);
-        }
-        
-        .question-container {
           border: 1px solid var(--border);
-          border-radius: 8px;
-          margin-bottom: 20px;
-          padding: 20px;
-          background-color: var(--card);
-          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-          color: var(--card-foreground);
-        }
-        
-        .question-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 15px;
-        }
-        
-        .question-header h3 {
-          margin: 0;
-          font-size: 18px;
-          font-weight: 600;
-          color: var(--accent-foreground);
-        }
-        
-        .question-section {
-          background-color: var(--muted);
-          padding: 5px 10px;
           border-radius: 4px;
           font-size: 14px;
-          color: var(--muted-foreground);
+          cursor: pointer;
+          transition: all 0.2s ease;
         }
         
-        .question-content {
-          margin-bottom: 20px;
-          color: var(--accent-foreground);
-        }
-        
-        .question-content h1, 
-        .question-content h2, 
-        .question-content h3 {
-          margin-top: 0;
-          color: var(--accent-foreground);
-        }
-        
-        .question-content p {
-          margin-bottom: 15px;
-          color: var(--accent-foreground);
-        }
-        
-        .question-content ul, 
-        .question-content ol {
-          margin-bottom: 15px;
-          padding-left: 20px;
-        }
-        
-        .question-content code {
+        .upload-image-button:hover {
           background-color: var(--muted);
-          padding: 2px 5px;
-          border-radius: 3px;
-          font-family: monospace;
         }
         
-        /* Options for MCQs with separate radio buttons */
-        .options {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          margin-bottom: 15px;
+        .upload-image-button svg {
+          margin-right: 6px;
         }
         
-        .option {
-          padding: 0;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          background-color: var(--card);
-          width: 100%;
-          display: flex;
-        }
-        
-        .option-label {
-          display: flex;
-          align-items: flex-start;
-          padding: 12px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          width: 100%;
-          height: 100%;
-          color: var(--card-foreground);
-          position: relative;
-        }
-        
-        .option-label:hover {
-          background-color: var(--accent);
-          border-radius: 5px;
-        }
-        
-        /* Radio button styling improved */
-        .radio-input {
-          position: absolute;
-          opacity: 0;
-          cursor: pointer;
-        }
-        
-        .radio-custom {
-          display: block;
-          flex-shrink: 0;
-          width: 20px;
-          height: 20px;
-          border: 2px solid var(--border);
-          border-radius: 50%;
-          margin-right: 10px;
-          position: relative;
-        }
-        
-        .radio-input:checked + .radio-custom::after {
-          content: '';
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 10px;
-          height: 10px;
-          background-color: var(--primary);
-          border-radius: 50%;
-        }
-        
-        .option-text {
-          flex-grow: 1;
-          padding-left: 5px;
-        }
-        
-        /* Text inputs and textareas */
-        .text-input-container,
-        .textarea-container {
-          width: 100%;
-        }
-        
-        .text-input, .essay-input {
-          width: 100%;
-          padding: 12px;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          font-size: 16px;
-          box-sizing: border-box;
-          transition: border-color 0.2s ease;
-          background-color: var(--card);
-          color: var(--card-foreground);
-        }
-        
-        .text-input:focus, .essay-input:focus {
-          border-color: var(--primary);
-          outline: none;
-          box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-        }
-        
-        .essay-input {
-          min-height: 150px;
-          resize: vertical;
-        }
-        
-        /* Navigation and actions */
-        .navigation {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 30px;
-          gap: 10px;
-        }
-        
-        .button {
-          background-color: var(--primary);
-          color: var(--primary-foreground);
-          border: none;
-          border-radius: 6px;
-          padding: 12px 20px;
-          cursor: pointer;
-          font-size: 16px;
-          font-weight: 500;
-          transition: all 0.2s ease;
-        }
-        
-        .button:hover {
-          background-color: var(--primary-hover);
-        }
-        
-        .button:disabled {
-          opacity: 0.5;
+        .upload-image-button.loading {
+          opacity: 0.7;
           cursor: not-allowed;
         }
         
-        .button.secondary {
-          background-color: var(--accent);
-          color: var(--accent-foreground);
-          border: 1px solid var(--border);
+        #image-upload-input {
+          display: none;
         }
         
-        .button.secondary:hover {
-          background-color: var(--muted);
-        }
-        
-        .button.review {
-          background-color: var(--warning);
-          color: var(--warning-foreground);
-        }
-        
-        .button.review:hover {
-          opacity: 0.9;
-        }
-        
-        .fullscreen-button {
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          background-color: rgba(0, 0, 0, 0.7);
-          color: white;
-          border: none;
-          border-radius: 50%;
-          width: 50px;
-          height: 50px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          z-index: 1000;
-        }
-        
-        .fullscreen-icon {
-          width: 24px;
-          height: 24px;
-          color: white;
-        }
-        
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-          #exam-container {
-            flex-direction: column;
-          }
-          
-          .sidebar {
-            width: 100%;
-            height: auto;
-            max-height: 40vh;
-          }
-          
-          .main-content {
-            padding: 15px;
-          }
-          
-          .question-container {
-            padding: 15px;
-          }
-          
-          .question-grid {
-            grid-template-columns: repeat(5, 1fr);
-          }
-        }
       </style>
     </head>
     <body>
@@ -734,261 +337,149 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         </div>
       </div>
       
-      <button class="fullscreen-button" id="fullscreen-button" title="Toggle fullscreen">
-        <svg class="fullscreen-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5m-11-9v4m0 0h-4m4 0l-5 5M21 21v-4m0 0h-4m4 0l-5-5" />
-        </svg>
-      </button>
+      <input type="file" id="image-upload-input" accept="image/*" style="display: none;">
       
       <script>
-        let currentQuestion = 0;
-        const totalQuestions = ${questions.length};
-        const answers = {};
-        const questionsForReview = new Set();
-        let startTime = Date.now();
-        let timerInterval;
-        let questionWeights = ${JSON.stringify(questions.map((_, i) => exam.questionWeights?.[i] || 1))};
+        let currentUploadQuestionId = null;
+        let isProcessingImage = false;
         
-        // Initialize the exam
-        function initExam() {
-          console.log("Initializing exam with", totalQuestions, "questions");
+        // Set up image upload buttons
+        document.addEventListener('DOMContentLoaded', () => {
+          // Initialize exam
+          initExam();
           
-          // Hide all questions except the first one
-          for (let i = 1; i < totalQuestions; i++) {
-            document.getElementById('question-' + i).style.display = 'none';
-          }
+          // Add click handlers for all upload image buttons
+          document.querySelectorAll('.upload-image-button').forEach(button => {
+            button.addEventListener('click', () => {
+              if (isProcessingImage) return;
+              
+              // Store the question ID for the current upload
+              currentUploadQuestionId = button.dataset.questionId;
+              
+              // Trigger file input click
+              document.getElementById('image-upload-input').click();
+            });
+          });
           
-          // Setup fullscreen button
-          document.getElementById('fullscreen-button').addEventListener('click', toggleFullScreen);
-          
-          // Start the timer
-          startTimer();
-          
-          // Update navigation buttons
-          updateNavButtons();
-        }
+          // Handle file selection
+          document.getElementById('image-upload-input').addEventListener('change', handleImageUpload);
+        });
         
-        // Start the exam timer
-        function startTimer() {
-          timerInterval = setInterval(updateTimer, 1000);
-          updateTimer();
-        }
-        
-        // Update the timer display
-        function updateTimer() {
-          const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-          const hours = Math.floor(elapsedTime / 3600).toString().padStart(2, '0');
-          const minutes = Math.floor((elapsedTime % 3600) / 60).toString().padStart(2, '0');
-          const seconds = (elapsedTime % 60).toString().padStart(2, '0');
+        // Handle image upload and text extraction
+        async function handleImageUpload(event) {
+          const file = event.target.files[0];
+          if (!file || !currentUploadQuestionId) return;
           
-          document.getElementById('timer-value').textContent = \`\${hours}:\${minutes}:\${seconds}\`;
-        }
-        
-        // Show question by index
-        function showQuestion(index) {
-          // Hide current question
-          document.getElementById('question-' + currentQuestion).style.display = 'none';
-          
-          // Show the requested question
-          document.getElementById('question-' + index).style.display = 'block';
-          
-          // Update current question class in buttons
-          document.getElementById('question-button-' + currentQuestion).classList.remove('current');
-          document.getElementById('question-button-' + index).classList.add('current');
-          
-          // Update current question index
-          currentQuestion = index;
-          
-          // Update navigation buttons
-          updateNavButtons();
-        }
-        
-        // Go to next question
-        function nextQuestion() {
-          if (currentQuestion < totalQuestions - 1) {
-            showQuestion(currentQuestion + 1);
-          }
-        }
-        
-        // Go to previous question
-        function prevQuestion() {
-          if (currentQuestion > 0) {
-            showQuestion(currentQuestion - 1);
-          }
-        }
-        
-        // Mark current question for review
-        function markForReview() {
-          const questionBtn = document.getElementById('question-button-' + currentQuestion);
-          
-          if (questionsForReview.has(currentQuestion)) {
-            questionsForReview.delete(currentQuestion);
-            questionBtn.classList.remove('for-review');
-            
-            // Restore the answered class if it was answered
-            if (answers['q' + currentQuestion]) {
-              questionBtn.classList.add('answered');
-            }
-          } else {
-            questionsForReview.add(currentQuestion);
-            questionBtn.classList.add('for-review');
-            questionBtn.classList.remove('answered');
-          }
-          
-          // Update the review button text
-          updateReviewButtonText();
-        }
-        
-        // Update the review button text based on current state
-        function updateReviewButtonText() {
-          const reviewButton = document.getElementById('review-button');
-          if (questionsForReview.has(currentQuestion)) {
-            reviewButton.textContent = 'Remove from Review';
-          } else {
-            reviewButton.textContent = 'Mark for Review';
-          }
-        }
-        
-        // Update navigation buttons state
-        function updateNavButtons() {
-          document.getElementById('prev-button').disabled = currentQuestion === 0;
-          document.getElementById('next-button').disabled = currentQuestion === totalQuestions - 1;
-          
-          // Update the review button text
-          updateReviewButtonText();
-        }
-        
-        // Select an option (for MCQs and true/false)
-        function selectOption(questionIndex, optionIndex) {
-          // Save the answer
-          answers['q' + questionIndex] = optionIndex.toString();
-          
-          // Update question button to show it's answered
-          const questionBtn = document.getElementById('question-button-' + questionIndex);
-          if (!questionsForReview.has(questionIndex)) {
-            questionBtn.classList.add('answered');
-          }
-          
-          // Update progress
-          updateProgress();
-        }
-        
-        // Save answer for text inputs and essays
-        function saveAnswer(questionIndex, value) {
-          answers['q' + questionIndex] = value;
-          
-          // Only mark as answered if there's content
-          const questionBtn = document.getElementById('question-button-' + questionIndex);
-          if (value && value.trim().length > 0 && !questionsForReview.has(questionIndex)) {
-            questionBtn.classList.add('answered');
-          } else if (!questionsForReview.has(questionIndex)) {
-            questionBtn.classList.remove('answered');
-          }
-          
-          // Update progress
-          updateProgress();
-        }
-        
-        // Update progress bar and stats
-        function updateProgress() {
-          const answeredCount = Object.keys(answers).length;
-          const percentage = Math.round((answeredCount / totalQuestions) * 100);
-          
-          document.getElementById('progress-bar').style.width = percentage + '%';
-          document.getElementById('progress-text').textContent = \`\${answeredCount} of \${totalQuestions} answered\`;
-          document.getElementById('progress-percentage').textContent = percentage + '%';
-        }
-        
-        // Toggle fullscreen
-        function toggleFullScreen() {
-          if (!document.fullscreenElement) {
-            // Standard method
-            if (document.documentElement.requestFullscreen) {
-              document.documentElement.requestFullscreen().catch(err => {
-                console.log('Error attempting to enable fullscreen:', err);
-              });
-            } 
-          } else if (document.exitFullscreen) {
-            document.exitFullscreen();
-          }
-        }
-        
-        // Submit the exam
-        function submitExam() {
-          if (Object.keys(answers).length < totalQuestions / 2) {
-            if (!confirm('You have answered less than half of the questions. Are you sure you want to submit?')) {
-              return;
-            }
-          } else if (!confirm('Are you sure you want to submit your exam?')) {
+          // Check if file is an image
+          if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
             return;
           }
           
-          // Stop the timer
-          clearInterval(timerInterval);
-          
-          // Calculate time taken
-          const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-          const hours = Math.floor(timeElapsed / 3600).toString().padStart(2, '0');
-          const minutes = Math.floor((timeElapsed % 3600) / 60).toString().padStart(2, '0');
-          const seconds = (timeElapsed % 60).toString().padStart(2, '0');
-          const timeTaken = \`\${hours}:\${minutes}:\${seconds}\`;
-          
-          // Prepare the exam data for submission
-          const examData = {
-            examId: "${exam.id || ''}",
-            examName: "${exam.name || ''}",
-            date: new Date().toISOString(),
-            answers: answers,
-            timeTaken: timeTaken,
-            questions: ${JSON.stringify(questions.map(q => ({
-              question: q.question,
-              type: q.type,
-              options: q.options || [],
-              answer: q.answer || '',
-              section: q.section || 'General'
-            })))},
-            questionWeights: questionWeights,
-            questionTypes: ${JSON.stringify(questions.map(q => q.type))}
-          };
-          
-          console.log("Submitting exam data:", examData);
-          
-          // Store the results in localStorage as fallback
-          localStorage.setItem('lastExamResults', JSON.stringify(examData));
-          localStorage.setItem('completedExamId', "${exam.id || ''}");
-          
-          // Create and dispatch custom event
-          const completedEvent = new CustomEvent('examCompleted', { 
-            detail: examData,
-            bubbles: true 
-          });
-          document.dispatchEvent(completedEvent);
-          
-          // Send the data to the parent window
-          window.opener.postMessage({
-            type: 'examCompleted',
-            examData: examData
-          }, "*");
-          
-          // Show a completion message
-          document.body.innerHTML = \`
-            <div style="max-width: 600px; margin: 100px auto; padding: 30px; text-align: center; background: var(--card); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); color: var(--card-foreground);">
-              <h2 style="color: var(--primary); margin-bottom: 20px; font-size: 24px;">Exam Submitted Successfully!</h2>
-              <p style="font-size: 16px; margin-bottom: 10px;">You've completed the exam in \${timeTaken}.</p>
-              <p style="font-size: 16px; margin-bottom: 20px;">You answered \${Object.keys(answers).length} out of \${totalQuestions} questions.</p>
-              <p style="font-size: 16px; color: var(--muted-foreground); margin-bottom: 30px;">Your results will be processed and will appear in the Performance tab.</p>
-              <button onclick="window.close()" style="padding: 10px 25px; background: var(--primary); color: var(--primary-foreground); border: none; border-radius: 6px; font-size: 16px; cursor: pointer; transition: background 0.2s ease;">Close Window</button>
-            </div>
-          \`;
-          
-          // Close the window after a delay
-          setTimeout(() => {
-            window.close();
-          }, 5000);
+          try {
+            // Show loading state
+            isProcessingImage = true;
+            const buttons = document.querySelectorAll('.upload-image-button');
+            buttons.forEach(btn => {
+              btn.classList.add('loading');
+              btn.innerHTML = \`
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin mr-2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                </svg>
+                Extracting text...
+              \`;
+            });
+            
+            // Convert image to base64
+            const base64 = await fileToBase64(file);
+            
+            // Call parent window to extract text
+            window.opener.postMessage({
+              type: 'extractText',
+              imageBase64: base64,
+              questionId: currentUploadQuestionId
+            }, "*");
+            
+            // Listen for response from parent
+            window.addEventListener('message', function textResponseHandler(e) {
+              if (e.data.type === 'textExtracted' && e.data.questionId === currentUploadQuestionId) {
+                // Set the extracted text to the answer field
+                const questionId = parseInt(currentUploadQuestionId);
+                const questionType = document.querySelector(\`[data-question-id="\${questionId}"]\`).dataset.questionType;
+                
+                if (questionType === 'essay') {
+                  document.getElementById(\`answer-\${questionId}\`).value = e.data.text;
+                } else {
+                  document.getElementById(\`answer-\${questionId}\`).value = e.data.text;
+                }
+                
+                // Save the answer
+                saveAnswer(questionId, e.data.text);
+                
+                // Reset loading state
+                isProcessingImage = false;
+                
+                // Reset buttons
+                buttons.forEach(btn => {
+                  btn.classList.remove('loading');
+                  btn.innerHTML = \`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                      <circle cx="9" cy="9" r="2"></circle>
+                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                    </svg>
+                    Upload from Photo
+                  \`;
+                });
+                
+                // Remove this event listener
+                window.removeEventListener('message', textResponseHandler);
+                
+                // Clear the input value to allow selecting the same file again
+                event.target.value = '';
+              }
+            });
+          } catch (error) {
+            console.error('Error processing image:', error);
+            alert('Error processing image: ' + (error.message || 'Unknown error'));
+            
+            // Reset loading state
+            isProcessingImage = false;
+            const buttons = document.querySelectorAll('.upload-image-button');
+            buttons.forEach(btn => {
+              btn.classList.remove('loading');
+              btn.innerHTML = \`
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                  <circle cx="9" cy="9" r="2"></circle>
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                </svg>
+                Upload from Photo
+              \`;
+            });
+            
+            // Clear the input value
+            event.target.value = '';
+          }
         }
         
-        // Initialize the exam when the page loads
-        document.addEventListener('DOMContentLoaded', initExam);
+        // Utility function to convert file to base64
+        function fileToBase64(file) {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              if (typeof reader.result === 'string') {
+                // Remove data URL prefix
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
+              } else {
+                reject(new Error('Failed to convert file to base64'));
+              }
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        }
       </script>
     </body>
     </html>
@@ -997,6 +488,56 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
 
 const ExamRenderer = ({ exam }: ExamRendererProps) => {
   const { toast } = useToast();
+
+  // Handle text extraction request from the exam iframe
+  React.useEffect(() => {
+    const handleExamMessage = async (event: MessageEvent) => {
+      // Process extract text request
+      if (event.data?.type === 'extractText') {
+        try {
+          console.log("Received text extraction request from exam iframe");
+          const { imageBase64, questionId } = event.data;
+          
+          // Call the OCR service
+          const result = await fetch('/api/extract-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64 })
+          }).then(res => res.json());
+          
+          if (result.success && result.data?.text) {
+            // Send the extracted text back to the iframe
+            const examIframe = document.querySelector('iframe') as HTMLIFrameElement;
+            
+            if (examIframe && examIframe.contentWindow) {
+              examIframe.contentWindow.postMessage({
+                type: 'textExtracted',
+                text: result.data.text,
+                questionId: questionId
+              }, '*');
+            }
+            
+            toast({
+              title: "Text Extracted",
+              description: "Text has been extracted from the image and added to your answer"
+            });
+          } else {
+            throw new Error(result.error || 'Failed to extract text');
+          }
+        } catch (error) {
+          console.error("Error in OCR process:", error);
+          toast({
+            title: "Text Extraction Failed",
+            description: error.message || "Failed to extract text from image",
+            variant: "destructive"
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleExamMessage);
+    return () => window.removeEventListener('message', handleExamMessage);
+  }, [toast]);
 
   // Open exam in a new window
   const handleViewExam = () => {
