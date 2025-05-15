@@ -57,37 +57,41 @@ const LoginPage = () => {
     try {
       // In a real app, this would be an API call
       // For now, we'll just simulate a login
-      setTimeout(() => {
-        // Retrieve existing accounts to check
-        const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
-        const account = accounts.find((acc) => acc.email === email);
-        
-        if (!account || account.password !== password) {
-          throw new Error("Invalid login credentials");
-        }
-        
-        // Successful login
-        const userData = {
-          name: account.name,
-          email: account.email,
-          phone: account.phone || "+1234567890", 
-          role: account.role || "Student"
-        };
-        
-        // Save to localStorage
-        localStorage.setItem("userData", JSON.stringify(userData));
-        
-        // Trigger storage event for other components
-        window.dispatchEvent(new Event("storage"));
-        
+      // Retrieve existing accounts to check
+      const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
+      const account = accounts.find((acc) => acc.email === email);
+      
+      if (!account || account.password !== password) {
         toast({
-          title: "Login Successful",
-          description: "Welcome back! You have successfully logged in."
+          title: "Login Failed",
+          description: "Invalid email or password. Please try again.",
+          variant: "destructive"
         });
-        
-        // Navigate to dashboard
-        navigate("/dashboard");
-      }, 1000);
+        setLoading(false);
+        return;
+      }
+      
+      // Successful login
+      const userData = {
+        name: account.name,
+        email: account.email,
+        phone: account.phone || "+1234567890", 
+        role: account.role || "Student"
+      };
+      
+      // Save to localStorage
+      localStorage.setItem("userData", JSON.stringify(userData));
+      
+      // Trigger storage event for other components
+      window.dispatchEvent(new Event("storage"));
+      
+      toast({
+        title: "Login Successful",
+        description: "Welcome back! You have successfully logged in."
+      });
+      
+      // Navigate to dashboard
+      navigate("/dashboard");
     } catch (error) {
       toast({
         title: "Login Failed",

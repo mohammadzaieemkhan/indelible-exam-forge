@@ -17,11 +17,6 @@ const SignupPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Check if already logged in
-  if (localStorage.getItem("userData")) {
-    navigate("/dashboard");
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -47,52 +42,54 @@ const SignupPage = () => {
     setLoading(true);
     
     try {
-      // In a real app, this would be an API call
-      // For now, we'll just simulate a signup
-      setTimeout(() => {
-        // Get existing accounts or create an empty array
-        const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
-        
-        // Check if the email already exists
-        if (accounts.some(acc => acc.email === email)) {
-          throw new Error("This email is already registered");
-        }
-        
-        // Create new account
-        const newAccount = {
-          name,
-          email,
-          phone,
-          password,
-          role: "Student"
-        };
-        
-        // Add to accounts list
-        accounts.push(newAccount);
-        localStorage.setItem("accounts", JSON.stringify(accounts));
-        
-        // Create user data
-        const userData = {
-          name: name,
-          email: email,
-          phone: phone, 
-          role: "Student"
-        };
-        
-        // Save to localStorage
-        localStorage.setItem("userData", JSON.stringify(userData));
-        
-        // Trigger storage event for other components
-        window.dispatchEvent(new Event("storage"));
-        
+      // Get existing accounts or create an empty array
+      const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
+      
+      // Check if the email already exists
+      if (accounts.some(acc => acc.email === email)) {
         toast({
-          title: "Account Created",
-          description: "Your account has been created successfully."
+          title: "Signup Failed",
+          description: "This email is already registered",
+          variant: "destructive"
         });
-        
-        // Navigate to dashboard
-        navigate("/dashboard");
-      }, 1000);
+        setLoading(false);
+        return;
+      }
+      
+      // Create new account
+      const newAccount = {
+        name,
+        email,
+        phone,
+        password,
+        role: "Student"
+      };
+      
+      // Add to accounts list
+      accounts.push(newAccount);
+      localStorage.setItem("accounts", JSON.stringify(accounts));
+      
+      // Create user data
+      const userData = {
+        name: name,
+        email: email,
+        phone: phone || "+1234567890", 
+        role: "Student"
+      };
+      
+      // Save to localStorage
+      localStorage.setItem("userData", JSON.stringify(userData));
+      
+      // Trigger storage event for other components
+      window.dispatchEvent(new Event("storage"));
+      
+      toast({
+        title: "Account Created",
+        description: "Your account has been created successfully."
+      });
+      
+      // Navigate to dashboard
+      navigate("/dashboard");
     } catch (error) {
       toast({
         title: "Signup Failed",
