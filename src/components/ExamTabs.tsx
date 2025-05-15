@@ -162,7 +162,6 @@ const ExamTabs: React.FC<{
         </TabsContent>
 
         <TabsContent value="performance" className="mt-6">
-          {/* Update this line to pass the correct props as expected by PerformanceTab */}
           <PerformanceTab examData={[...upcomingExams, ...previousExams]} />
         </TabsContent>
       </Tabs>
