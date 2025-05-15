@@ -8,15 +8,11 @@ import { fileToText, parseSyllabusContent } from "@/utils/apiService";
 interface SyllabusUploaderProps {
   onTopicsExtracted: (topics: string[]) => void;
   onSyllabusContent: (content: string) => void;
-  onSyllabusUploaded?: (content: string) => void;
-  onMarkdownGenerated?: (markdown: string) => void;
 }
 
 const SyllabusUploader = ({ 
   onTopicsExtracted, 
-  onSyllabusContent, 
-  onSyllabusUploaded,
-  onMarkdownGenerated
+  onSyllabusContent
 }: SyllabusUploaderProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -69,25 +65,20 @@ const SyllabusUploader = ({
       // Send to API for processing
       onSyllabusContent(fileContent);
       
-      // Call the new handler if it exists
-      if (onSyllabusUploaded) {
-        onSyllabusUploaded(fileContent);
-      }
-      
       // Parse syllabus content to extract topics
       const result = await parseSyllabusContent(fileContent);
       
       if (result.success && result.topics) {
-        onTopicsExtracted(result.topics);
+        // Clean up topics - remove any markdown formatting
+        const cleanTopics = result.topics.map(topic => 
+          topic.replace(/\*\*/g, '').trim()
+        );
         
-        // Pass markdown content if available and handler exists
-        if (result.markdown && onMarkdownGenerated) {
-          onMarkdownGenerated(result.markdown);
-        }
+        onTopicsExtracted(cleanTopics);
         
         toast({
           title: "Syllabus Processed",
-          description: `${result.topics.length} topics extracted`,
+          description: `${cleanTopics.length} topics extracted`,
         });
       } else {
         throw new Error(result.error || "Failed to parse syllabus");

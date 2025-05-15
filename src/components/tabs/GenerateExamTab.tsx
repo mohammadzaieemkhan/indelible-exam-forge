@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { CalendarIcon, LoaderCircle, Sparkles } from "lucide-react";
+import { CalendarIcon, LoaderCircle, Sparkles, ListOrdered } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -47,7 +47,7 @@ const formSchema = z.object({
   difficulty: z.string(),
   questionTypes: z.string(),
   includeQuestionWeights: z.boolean().optional(),
-  // New fields for question type configuration
+  // Question type configuration
   mcqCount: z.string().optional(),
   shortAnswerCount: z.string().optional(),
   essayCount: z.string().optional(),
@@ -75,11 +75,10 @@ const GenerateExamTab = ({
   const [examQuestions, setExamQuestions] = useState<string>("");
   const [examSections, setExamSections] = useState<any[]>([]);
   const [questionWeights, setQuestionWeights] = useState<Record<number, number>>({});
-  const [syllabusMarkdown, setSyllabusMarkdown] = useState<string>("");
-  const { toast } = useToast();
   
   // Add state to track which question types are selected
   const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<string[]>([]);
+  const { toast } = useToast();
   
   // Create the form
   const form = useForm<FormValues>({
@@ -101,79 +100,6 @@ const GenerateExamTab = ({
     },
   });
 
-  // Extract topics from syllabus when it changes
-  useEffect(() => {
-    if (syllabus.trim()) {
-      extractTopics();
-    }
-  }, [syllabus]);
-
-  // Extract topics from the syllabus
-  const extractTopics = async () => {
-    try {
-      const response = await useGeminiAI({
-        task: "parse_syllabus",
-        prompt: `Extract the main topics from this syllabus: ${syllabus}`,
-      });
-
-      if (response.success && response.response) {
-        // Parse the response to get topics
-        let topics: string[] = [];
-        try {
-          // Try to parse as JSON first
-          const jsonMatch = response.response.match(/```json\s*([\s\S]*?)\s*```/) || 
-                            response.response.match(/{[\s\S]*}/);
-                            
-          if (jsonMatch) {
-            const jsonStr = jsonMatch[1] || jsonMatch[0];
-            const parsed = JSON.parse(jsonStr);
-            topics = Array.isArray(parsed.topics) ? parsed.topics : [];
-          } else {
-            // Fall back to parsing line by line
-            topics = response.response
-              .split('\n')
-              .filter(line => line.trim().startsWith('-') || line.trim().startsWith('*'))
-              .map(line => line.trim().substring(1).trim());
-          }
-        } catch (error) {
-          console.error("Failed to parse topics:", error);
-          // Simple fallback parsing
-          topics = response.response
-            .split('\n')
-            .filter(line => line.trim().length > 0)
-            .map(line => line.trim());
-        }
-
-        if (topics.length > 0) {
-          setAvailableTopics(topics);
-          toast({
-            title: "Topics Extracted",
-            description: `Found ${topics.length} topics in your syllabus.`,
-          });
-        } else {
-          toast({
-            title: "No Topics Found",
-            description: "Could not extract topics from the syllabus. Please add topics manually.",
-            variant: "destructive",
-          });
-        }
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to extract topics from syllabus.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error extracting topics:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred while extracting topics.",
-        variant: "destructive",
-      });
-    }
-  };
-
   // Handle adding custom topics
   const handleAddCustomTopics = () => {
     if (customTopics.trim()) {
@@ -193,14 +119,33 @@ const GenerateExamTab = ({
     }
   };
 
+  // Handle topic selection when clicking on a topic
+  const handleTopicClick = (topic: string) => {
+    const currentTopics = form.getValues("topics");
+    if (currentTopics.includes(topic)) {
+      form.setValue("topics", currentTopics.filter(t => t !== topic));
+    } else {
+      form.setValue("topics", [...currentTopics, topic]);
+    }
+  };
+
   // Handle syllabus upload
   const handleSyllabusUpload = (text: string) => {
     setSyllabus(text);
   };
 
-  // Handle markdown generation
-  const handleMarkdownGenerated = (markdown: string) => {
-    setSyllabusMarkdown(markdown);
+  // Handle extracted topics
+  const handleTopicsExtracted = (topics: string[]) => {
+    if (topics && topics.length > 0) {
+      // Clean up topics - ensure they are plain text without markdown or special characters
+      const cleanedTopics = topics.map(topic => 
+        topic.replace(/\*\*/g, '')
+             .replace(/^\s*[-*•]\s*/, '')
+             .trim()
+      );
+      
+      setAvailableTopics(cleanedTopics);
+    }
   };
 
   // Update this handler to include question type configuration
@@ -487,18 +432,8 @@ const GenerateExamTab = ({
               
               <SyllabusUploader 
                 onSyllabusContent={handleSyllabusUpload}
-                onTopicsExtracted={(topics) => setAvailableTopics(topics)}
-                onMarkdownGenerated={handleMarkdownGenerated}
+                onTopicsExtracted={handleTopicsExtracted}
               />
-              
-              {syllabusMarkdown && (
-                <div className="mt-4 p-4 border rounded-md bg-muted/50">
-                  <h4 className="text-md font-medium mb-2">Syllabus Analysis</h4>
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <pre className="whitespace-pre-wrap text-sm">{syllabusMarkdown}</pre>
-                  </div>
-                </div>
-              )}
               
               <div className="flex gap-2">
                 <Input
@@ -518,43 +453,56 @@ const GenerateExamTab = ({
                 render={() => (
                   <FormItem>
                     <div className="mb-4">
-                      <FormLabel>Select Topics</FormLabel>
+                      <FormLabel className="flex items-center">
+                        <ListOrdered className="mr-2 h-4 w-4" />
+                        Select Topics
+                      </FormLabel>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {availableTopics.map((topic) => (
-                        <FormField
-                          key={topic}
-                          control={form.control}
-                          name="topics"
-                          render={({ field }) => {
-                            return (
-                              <FormItem
-                                key={topic}
-                                className="flex flex-row items-start space-x-3 space-y-0"
-                              >
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(topic)}
-                                    onCheckedChange={(checked) => {
-                                      return checked
-                                        ? field.onChange([...field.value, topic])
-                                        : field.onChange(
-                                            field.value?.filter(
-                                              (value) => value !== topic
-                                            )
-                                          );
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormLabel className="font-normal">
-                                  {topic}
-                                </FormLabel>
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      ))}
-                    </div>
+                    {availableTopics.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {availableTopics.map((topic, index) => (
+                          <FormField
+                            key={`${topic}-${index}`}
+                            control={form.control}
+                            name="topics"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={`${topic}-${index}`}
+                                  className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(topic)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value, topic])
+                                          : field.onChange(
+                                              field.value?.filter(
+                                                (value) => value !== topic
+                                              )
+                                            );
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel 
+                                    className="font-normal cursor-pointer"
+                                    onClick={() => handleTopicClick(topic)}
+                                  >
+                                    {topic}
+                                  </FormLabel>
+                                </FormItem>
+                              );
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {availableTopics.length === 0 && (
+                      <div className="text-muted-foreground text-sm p-4 border border-dashed rounded-md text-center">
+                        Upload a syllabus or add custom topics to get started
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
