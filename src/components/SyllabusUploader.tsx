@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +7,14 @@ import { fileToText, parseSyllabusContent } from "@/utils/apiService";
 interface SyllabusUploaderProps {
   onTopicsExtracted: (topics: string[]) => void;
   onSyllabusContent: (content: string) => void;
+  onSyllabusUploaded?: (content: string) => void;
 }
 
-const SyllabusUploader = ({ onTopicsExtracted, onSyllabusContent }: SyllabusUploaderProps) => {
+const SyllabusUploader = ({ 
+  onTopicsExtracted, 
+  onSyllabusContent, 
+  onSyllabusUploaded 
+}: SyllabusUploaderProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -61,6 +65,11 @@ const SyllabusUploader = ({ onTopicsExtracted, onSyllabusContent }: SyllabusUplo
       
       // Send to API for processing
       onSyllabusContent(fileContent);
+      
+      // Call the new handler if it exists
+      if (onSyllabusUploaded) {
+        onSyllabusUploaded(fileContent);
+      }
       
       // Parse syllabus content to extract topics
       const result = await parseSyllabusContent(fileContent);

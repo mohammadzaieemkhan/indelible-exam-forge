@@ -113,7 +113,7 @@ const GenerateExamTab = ({
   const extractTopics = async () => {
     try {
       const response = await useGeminiAI({
-        task: "extract_topics",
+        task: "parse_syllabus", // Changed from "extract_topics" to "parse_syllabus"
         prompt: `Extract the main topics from this syllabus: ${syllabus}`,
       });
 
@@ -282,7 +282,7 @@ const GenerateExamTab = ({
 
     try {
       const response = await useGeminiAI({
-        task: "generate_exam",
+        task: "generate_questions", // Changed from "generate_exam" to "generate_questions"
         prompt: prompt,
       });
 
@@ -496,7 +496,10 @@ const GenerateExamTab = ({
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Syllabus & Topics</h3>
                   
-                  <SyllabusUploader onSyllabusUploaded={handleSyllabusUpload} />
+                  <SyllabusUploader 
+                    onSyllabusContent={handleSyllabusUpload}
+                    onTopicsExtracted={(topics) => setAvailableTopics(topics)} 
+                  />
                   
                   <div className="flex gap-2">
                     <Input
