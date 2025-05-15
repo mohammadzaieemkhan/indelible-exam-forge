@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -339,19 +340,21 @@ For True/False questions, clearly state if the answer is True or False.
           const questionId = (i + 1).toString();
           const userAnswer = params.examData.answers[questionId];
           
-          let isCorrect = false;
+          // FIX: Use a numeric value for isCorrect instead of boolean/number mix
+          let isCorrectValue = 0; // 0 means incorrect, 1 means correct, 0.5 means partial
+          
           if (question.type === 'mcq' || question.type === 'trueFalse') {
             // For MCQ and true/false, direct comparison
-            isCorrect = userAnswer && userAnswer.toString().trim().toLowerCase() === 
-                         question.answer.toString().trim().toLowerCase();
+            isCorrectValue = (userAnswer && userAnswer.toString().trim().toLowerCase() === 
+                         question.answer.toString().trim().toLowerCase()) ? 1 : 0;
           } else if (userAnswer && userAnswer.trim() !== '') {
             // For short answer and essay, mark as attempted but need manual review
             // Give partial credit (50%) for attempting
-            isCorrect = 0.5;
+            isCorrectValue = 0.5;
           }
           
-          // Full marks for correct, partial for essay/short answers with content
-          const marksObtained = isCorrect === true ? 1 : (isCorrect === 0.5 ? 0.5 : 0);
+          // Use the numeric value directly for marking and counting
+          const marksObtained = isCorrectValue;
           correctCount += marksObtained;
           
           questionDetails.push({
