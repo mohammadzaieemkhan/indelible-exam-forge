@@ -104,6 +104,7 @@ const UpcomingExamsTab = ({
     onSendReminder(exam);
   };
 
+  // Fix: Update handleDelete to accept examId as string
   const handleDelete = (examId: string) => {
     // Find the exam to delete
     const exam = exams.find(e => e.id === examId);
