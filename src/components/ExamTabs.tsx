@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,7 +37,7 @@ interface ExamResult {
   answers: Record<string, string>;
   timeTaken: string;
   questionTypes: Array<string>;
-  questionWeights: Array<number>;
+  questionWeights: Record<number, number>;
   questions: Array<{
     question: string;
     type: string;
@@ -166,19 +167,23 @@ const ExamTabs = () => {
   // Listen for exam completion events from the exam window
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
+      console.log("Received message from exam window:", event.data);
       if (event.data?.type === 'examCompleted' && event.data.examData) {
-        const examData = event.data.examData as ExamResult;
-        await processCompletedExam(examData);
+        console.log("Processing completed exam from message:", event.data.examData);
+        await processCompletedExam(event.data.examData);
       }
     };
     
     // Check the localStorage for a completed exam ID on component mount
     const checkCompletedExam = async () => {
       const completedExamId = localStorage.getItem('completedExamId');
+      console.log("Checking for completed exam:", completedExamId);
+      
       if (completedExamId) {
         const lastExamResults = localStorage.getItem('lastExamResults');
         if (lastExamResults) {
           try {
+            console.log("Found last exam results in localStorage:", lastExamResults);
             const examData = JSON.parse(lastExamResults) as ExamResult;
             await processCompletedExam(examData);
             localStorage.removeItem('completedExamId');
@@ -191,6 +196,7 @@ const ExamTabs = () => {
     };
     
     window.addEventListener('message', handleMessage);
+    console.log("Setting up exam completion listener");
     checkCompletedExam();
     
     return () => {
@@ -200,12 +206,22 @@ const ExamTabs = () => {
   
   // Process a completed exam
   const processCompletedExam = async (examData: ExamResult) => {
+    console.log("Processing completed exam:", examData);
     // Find the exam in upcoming exams
     const examIndex = upcomingExams.findIndex(exam => exam.id === examData.examId);
-    if (examIndex === -1) return;
+    console.log("Found exam at index:", examIndex, "out of", upcomingExams.length, "exams");
+    
+    if (examIndex === -1) {
+      console.error("Could not find exam with ID:", examData.examId);
+      console.log("Available exams:", upcomingExams.map(e => e.id));
+      return;
+    }
     
     const completedExam = upcomingExams[examIndex];
-    if (!completedExam) return;
+    if (!completedExam) {
+      console.error("Completed exam is null or undefined");
+      return;
+    }
     
     setIsEvaluating(true);
     toast({
@@ -214,6 +230,8 @@ const ExamTabs = () => {
     });
     
     try {
+      console.log("Starting AI evaluation for exam:", completedExam.name);
+      
       // Evaluate the exam using Gemini AI
       const evaluationPrompt = `Evaluate the following exam responses:
         
@@ -271,14 +289,18 @@ const ExamTabs = () => {
         }
       }`;
       
+      console.log("Sending evaluation prompt to Gemini AI");
       const evaluationResult = await useGeminiAI({
         task: "evaluate_answer",
         prompt: evaluationPrompt
       });
       
       if (!evaluationResult.success || !evaluationResult.response) {
+        console.error("AI evaluation failed:", evaluationResult);
         throw new Error("Failed to evaluate exam responses");
       }
+      
+      console.log("Received AI evaluation result:", evaluationResult.response);
       
       // Parse the evaluation results
       let parsedEvaluation;
@@ -288,7 +310,9 @@ const ExamTabs = () => {
                           evaluationResult.response.match(/{[\s\S]*}/);
                           
         const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : evaluationResult.response;
+        console.log("Extracted JSON string:", jsonStr);
         parsedEvaluation = JSON.parse(jsonStr);
+        console.log("Parsed evaluation:", parsedEvaluation);
       } catch (error) {
         console.error("Failed to parse evaluation results:", error);
         console.log("Raw evaluation response:", evaluationResult.response);
@@ -314,6 +338,8 @@ const ExamTabs = () => {
         questionDetails: parsedEvaluation.questionDetails
       };
       
+      console.log("Created exam result object:", examResult);
+      
       // Save the exam result
       const savedResults = localStorage.getItem('examResults');
       let examResults = savedResults ? JSON.parse(savedResults) : [];
@@ -321,16 +347,20 @@ const ExamTabs = () => {
       localStorage.setItem('examResults', JSON.stringify(examResults));
       
       // Move the exam from upcoming to previous
+      console.log("Moving exam from upcoming to previous...");
       setPreviousExams(prev => [...prev, completedExam]);
       
       // Remove the exam from upcoming exams
       setUpcomingExams(prev => prev.filter(exam => exam.id !== completedExam.id));
       
       // Save updated exam lists to localStorage
-      localStorage.setItem('upcomingExams', JSON.stringify(
-        upcomingExams.filter(exam => exam.id !== completedExam.id)
-      ));
-      localStorage.setItem('previousExams', JSON.stringify([...previousExams, completedExam]));
+      const updatedUpcomingExams = upcomingExams.filter(exam => exam.id !== completedExam.id);
+      const updatedPreviousExams = [...previousExams, completedExam];
+      
+      localStorage.setItem('upcomingExams', JSON.stringify(updatedUpcomingExams));
+      localStorage.setItem('previousExams', JSON.stringify(updatedPreviousExams));
+      
+      console.log("Exam successfully processed and moved to previous exams");
       
       toast({
         title: "Exam Evaluated",

@@ -78,12 +78,15 @@ const UpcomingExamsTab = ({
       return;
     }
     
+    console.log("Opening exam:", exam.name, "with ID:", exam.id);
+    
     // Import the necessary functions from ExamRenderer
     import('@/components/exam/ExamRenderer').then(module => {
       const { parseQuestions, generateExamHtml } = module;
       
       // Parse questions and generate HTML for the exam
       const parsedQuestions = parseQuestions(exam.questions || "");
+      console.log("Parsed questions:", parsedQuestions);
       const examContent = generateExamHtml(exam, parsedQuestions);
       
       // Write content to the new window

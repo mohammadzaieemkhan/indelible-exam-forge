@@ -1,422 +1,294 @@
 
-import { IExam } from "@/components/ExamTabs";
+// Import functions to format time and parse questions
+import { formatElapsedTime } from "@/lib/utils";
+import { parseQuestions } from "./utils/examParser";
 
-// Function to parse questions from raw exam text
-export function parseQuestions(rawExam: string) {
-  // Extract questions and answers
-  const questions: Array<{
-    question: string;
-    type: string;
-    options?: string[];
-    answer?: string;
-  }> = [];
-
-  try {
-    // Split by line breaks and process
-    const lines = rawExam.split("\n");
-    let currentQuestion = "";
-    let currentOptions: string[] = [];
-    let questionNumber = 0;
-    let questionType = "unknown";
-    let collectingOptions = false;
-    let collectingAnswer = false;
-    let answers: Record<string, string> = {};
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      // Check if we've reached the answers section
-      if (line.toLowerCase().includes("correct answers") || line.toLowerCase().includes("answer key")) {
-        collectingAnswer = true;
-        continue;
-      }
-
-      // Process based on current mode
-      if (collectingAnswer) {
-        // Extract answer information
-        const answerMatch = line.match(/(\d+)[.:]?\s*([A-D]|true|false|.+)/i);
-        if (answerMatch) {
-          const qNum = parseInt(answerMatch[1]);
-          const ans = answerMatch[2].trim();
-          answers[qNum - 1] = ans; // Store 0-indexed
-        }
-      } else {
-        // Check for new question markers
-        const questionMatch = line.match(/^\s*(\d+)[\.)]\s*(.+)/);
-        
-        if (questionMatch || i === lines.length - 1) {
-          // Save the previous question if there is one
-          if (currentQuestion) {
-            // Determine question type based on content
-            if (currentOptions.length > 0) {
-              questionType = "mcq";
-            } else if (currentQuestion.toLowerCase().includes("true or false") || 
-                      currentQuestion.toLowerCase().includes("true/false")) {
-              questionType = "trueFalse";
-            } else if (currentQuestion.toLowerCase().includes("essay") || 
-                      currentQuestion.toLowerCase().includes("explain") ||
-                      currentQuestion.toLowerCase().includes("discuss")) {
-              questionType = "essay";
-            } else {
-              questionType = "shortAnswer";
-            }
-
-            questions.push({
-              question: currentQuestion,
-              type: questionType,
-              options: currentOptions.length > 0 ? currentOptions : undefined,
-              answer: answers[questionNumber] || undefined
-            });
-          }
-
-          // Start a new question
-          if (questionMatch) {
-            questionNumber = parseInt(questionMatch[1]) - 1; // 0-indexed
-            currentQuestion = questionMatch[2];
-            currentOptions = [];
-            collectingOptions = true;
-            questionType = "unknown"; // Reset question type for the new question
-          }
-        } else if (collectingOptions) {
-          // Try to detect multiple choice options
-          const optionMatch = line.match(/^\s*([A-D])[\.)]\s*(.+)/);
-          if (optionMatch) {
-            currentOptions.push(optionMatch[2].trim());
-          } else if (line.trim()) {
-            // If the line isn't empty and doesn't match an option format,
-            // append it to the current question
-            if (currentQuestion) {
-              currentQuestion += " " + line;
-            }
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Error parsing exam questions:", error);
-  }
-
-  return questions;
-}
-
-// Function to generate HTML for the exam window
-export function generateExamHtml(exam: IExam, questions: any[]) {
-  const durationInMinutes = parseInt(exam.duration);
+// Function to generate the HTML for the exam
+export const generateExamHtml = (exam: any, questions: any[]) => {
+  // Create a unique ID for this exam session
+  const examSessionId = `exam-session-${Date.now()}`;
   
-  const htmlContent = `
+  // Format the current time and convert the duration to milliseconds
+  const startTime = Date.now();
+  const durationMs = parseInt(exam.duration) * 60 * 1000;
+  const endTime = startTime + durationMs;
+  
+  // Filter out the answer key questions (they usually have the same question number)
+  const questionSet = new Set();
+  const uniqueQuestions = questions.filter(q => {
+    const questionNumber = q.question.match(/^\d+/);
+    if (questionNumber && !questionSet.has(questionNumber[0])) {
+      questionSet.add(questionNumber[0]);
+      return true;
+    }
+    return false;
+  });
+  
+  // Create a mapping of question types for the results
+  const questionTypes = uniqueQuestions.map(q => q.type || 'unknown');
+  
+  // Create a mapping of question weights
+  const questionWeights = {};
+  uniqueQuestions.forEach((q, idx) => {
+    const weight = exam.questionWeights?.[idx] || 1;
+    questionWeights[idx] = weight;
+  });
+
+  // HTML content for the exam
+  return `
     <!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${exam.name}</title>
+      <title>${exam.name} - Exam</title>
       <style>
         body {
-          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-          line-height: 1.5;
+          font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+          line-height: 1.6;
           color: #333;
-          padding: 20px;
-          max-width: 900px;
+          max-width: 800px;
           margin: 0 auto;
-          background-color: #f9fafb;
+          padding: 20px;
         }
-        
-        h1 {
-          color: #1f2937;
-          border-bottom: 2px solid #e5e7eb;
-          padding-bottom: 10px;
+        #exam-container {
+          position: relative;
         }
-        
-        .timer {
-          font-size: 1.2rem;
-          color: #111827;
-          padding: 10px;
-          margin-bottom: 20px;
-          text-align: center;
-          border-radius: 6px;
-          background-color: #f3f4f6;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-        }
-
-        .timer.warning {
-          background-color: #fef2f2;
-          color: #b91c1c;
-        }
-        
-        .question {
-          padding: 15px;
-          margin: 15px 0;
-          background-color: #fff;
-          border: 1px solid #e5e7eb;
-          border-radius: 6px;
-        }
-        
-        .question-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 10px;
-          padding-bottom: 8px;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .question-number {
+        #timer {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #2563eb;
+          color: white;
+          padding: 10px 15px;
+          border-radius: 8px;
           font-weight: bold;
+          z-index: 1000;
         }
-
-        .question-type {
-          color: #6b7280;
-          font-size: 0.875rem;
-          background-color: #f3f4f6;
-          padding: 3px 8px;
-          border-radius: 12px;
+        #timer.warning {
+          background: #f59e0b;
         }
-        
+        #timer.danger {
+          background: #ef4444;
+          animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+          100% { transform: scale(1); }
+        }
+        .header {
+          margin-bottom: 30px;
+          border-bottom: 1px solid #e2e8f0;
+          padding-bottom: 20px;
+        }
+        .question-container {
+          margin-bottom: 30px;
+          padding: 20px;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+        }
+        .question {
+          font-weight: bold;
+          margin-bottom: 15px;
+        }
+        .options {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
         .option {
           display: flex;
           align-items: flex-start;
-          margin: 10px 0;
+          gap: 10px;
         }
-        
-        .option input {
-          margin-right: 10px;
-          margin-top: 3px;
+        input[type="radio"] {
+          margin-top: 4px;
         }
-        
         textarea {
           width: 100%;
-          min-height: 120px;
+          min-height: 100px;
           padding: 10px;
-          border: 1px solid #ddd;
+          border: 1px solid #e2e8f0;
           border-radius: 4px;
+          font-family: inherit;
+          font-size: 16px;
+          resize: vertical;
         }
-        
-        .submit-btn {
-          display: block;
-          width: 100%;
-          padding: 10px;
-          margin: 30px auto;
+        .actions {
+          margin-top: 30px;
+          display: flex;
+          justify-content: flex-end;
+        }
+        button {
           background-color: #2563eb;
           color: white;
           border: none;
+          padding: 10px 20px;
           border-radius: 4px;
-          font-size: 1rem;
           cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
           transition: background-color 0.3s;
         }
-        
-        .submit-btn:hover {
+        button:hover {
           background-color: #1d4ed8;
         }
-        
-        .controls {
-          position: sticky;
-          bottom: 0;
-          background-color: rgba(255, 255, 255, 0.9);
-          padding: 15px;
-          border-top: 1px solid #e5e7eb;
-          margin-top: 30px;
-        }
-
-        @media (max-width: 600px) {
-          body {
-            padding: 10px;
-          }
+        .hidden {
+          display: none;
         }
       </style>
     </head>
     <body>
-      <h1>${exam.name}</h1>
-      <div class="timer" id="timer">Time remaining: <span id="time-display">${durationInMinutes}:00</span></div>
-
       <div id="exam-container">
+        <div id="timer">Time Remaining: ${exam.duration}:00</div>
+        
+        <div class="header">
+          <h1>${exam.name}</h1>
+          <p><strong>Duration:</strong> ${exam.duration} minutes</p>
+          <p><strong>Topics:</strong> ${exam.topics.join(", ")}</p>
+          <p><strong>Difficulty:</strong> ${exam.difficulty}</p>
+        </div>
+        
         <form id="exam-form">
-          ${questions.map((q, index) => {
-            let questionHtml = `
-              <div class="question" id="q${index}-container">
-                <div class="question-header">
-                  <span class="question-number">Question ${index + 1}</span>
-                  <span class="question-type">${
-                    q.type === "mcq" 
-                      ? "Multiple Choice" 
-                      : q.type === "trueFalse" 
-                        ? "True/False" 
-                        : q.type === "essay" 
-                          ? "Essay" 
-                          : "Short Answer"
-                  }</span>
+          ${uniqueQuestions.map((q, idx) => `
+            <div class="question-container">
+              <div class="question">${q.question}</div>
+              ${q.type === 'mcq' ? `
+                <div class="options">
+                  ${q.options.map((option: string, optIdx: number) => `
+                    <div class="option">
+                      <input type="radio" id="q${idx}-opt${optIdx}" name="q${idx}" value="${option}" />
+                      <label for="q${idx}-opt${optIdx}">${option}</label>
+                    </div>
+                  `).join('')}
                 </div>
-                <p>${q.question}</p>`;
-
-            if (q.type === "mcq" && q.options && q.options.length > 0) {
-              // Multiple choice question
-              questionHtml += q.options.map((option: string, optIndex: number) => `
-                <div class="option">
-                  <input type="radio" id="q${index}-opt${optIndex}" name="q${index}" value="${String.fromCharCode(65 + optIndex)}">
-                  <label for="q${index}-opt${optIndex}">${String.fromCharCode(65 + optIndex)}. ${option}</label>
-                </div>`
-              ).join('');
-            } else if (q.type === "trueFalse") {
-              // True/False question
-              questionHtml += `
-                <div class="option">
-                  <input type="radio" id="q${index}-true" name="q${index}" value="true">
-                  <label for="q${index}-true">True</label>
-                </div>
-                <div class="option">
-                  <input type="radio" id="q${index}-false" name="q${index}" value="false">
-                  <label for="q${index}-false">False</label>
-                </div>`;
-            } else if (q.type === "essay" || q.type === "shortAnswer") {
-              // Text entry questions
-              questionHtml += `
-                <textarea id="q${index}" name="q${index}" placeholder="Your answer here..."></textarea>`;
-            }
-
-            questionHtml += '</div>';
-            return questionHtml;
-          }).join('')}
-
-          <div class="controls">
-            <button type="button" class="submit-btn" id="submit-exam">Submit Exam</button>
+              ` : `
+                <textarea name="q${idx}" placeholder="Type your answer here..."></textarea>
+              `}
+            </div>
+          `).join('')}
+          
+          <div class="actions">
+            <button type="submit" id="submit-btn">Submit Exam</button>
           </div>
         </form>
       </div>
-
+      
       <script>
-        // Timer functionality
-        let durationMinutes = ${durationInMinutes};
-        let totalSeconds = durationMinutes * 60;
-        let timerInterval;
-        let autoSubmitWarningShown = false;
+        // Store exam information
+        const examData = {
+          examId: "${exam.id}",
+          examName: "${exam.name}",
+          date: new Date().toISOString(),
+          answers: {},
+          timeTaken: "",
+          questionTypes: ${JSON.stringify(questionTypes)},
+          questionWeights: ${JSON.stringify(questionWeights)},
+          questions: ${JSON.stringify(uniqueQuestions.map(q => ({
+            question: q.question,
+            type: q.type || 'unknown',
+            options: q.options || [],
+            answer: q.answer || ''
+          })))}
+        };
         
-        function formatTime(seconds) {
-          const mins = Math.floor(seconds / 60);
-          const secs = seconds % 60;
-          return \`\${mins}:\${secs < 10 ? '0' : ''}\${secs}\`;
-        }
+        // Timer functionality
+        let startTime = ${startTime};
+        let endTime = ${endTime};
+        const timerElement = document.getElementById('timer');
+        
+        // Update the timer every second
+        const timerInterval = setInterval(updateTimer, 1000);
         
         function updateTimer() {
-          if (totalSeconds <= 0) {
+          const now = Date.now();
+          const timeLeft = endTime - now;
+          
+          if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            document.getElementById('time-display').textContent = "0:00";
-            submitExam();
+            submitExam(true);
             return;
           }
           
-          totalSeconds -= 1;
-          document.getElementById('time-display').textContent = formatTime(totalSeconds);
+          // Format time remaining
+          const minutes = Math.floor(timeLeft / 60000);
+          const seconds = Math.floor((timeLeft % 60000) / 1000);
+          timerElement.textContent = \`Time Remaining: \${minutes}:\${seconds < 10 ? '0' : ''}\${seconds}\`;
           
-          // Warning when 5 minutes remaining
-          if (totalSeconds === 300) {
-            const timerElement = document.getElementById('timer');
-            timerElement.classList.add('warning');
-            timerElement.textContent = "⚠️ 5 minutes remaining! ⚠️";
-            setTimeout(() => {
-              timerElement.textContent = "Time remaining: " + formatTime(totalSeconds);
-              timerElement.classList.add('warning');
-            }, 3000);
-          }
-          
-          // Warning when 1 minute remaining
-          if (totalSeconds === 60) {
-            const timerElement = document.getElementById('timer');
-            timerElement.textContent = "⚠️ 1 MINUTE REMAINING! ⚠️";
-            timerElement.classList.add('warning');
-          }
-          
-          // Warning 10 seconds before auto-submit
-          if (totalSeconds === 10 && !autoSubmitWarningShown) {
-            autoSubmitWarningShown = true;
-            alert("Exam will be auto-submitted in 10 seconds!");
+          // Add warning classes as time gets low
+          if (timeLeft < 300000) { // Less than 5 minutes
+            timerElement.className = 'danger';
+          } else if (timeLeft < 600000) { // Less than 10 minutes
+            timerElement.className = 'warning';
           }
         }
         
-        // Start the timer immediately
-        timerInterval = setInterval(updateTimer, 1000);
-        
-        // Function to collect answers
-        function collectAnswers() {
-          const form = document.getElementById('exam-form');
-          const formData = new FormData(form);
-          const answers = {};
-          
-          // Process all form fields
-          for (let [name, value] of formData.entries()) {
-            answers[name] = value;
-          }
-          
-          // Also check for radio buttons that might not be selected
-          const questions = ${JSON.stringify(questions)};
-          questions.forEach((q, index) => {
-            const fieldName = \`q\${index}\`;
-            if (!answers[fieldName]) {
-              answers[fieldName] = '';
-            }
-          });
-          
-          return answers;
-        }
-        
-        // Function to submit the exam
-        function submitExam() {
-          // Stop the timer
-          clearInterval(timerInterval);
-          
-          // Collect answers
-          const answers = collectAnswers();
-          
-          // Calculate time taken
-          const timeSpent = (${durationInMinutes} * 60) - totalSeconds;
-          const timeTaken = formatTime(timeSpent);
-          
-          // Prepare the data to send back
-          const examData = {
-            type: 'examCompleted',
-            examData: {
-              examId: '${exam.id}',
-              examName: '${exam.name}',
-              date: new Date().toISOString(),
-              answers: answers,
-              timeTaken: timeTaken,
-              questionTypes: ${JSON.stringify(questions.map(q => q.type))},
-              questionWeights: ${JSON.stringify(exam.questionWeights || {})},
-              questions: ${JSON.stringify(questions)}
-            }
-          };
-          
-          // Store the results in localStorage (as backup)
-          localStorage.setItem('completedExamId', '${exam.id}');
-          localStorage.setItem('lastExamResults', JSON.stringify(examData.examData));
-          
-          // Send the results back to the parent window
-          if (window.opener && !window.opener.closed) {
-            window.opener.postMessage(examData, '*');
-            alert("Your exam has been submitted successfully. You can close this window.");
-            setTimeout(() => {
-              window.close();
-            }, 2000);
-          } else {
-            alert("Your exam has been submitted successfully! Please return to the main application.");
-          }
-        }
-        
-        // Add event listener to the submit button
-        document.getElementById('submit-exam').addEventListener('click', function() {
-          if (confirm('Are you sure you want to submit your exam? You cannot make changes after submission.')) {
-            submitExam();
-          }
+        // Form submission
+        document.getElementById('exam-form').addEventListener('submit', function(e) {
+          e.preventDefault();
+          submitExam();
         });
         
-        // Prevent accidental navigation away from the exam
+        function submitExam(autoSubmit = false) {
+          clearInterval(timerInterval);
+          
+          // Calculate time taken
+          const endTime = Date.now();
+          const timeTaken = formatElapsedTime(startTime, endTime);
+          examData.timeTaken = timeTaken;
+          
+          // Collect all answers
+          const formData = new FormData(document.getElementById('exam-form'));
+          for (const [name, value] of formData.entries()) {
+            examData.answers[name] = value;
+          }
+          
+          // Save results to localStorage
+          localStorage.setItem('completedExamId', examData.examId);
+          localStorage.setItem('lastExamResults', JSON.stringify(examData));
+          
+          // Try to send a message to the parent window
+          try {
+            if (window.opener && !window.opener.closed) {
+              window.opener.postMessage({ 
+                type: 'examCompleted', 
+                examData 
+              }, '*');
+            }
+          } catch (error) {
+            console.error("Error sending exam data to parent:", error);
+          }
+          
+          // Show submission message
+          document.getElementById('exam-container').innerHTML = \`
+            <div class="header">
+              <h1>Exam Submitted</h1>
+              <p>Thank you for completing the exam "${exam.name}".</p>
+              <p>Time taken: \${timeTaken}</p>
+              \${autoSubmit ? '<p><strong>Note:</strong> The exam was automatically submitted as the time limit was reached.</p>' : ''}
+              <p>Your responses have been recorded. You can close this window now.</p>
+            </div>
+          \`;
+          
+          // Close the window after a delay
+          setTimeout(() => {
+            window.close();
+          }, 5000);
+        }
+        
+        // Format time function
+        function formatElapsedTime(start, end) {
+          const elapsed = end - start;
+          const minutes = Math.floor(elapsed / 60000);
+          const seconds = Math.floor((elapsed % 60000) / 1000);
+          return \`\${minutes} minutes and \${seconds} seconds\`;
+        }
+        
+        // Handle before unload to warn about leaving
         window.addEventListener('beforeunload', function(e) {
-          // If the exam hasn't been submitted, show a warning
-          if (totalSeconds > 0) {
+          // Don't warn if exam is already submitted
+          if (!localStorage.getItem('completedExamId')) {
             e.preventDefault();
             e.returnValue = '';
             return '';
@@ -426,6 +298,7 @@ export function generateExamHtml(exam: IExam, questions: any[]) {
     </body>
     </html>
   `;
-  
-  return htmlContent;
-}
+};
+
+// Export functions for use in other modules
+export { parseQuestions };
