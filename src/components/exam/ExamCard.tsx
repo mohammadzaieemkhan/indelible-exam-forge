@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { IExam } from "@/components/ExamTabs";
-import { Calendar, Clock, ArrowRight, Bell, Info, Clock3 } from "lucide-react";
+import { Calendar, Clock, ArrowRight, Bell, Info, Clock3, Trash } from "lucide-react";
 import DeleteExamHandler from "./DeleteExamHandler";
 import { useToast } from "@/hooks/use-toast";
 
@@ -13,9 +13,10 @@ interface ExamCardProps {
   onTake?: () => void;
   onRefresh?: () => void;
   onSendReminder?: () => void;
+  onDelete?: () => void;
 }
 
-const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder }: ExamCardProps) => {
+const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }: ExamCardProps) => {
   const { toast } = useToast();
 
   // Get formatted date
@@ -75,6 +76,13 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder }: ExamCardP
     return "No date set for this exam";
   };
 
+  // Handle delete button click
+  const handleDeleteClick = () => {
+    if (onDelete) {
+      onDelete();
+    }
+  };
+
   return (
     <Card className={`overflow-hidden border ${
       isPast ? 'border-gray-200' : 
@@ -106,7 +114,17 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder }: ExamCardP
               )}
             </CardDescription>
           </div>
-          <DeleteExamHandler examId={exam.id || ""} variant="icon" size="sm" onDelete={onRefresh} />
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeleteClick}
+              className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
+            >
+              <Trash className="h-4 w-4" />
+              <span className="sr-only">Delete</span>
+            </Button>
+          )}
         </div>
       </CardHeader>
 
