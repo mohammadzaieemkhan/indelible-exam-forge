@@ -313,7 +313,7 @@ export const generateExamHtml = (exam, questions) => {
                     return `
                     <div class="option">
                       <label>
-                        <input type="radio" name="q${idx}" value="${optionLetter}" data-question-id="${idx}" onclick="saveAnswer('q${idx}', '${optionLetter}', 'mcq')"/>
+                        <input type="radio" name="q${idx}" value="${optionLetter}" data-question-id="${idx}" data-question-type="mcq" onclick="saveAnswer('q${idx}', '${optionLetter}', 'mcq')"/>
                         ${optionText}
                       </label>
                     </div>
@@ -332,13 +332,13 @@ export const generateExamHtml = (exam, questions) => {
                 <div class="options">
                   <div class="option">
                     <label>
-                      <input type="radio" name="tf${idx}" value="true" data-question-id="${idx}" onclick="saveAnswer('tf${idx}', 'true', 'trueFalse')"/>
+                      <input type="radio" name="tf${idx}" value="true" data-question-id="${idx}" data-question-type="trueFalse" onclick="saveAnswer('tf${idx}', 'true', 'trueFalse')"/>
                       True
                     </label>
                   </div>
                   <div class="option">
                     <label>
-                      <input type="radio" name="tf${idx}" value="false" data-question-id="${idx}" onclick="saveAnswer('tf${idx}', 'false', 'trueFalse')"/>
+                      <input type="radio" name="tf${idx}" value="false" data-question-id="${idx}" data-question-type="trueFalse" onclick="saveAnswer('tf${idx}', 'false', 'trueFalse')"/>
                       False
                     </label>
                   </div>
@@ -354,7 +354,7 @@ export const generateExamHtml = (exam, questions) => {
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
-                  <input type="text" id="sa${idx}" placeholder="Enter your answer here..." data-question-id="${idx}" onchange="saveAnswer('sa${idx}', this.value, 'shortAnswer')" oninput="saveAnswer('sa${idx}', this.value, 'shortAnswer')"/>
+                  <input type="text" id="sa${idx}" placeholder="Enter your answer here..." data-question-id="${idx}" data-question-type="shortAnswer" oninput="saveAnswer('sa${idx}', this.value, 'shortAnswer')" onchange="saveAnswer('sa${idx}', this.value, 'shortAnswer')"/>
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('sa${idx}', 'shortanswer')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
@@ -374,7 +374,7 @@ export const generateExamHtml = (exam, questions) => {
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
-                  <textarea id="essay${idx}" class="essay-input" placeholder="Write your answer here..." data-question-id="${idx}" onchange="saveAnswer('essay${idx}', this.value, 'essay')" oninput="saveAnswer('essay${idx}', this.value, 'essay')"></textarea>
+                  <textarea id="essay${idx}" class="essay-input" placeholder="Write your answer here..." data-question-id="${idx}" data-question-type="essay" oninput="saveAnswer('essay${idx}', this.value, 'essay')" onchange="saveAnswer('essay${idx}', this.value, 'essay')"></textarea>
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('essay${idx}', 'essay')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
@@ -527,6 +527,8 @@ export const generateExamHtml = (exam, questions) => {
         // Collect answers - improved to properly save all answer types
         function saveAnswer(questionId, value, type) {
           console.log("Saving answer for:", questionId, "Value:", value, "Type:", type);
+          
+          // First store in answers object with the ID format expected by the evaluation code
           examData.answers[questionId] = value;
           
           // Add visual feedback that answer was saved
@@ -541,80 +543,114 @@ export const generateExamHtml = (exam, questions) => {
               inputEl.style.borderColor = "#52c41a"; // Green border
             }
           }
+          
+          // Debug the answers state
+          console.log("Current answers state:", JSON.stringify(examData.answers));
         }
         
-        // Add event listeners for input changes to ensure they're saved
+        // Add event listeners for input changes when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
+          console.log("DOM loaded, attaching event listeners for answers");
+          
           // For radio buttons (MCQ and True/False)
           document.querySelectorAll('input[type="radio"]').forEach(radio => {
             radio.addEventListener('change', function() {
-              saveAnswer(this.name, this.value, this.name.startsWith('q') ? 'mcq' : 'trueFalse');
-              console.log('Change event saved:', this.name, this.value);
-            });
-            
-            // Also check for clicks to ensure the handler is triggered
-            radio.addEventListener('click', function() {
-              saveAnswer(this.name, this.value, this.name.startsWith('q') ? 'mcq' : 'trueFalse');
-              console.log('Click event saved:', this.name, this.value);
+              const qId = this.getAttribute('name');
+              const qType = this.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
+              saveAnswer(qId, this.value, qType);
+              console.log('Radio change event: Saved ' + qId + ' = ' + this.value);
             });
           });
           
           // For text inputs (Short Answer)
           document.querySelectorAll('input[type="text"]').forEach(input => {
-            input.addEventListener('input', function() {
-              saveAnswer(this.id, this.value, 'shortAnswer');
-              console.log('Input event saved:', this.id, this.value);
-            });
-            
-            input.addEventListener('blur', function() {
-              saveAnswer(this.id, this.value, 'shortAnswer');
-              console.log('Blur event saved:', this.id, this.value);
+            ['input', 'change', 'blur', 'keyup'].forEach(eventType => {
+              input.addEventListener(eventType, function() {
+                const qId = this.id;
+                const qType = this.getAttribute('data-question-type') || 'shortAnswer';
+                saveAnswer(qId, this.value, qType);
+                console.log(eventType + ' event: Saved ' + qId + ' = ' + this.value);
+              });
             });
           });
           
           // For textareas (Essay)
           document.querySelectorAll('textarea').forEach(textarea => {
-            textarea.addEventListener('input', function() {
-              saveAnswer(this.id, this.value, 'essay');
-              console.log('Input event saved:', this.id, this.value.substring(0, 20) + '...');
-            });
-            
-            textarea.addEventListener('blur', function() {
-              saveAnswer(this.id, this.value, 'essay');
-              console.log('Blur event saved:', this.id, this.value.substring(0, 20) + '...');
+            ['input', 'change', 'blur', 'keyup'].forEach(eventType => {
+              textarea.addEventListener(eventType, function() {
+                const qId = this.id;
+                const qType = this.getAttribute('data-question-type') || 'essay';
+                saveAnswer(qId, this.value, qType);
+                console.log(eventType + ' event: Saved ' + qId + ' = ' + this.value.substring(0, 20) + '...');
+              });
             });
           });
         });
         
-        // Form submission
+        // Also attach the same event listeners immediately (in case DOMContentLoaded already fired)
+        // For radio buttons (MCQ and True/False)
+        document.querySelectorAll('input[type="radio"]').forEach(radio => {
+          radio.addEventListener('change', function() {
+            const qId = this.getAttribute('name');
+            const qType = this.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
+            saveAnswer(qId, this.value, qType);
+            console.log('Radio change event (immediate): Saved ' + qId + ' = ' + this.value);
+          });
+          
+          // Add click handler too (for extra reliability)
+          radio.addEventListener('click', function() {
+            const qId = this.getAttribute('name');
+            const qType = this.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
+            saveAnswer(qId, this.value, qType);
+            console.log('Radio click event: Saved ' + qId + ' = ' + this.value);
+          });
+        });
+        
+        // Form submission - enhanced to ensure answers are collected
         function submitExam(autoSubmit = false) {
           clearInterval(timerInterval);
           
-          // Collect all answers from inputs manually to ensure we have the latest values
+          // CRITICAL: Force collect ALL answers one last time before submission
+          console.log("Submitting exam - collecting final answers");
+          
+          // For multiple choice questions
           document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
-            saveAnswer(radio.name, radio.value, radio.name.startsWith('q') ? 'mcq' : 'trueFalse');
+            const qId = radio.getAttribute('name');
+            const qType = radio.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
+            saveAnswer(qId, radio.value, qType);
+            console.log('Final collection - radio: ' + qId + ' = ' + radio.value);
           });
           
+          // For text inputs
           document.querySelectorAll('input[type="text"]').forEach(input => {
             if (input.value.trim()) {
-              saveAnswer(input.id, input.value, 'shortAnswer');
+              const qId = input.id;
+              const qType = input.getAttribute('data-question-type') || 'shortAnswer';
+              saveAnswer(qId, input.value, qType);
+              console.log('Final collection - text: ' + qId + ' = ' + input.value);
             }
           });
           
+          // For textareas
           document.querySelectorAll('textarea').forEach(textarea => {
             if (textarea.value.trim()) {
-              saveAnswer(textarea.id, textarea.value, 'essay');
+              const qId = textarea.id;
+              const qType = textarea.getAttribute('data-question-type') || 'essay';
+              saveAnswer(qId, textarea.value, qType);
+              console.log('Final collection - textarea: ' + qId + ' = ' + textarea.value.substring(0, 20) + '...');
             }
           });
           
-          console.log("Submitting with answers:", examData.answers);
+          // Debug the entire exam data object
+          console.log("FINAL EXAM DATA FOR SUBMISSION:", JSON.stringify(examData));
+          console.log("Answers collected:", Object.keys(examData.answers).length);
           
           // Calculate time taken
           const endTime = Date.now();
           const timeTaken = formatElapsedTime(startTime, endTime);
           examData.timeTaken = timeTaken;
           
-          // Save results to localStorage
+          // Save results to localStorage as backup
           localStorage.setItem('completedExamId', examData.examId);
           localStorage.setItem('lastExamResults', JSON.stringify(examData));
           
@@ -623,7 +659,7 @@ export const generateExamHtml = (exam, questions) => {
             if (window.opener && !window.opener.closed) {
               window.opener.postMessage({ 
                 type: 'examCompleted', 
-                examData 
+                examData: examData
               }, '*');
               
               console.log("Exam data sent to parent window:", examData);
@@ -675,3 +711,4 @@ export const generateExamHtml = (exam, questions) => {
 
 // Export functions for use in other modules
 export { parseQuestions };
+
