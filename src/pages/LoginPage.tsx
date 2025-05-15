@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Google } from "lucide-react";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -20,18 +21,37 @@ const LoginPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation
+    if (!email || !password) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setLoading(true);
     
     try {
       // In a real app, this would be an API call
       // For now, we'll just simulate a login
       setTimeout(() => {
-        // Mock user data
+        // Retrieve existing accounts to check
+        const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
+        const account = accounts.find((acc) => acc.email === email);
+        
+        if (!account || account.password !== password) {
+          throw new Error("Invalid login credentials");
+        }
+        
+        // Successful login
         const userData = {
-          name: "Test User",
-          email: email,
-          phone: "+1234567890", 
-          role: "Student"
+          name: account.name,
+          email: account.email,
+          phone: account.phone || "+1234567890", 
+          role: account.role || "Student"
         };
         
         // Save to localStorage
@@ -57,6 +77,13 @@ const LoginPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleLogin = () => {
+    toast({
+      title: "Google Login",
+      description: "Google login functionality will be implemented soon."
+    });
   };
 
   return (
@@ -104,6 +131,26 @@ const LoginPage = () => {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t"></span>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+            </div>
+          </div>
+          
+          <Button 
+            variant="outline" 
+            type="button" 
+            className="w-full" 
+            onClick={handleGoogleLogin}
+          >
+            <Google className="mr-2 h-4 w-4" />
+            Google
+          </Button>
+          
           <div className="text-center text-sm">
             Don't have an account?{" "}
             <Link 

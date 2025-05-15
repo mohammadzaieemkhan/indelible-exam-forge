@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Google } from "lucide-react";
 
 const SignupPage = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,6 +26,15 @@ const SignupPage = () => {
     e.preventDefault();
     
     // Basic validation
+    if (!name || !email || !password || !confirmPassword) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (password !== confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -39,11 +50,32 @@ const SignupPage = () => {
       // In a real app, this would be an API call
       // For now, we'll just simulate a signup
       setTimeout(() => {
+        // Get existing accounts or create an empty array
+        const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
+        
+        // Check if the email already exists
+        if (accounts.some(acc => acc.email === email)) {
+          throw new Error("This email is already registered");
+        }
+        
+        // Create new account
+        const newAccount = {
+          name,
+          email,
+          phone,
+          password,
+          role: "Student"
+        };
+        
+        // Add to accounts list
+        accounts.push(newAccount);
+        localStorage.setItem("accounts", JSON.stringify(accounts));
+        
         // Create user data
         const userData = {
           name: name,
           email: email,
-          phone: "", 
+          phone: phone, 
           role: "Student"
         };
         
@@ -64,12 +96,19 @@ const SignupPage = () => {
     } catch (error) {
       toast({
         title: "Signup Failed",
-        description: "There was a problem creating your account.",
+        description: error.message || "There was a problem creating your account.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSignup = () => {
+    toast({
+      title: "Google Signup",
+      description: "Google signup functionality will be implemented soon."
+    });
   };
 
   return (
@@ -84,7 +123,7 @@ const SignupPage = () => {
         <div className="space-y-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Full Name <span className="text-red-500">*</span></Label>
               <Input 
                 id="name" 
                 placeholder="Your name" 
@@ -94,7 +133,7 @@ const SignupPage = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
               <Input 
                 id="email" 
                 placeholder="your.email@example.com" 
@@ -105,7 +144,17 @@ const SignupPage = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input 
+                id="phone" 
+                placeholder="+1234567890" 
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password <span className="text-red-500">*</span></Label>
               <Input 
                 id="password" 
                 placeholder="••••••••" 
@@ -116,7 +165,7 @@ const SignupPage = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Label htmlFor="confirm-password">Confirm Password <span className="text-red-500">*</span></Label>
               <Input 
                 id="confirm-password" 
                 placeholder="••••••••" 
@@ -130,6 +179,26 @@ const SignupPage = () => {
               {loading ? "Creating account..." : "Sign Up"}
             </Button>
           </form>
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t"></span>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+            </div>
+          </div>
+          
+          <Button 
+            variant="outline" 
+            type="button" 
+            className="w-full" 
+            onClick={handleGoogleSignup}
+          >
+            <Google className="mr-2 h-4 w-4" />
+            Google
+          </Button>
+          
           <div className="text-center text-sm">
             Already have an account?{" "}
             <Link 

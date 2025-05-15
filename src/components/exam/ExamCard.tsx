@@ -1,108 +1,87 @@
 
-import React from "react";
-import { Bell, FileText, Trash2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { IExam } from "@/components/ExamTabs";
+import { Calendar, Clock, ArrowRight } from "lucide-react";
+import DeleteExamHandler from "./DeleteExamHandler";
 
 interface ExamCardProps {
   exam: IExam;
-  onSendReminder: (exam: IExam) => void;
-  onDeleteClick: (exam: IExam) => void;
-  onViewExam: (exam: IExam) => void;
+  onView?: () => void;
+  onTake?: () => void;
+  onRefresh?: () => void;
 }
 
-const ExamCard = ({ exam, onSendReminder, onDeleteClick, onViewExam }: ExamCardProps) => {
+const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
+  // Get formatted date
+  const formattedDate = exam.date ? new Date(exam.date).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }) : "No date";
+
+  // Determine exam status (past, present, future)
+  const now = new Date().getTime();
+  const examDate = exam.date ? new Date(exam.date).getTime() : 0;
+  const isPast = examDate < now && examDate !== 0;
+  const isToday = examDate !== 0 && 
+                 new Date(examDate).toDateString() === new Date().toDateString();
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
+    <Card className={`overflow-hidden border ${
+      isPast ? 'border-gray-200' : 
+      isToday ? 'border-primary' : 
+      'border-blue-200'
+    }`}>
+      <CardHeader className={`pb-3 ${
+        isPast ? '' : 
+        isToday ? 'bg-primary/5 border-b border-primary/20' : 
+        'bg-blue-50 dark:bg-blue-950/20'
+      }`}>
+        <div className="flex justify-between items-start">
           <div>
-            <CardTitle>{exam.name}</CardTitle>
-            <CardDescription>
-              {exam.date} at {exam.time} • 
-              {exam.duration} minutes • 
-              {exam.numberOfQuestions} questions
+            <CardTitle className="line-clamp-1" title={exam.name}>{exam.name}</CardTitle>
+            <CardDescription className="flex items-center mt-1">
+              <Calendar className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+              <span>{formattedDate}</span>
+              {exam.duration && (
+                <>
+                  <Clock className="h-3.5 w-3.5 ml-3 mr-1 text-muted-foreground" />
+                  <span>{exam.duration} min</span>
+                </>
+              )}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            {exam.isActive ? (
-              <Button variant="outline" onClick={() => onViewExam(exam)} className="whitespace-nowrap">
-                <FileText className="h-4 w-4 mr-2" />
-                Take Exam
-              </Button>
-            ) : (
-              <Button variant="outline" disabled className="whitespace-nowrap">
-                <FileText className="h-4 w-4 mr-2" />
-                Not Available Yet
-              </Button>
-            )}
-            <Button variant="outline" onClick={() => onSendReminder(exam)} className="whitespace-nowrap">
-              <Bell className="h-4 w-4 mr-2" />
-              Remind Me
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => onDeleteClick(exam)}
-              className="whitespace-nowrap text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          </div>
+          <DeleteExamHandler examId={exam.id} variant="icon" size="sm" onDelete={onRefresh} />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h3 className="text-sm font-medium mb-2">Topics</h3>
-            <div className="flex flex-wrap gap-2">
-              {exam.topics.map((topic, i) => (
-                <div key={i} className="bg-accent rounded px-2 py-1 text-xs">
-                  {topic}
-                </div>
-              ))}
+
+      <CardContent className="pt-4">
+        <div className="text-sm">
+          <p className="line-clamp-2 text-muted-foreground">
+            {exam.description || "No description provided"}
+          </p>
+          
+          {exam.totalQuestions && (
+            <div className="mt-2">
+              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                {exam.totalQuestions} questions
+              </span>
             </div>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium mb-2">Difficulty</h3>
-            <div className="flex items-center gap-2">
-              <div className={`h-2 w-2 rounded-full ${
-                exam.difficulty === 'Easy' 
-                  ? 'bg-green-500' 
-                  : exam.difficulty === 'Medium'
-                    ? 'bg-yellow-500'
-                    : 'bg-red-500'
-              }`} />
-              {exam.difficulty}
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-4">
-          <h3 className="text-sm font-medium mb-2">Question Types</h3>
-          <p className="text-sm">{exam.questionTypes}</p>
-        </div>
-        
-        <div className="mt-4">
-          <h3 className="text-sm font-medium mb-2">Exam Status</h3>
-          <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${
-              exam.isActive 
-                ? 'bg-green-500' 
-                : 'bg-yellow-500'
-            }`} />
-            {exam.isActive 
-              ? 'Available to take now' 
-              : 'Not available yet - will be active at the scheduled time'
-            }
-          </div>
+          )}
         </div>
       </CardContent>
-      <CardFooter>
-        <div className="text-xs text-muted-foreground">
-          This exam will be available to take at the scheduled time. You can take the exam anytime after it becomes available.
-        </div>
+
+      <CardFooter className="flex justify-between border-t pt-4 bg-muted/50">
+        <Button variant="outline" onClick={onView}>
+          View Details
+        </Button>
+        {onTake && (
+          <Button onClick={onTake} className="gap-1">
+            <span>{isPast ? "Review" : "Take Exam"}</span>
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { User, Mail, Phone, Shield } from "lucide-react";
+import { User, Mail, Phone, Shield, Calendar } from "lucide-react";
 
 interface UserProfile {
   name: string;
   email: string;
   phone: string;
   role: string;
+  dob?: string;
 }
 
 const ProfilePage = () => {
@@ -21,7 +22,8 @@ const ProfilePage = () => {
     name: "",
     email: "",
     phone: "",
-    role: "Student"
+    role: "Student",
+    dob: ""
   });
   
   const [isEditing, setIsEditing] = useState(false);
@@ -62,6 +64,21 @@ const ProfilePage = () => {
   const handleSaveProfile = () => {
     // Save to localStorage
     localStorage.setItem("userData", JSON.stringify(profile));
+    
+    // Update accounts storage with the updated profile data
+    const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
+    const updatedAccounts = accounts.map(acc => {
+      if (acc.email === profile.email) {
+        return {
+          ...acc,
+          name: profile.name,
+          phone: profile.phone,
+          dob: profile.dob
+        };
+      }
+      return acc;
+    });
+    localStorage.setItem("accounts", JSON.stringify(updatedAccounts));
     
     // Update localStorage events for other components
     window.dispatchEvent(new Event("storage"));
@@ -127,8 +144,10 @@ const ProfilePage = () => {
                       placeholder="your.email@example.com" 
                       value={profile.email} 
                       onChange={handleChange} 
-                      disabled={!isEditing} 
+                      disabled={true} 
+                      className="bg-muted cursor-not-allowed"
                     />
+                    <p className="text-xs text-muted-foreground">Email address cannot be changed</p>
                   </div>
                   
                   <div className="space-y-2">
@@ -141,6 +160,21 @@ const ProfilePage = () => {
                       name="phone"
                       placeholder="+1234567890" 
                       value={profile.phone} 
+                      onChange={handleChange} 
+                      disabled={!isEditing} 
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <Label htmlFor="dob">Date of Birth</Label>
+                    </div>
+                    <Input 
+                      id="dob" 
+                      name="dob"
+                      type="date" 
+                      value={profile.dob || ''} 
                       onChange={handleChange} 
                       disabled={!isEditing} 
                     />

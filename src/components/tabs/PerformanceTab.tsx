@@ -1,354 +1,320 @@
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart, LineChart, PieChart, Trophy, Timer, Target } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useGeminiAI } from "@/utils/apiService";
-import type { IExam } from "@/components/ExamTabs";
-import {
-  ResponsiveContainer,
-  LineChart as RechartsLineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell
-} from "recharts";
-import { ChartContainer, ChartTooltipContent, ChartTooltip } from "@/components/ui/chart";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import PerformanceCharts from "../PerformanceCharts";
+import DeleteExamHandler from "../exam/DeleteExamHandler";
 
 interface ExamResult {
   examId: string;
   examName: string;
   date: string;
   score: number;
-  totalMarks: number;
+  maxScore: number;
   percentage: number;
+  answers: Record<string, any>;
   timeTaken: string;
-  questionStats: {
-    correct: number;
-    incorrect: number;
-    unattempted: number;
-    total: number;
-  };
-  topicPerformance: Record<string, number>;
-  questionDetails: Array<{
+  questionTypes: string[];
+  questions: Array<{
     question: string;
     type: string;
-    marksObtained: number;
-    totalMarks: number;
-    userAnswer?: string;
-    correctAnswer?: string;
-    feedback?: string;
+    options?: string[];
+    answer: string;
+  }>;
+  questionTypesBreakdown?: Record<string, {
+    correct: number;
+    total: number;
+    percentage: number;
   }>;
 }
 
 const PerformanceTab = () => {
   const [examResults, setExamResults] = useState<ExamResult[]>([]);
-  const [selectedExam, setSelectedExam] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Load exam results from localStorage
-    const savedResults = localStorage.getItem('examResults');
-    if (savedResults) {
+    const loadResults = () => {
       try {
-        const results = JSON.parse(savedResults);
-        setExamResults(results);
-        
-        if (results.length > 0 && !selectedExam) {
-          setSelectedExam(results[0].examId);
+        const resultsJson = localStorage.getItem("examResults");
+        if (resultsJson) {
+          const parsedResults = JSON.parse(resultsJson);
+          
+          // Process each result to calculate question type breakdowns
+          const processedResults = parsedResults.map(result => {
+            if (!result.questionTypesBreakdown) {
+              // Add question type breakdown if it doesn't exist
+              const breakdown = {};
+              const questions = result.questions || [];
+              const answers = result.answers || {};
+              
+              // Group questions by type
+              questions.forEach((q, index) => {
+                const type = q.type;
+                if (!breakdown[type]) {
+                  breakdown[type] = { correct: 0, total: 0, percentage: 0 };
+                }
+                
+                breakdown[type].total += 1;
+                
+                // Check if answer is correct
+                const userAnswer = answers[index];
+                if (userAnswer !== undefined) {
+                  // For MCQ, compare option index
+                  if (type === 'mcq') {
+                    const correctOption = q.options.findIndex(opt => 
+                      opt.toLowerCase() === q.answer.toLowerCase());
+                    if (userAnswer === correctOption) {
+                      breakdown[type].correct += 1;
+                    }
+                  } 
+                  // For true/false
+                  else if (type === 'truefalse') {
+                    const isCorrect = 
+                      (userAnswer === 0 && q.answer.toLowerCase() === 'true') || 
+                      (userAnswer === 1 && q.answer.toLowerCase() === 'false');
+                    if (isCorrect) {
+                      breakdown[type].correct += 1;
+                    }
+                  }
+                  // For other types we can't automatically check
+                }
+                
+                // Calculate percentage
+                breakdown[type].percentage = Math.round(
+                  (breakdown[type].correct / breakdown[type].total) * 100
+                );
+              });
+              
+              return {
+                ...result,
+                questionTypesBreakdown: breakdown
+              };
+            }
+            return result;
+          });
+          
+          setExamResults(processedResults);
         }
       } catch (error) {
-        console.error('Error parsing saved exam results:', error);
+        console.error("Error loading exam results:", error);
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, [selectedExam]);
+    };
+    
+    loadResults();
+    
+    // Listen for changes
+    window.addEventListener("storage", loadResults);
+    return () => window.removeEventListener("storage", loadResults);
+  }, []);
 
-  const currentResult = selectedExam 
-    ? examResults.find(result => result.examId === selectedExam)
-    : null;
+  const handleDelete = (examId: string) => {
+    setExamResults(prev => prev.filter(result => result.examId !== examId));
+  };
 
-  // Prepare data for line chart (score history)
-  const scoreHistoryData = examResults.map(result => ({
-    name: result.examName,
-    score: result.percentage,
-    date: new Date(result.date).toLocaleDateString()
-  }));
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px]">
+        <div className="animate-pulse text-center">
+          <div className="h-8 bg-muted rounded w-48 mx-auto mb-4"></div>
+          <div className="h-4 bg-muted rounded w-64 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
-  // Prepare data for pie chart (topic mastery)
-  const topicMasteryData = currentResult?.topicPerformance 
-    ? Object.keys(currentResult.topicPerformance).map(topic => ({
-        name: topic,
-        value: currentResult.topicPerformance[topic]
-      }))
-    : [];
+  if (examResults.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>No Performance Data</CardTitle>
+          <CardDescription>
+            You haven't taken any exams yet. Complete some exams to see your performance metrics.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-10">
+          <div className="text-center text-muted-foreground">
+            <p>Your exam performance data will appear here after you've completed exams.</p>
+            <p className="mt-2">Take an exam from the "Upcoming Exams" tab to get started.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
-  // Colors for the pie chart
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A569BD', '#5DADE2', '#58D68D'];
+  // Calculate overall stats
+  const totalExams = examResults.length;
+  const averageScore = examResults.reduce((sum, result) => sum + result.percentage, 0) / totalExams;
+  const highestScore = Math.max(...examResults.map(result => result.percentage));
+  const lowestScore = Math.min(...examResults.map(result => result.percentage));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Performance Tracking</CardTitle>
-        <CardDescription>Analyze your exam performance metrics</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {examResults.length === 0 ? (
-          <div className="text-center py-12">
-            <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-xl font-medium mb-2">No Exam Results Yet</h3>
-            <p className="text-muted-foreground">
-              Take an exam to see your performance metrics here.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <Tabs defaultValue="overview" className="flex-1">
-                <TabsList>
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="questions">Question Details</TabsTrigger>
-                  <TabsTrigger value="topics">Topic Performance</TabsTrigger>
-                </TabsList>
-                <TabsContent value="overview" className="space-y-6">
-                  {/* Exam selection */}
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex flex-wrap gap-2">
-                      {examResults.map(result => (
-                        <button
-                          key={result.examId}
-                          onClick={() => setSelectedExam(result.examId)}
-                          className={`px-3 py-1.5 text-sm font-medium rounded-full 
-                            ${selectedExam === result.examId 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'bg-muted hover:bg-muted/80'}`}
-                        >
-                          {result.examName}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Total Exams</CardDescription>
+            <CardTitle className="text-3xl">{totalExams}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Average Score</CardDescription>
+            <CardTitle className="text-3xl">{averageScore.toFixed(1)}%</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Highest Score</CardDescription>
+            <CardTitle className="text-3xl">{highestScore}%</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Lowest Score</CardDescription>
+            <CardTitle className="text-3xl">{lowestScore}%</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
 
-                  {currentResult && (
-                    <>
-                      {/* Score Overview */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Card className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Score</p>
-                              <h3 className="text-2xl font-bold mt-1">
-                                {currentResult.score}/{currentResult.totalMarks}
-                              </h3>
-                            </div>
-                            <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Trophy className="h-6 w-6 text-primary" />
-                            </div>
-                          </div>
-                          <Progress 
-                            value={currentResult.percentage} 
-                            className="mt-3 h-2" 
-                          />
-                          <p className="text-xs text-right mt-1 text-muted-foreground">
-                            {currentResult.percentage}%
+      <Card>
+        <CardHeader>
+          <CardTitle>Performance Analysis</CardTitle>
+          <CardDescription>Visualized exam performance metrics</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PerformanceCharts examScores={examResults} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Exam History</CardTitle>
+          <CardDescription>Detailed results from your previous exams</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="all">
+            <TabsList>
+              <TabsTrigger value="all">All Exams</TabsTrigger>
+              <TabsTrigger value="recent">Recent</TabsTrigger>
+              <TabsTrigger value="highest">Highest Score</TabsTrigger>
+            </TabsList>
+            <div className="mt-4">
+              <TabsContent value="all">
+                <div className="space-y-4">
+                  {examResults.map((result) => (
+                    <div key={result.examId + result.date} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold text-lg">{result.examName}</h3>
+                          <p className="text-muted-foreground text-sm">
+                            {new Date(result.date).toLocaleDateString()} • {result.timeTaken}
                           </p>
-                        </Card>
-
-                        <Card className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Time Taken</p>
-                              <h3 className="text-2xl font-bold mt-1">{currentResult.timeTaken}</h3>
-                            </div>
-                            <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Timer className="h-6 w-6 text-primary" />
-                            </div>
-                          </div>
-                        </Card>
-
-                        <Card className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Questions</p>
-                              <h3 className="text-2xl font-bold mt-1">
-                                {currentResult.questionStats.correct}/{currentResult.questionStats.total}
-                              </h3>
-                            </div>
-                            <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Target className="h-6 w-6 text-primary" />
-                            </div>
-                          </div>
-                          <div className="flex gap-2 mt-3">
-                            <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                              {currentResult.questionStats.correct} Correct
-                            </span>
-                            <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                              {currentResult.questionStats.incorrect} Incorrect
-                            </span>
-                            {currentResult.questionStats.unattempted > 0 && (
-                              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">
-                                {currentResult.questionStats.unattempted} Unattempted
-                              </span>
-                            )}
-                          </div>
-                        </Card>
-                      </div>
-
-                      {/* Charts */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-lg">Score History</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="h-[300px]">
-                              {scoreHistoryData.length > 0 ? (
-                                <ChartContainer
-                                  config={{
-                                    score: { color: "#2563eb" }
-                                  }}
-                                >
-                                  <RechartsLineChart data={scoreHistoryData}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="date" />
-                                    <YAxis domain={[0, 100]} />
-                                    <Tooltip content={<ChartTooltipContent />} />
-                                    <Legend />
-                                    <Line 
-                                      type="monotone" 
-                                      dataKey="score" 
-                                      name="Score (%)" 
-                                      stroke="#2563eb" 
-                                      strokeWidth={2} 
-                                      dot={{ r: 4 }}
-                                      activeDot={{ r: 6 }}
-                                    />
-                                  </RechartsLineChart>
-                                </ChartContainer>
-                              ) : (
-                                <div className="h-full flex items-center justify-center">
-                                  <p className="text-muted-foreground">
-                                    Not enough data to display chart
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                        
-                        <Card>
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-lg">Topic Mastery</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="h-[300px]">
-                              {topicMasteryData.length > 0 ? (
-                                <ChartContainer
-                                  config={
-                                    topicMasteryData.reduce((acc, entry, index) => {
-                                      acc[entry.name] = { 
-                                        color: COLORS[index % COLORS.length],
-                                        label: entry.name
-                                      };
-                                      return acc;
-                                    }, {} as Record<string, {color: string, label: string}>)
-                                  }
-                                >
-                                  <RechartsPieChart>
-                                    <Pie
-                                      data={topicMasteryData}
-                                      cx="50%"
-                                      cy="50%"
-                                      labelLine={false}
-                                      outerRadius={80}
-                                      fill="#8884d8"
-                                      dataKey="value"
-                                      nameKey="name"
-                                      label={({name, percent}) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                    >
-                                      {topicMasteryData.map((entry, index) => (
-                                        <Cell 
-                                          key={`cell-${index}`} 
-                                          fill={COLORS[index % COLORS.length]} 
-                                        />
-                                      ))}
-                                    </Pie>
-                                    <Tooltip content={<ChartTooltipContent nameKey="name" />} />
-                                    <Legend />
-                                  </RechartsPieChart>
-                                </ChartContainer>
-                              ) : (
-                                <div className="h-full flex items-center justify-center">
-                                  <p className="text-muted-foreground">
-                                    No topic data available
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="questions" className="space-y-6">
-                  {currentResult && (
-                    <div className="rounded-md border overflow-hidden">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="p-2 text-left font-medium">Question</th>
-                            <th className="p-2 text-left font-medium">Type</th>
-                            <th className="p-2 text-left font-medium">Marks</th>
-                            <th className="p-2 text-left font-medium">Your Answer</th>
-                            <th className="p-2 text-left font-medium">Correct Answer</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {currentResult.questionDetails.map((q, idx) => (
-                            <tr key={idx} className="border-b hover:bg-muted/20">
-                              <td className="p-2">{q.question.length > 40 ? q.question.substring(0, 40) + '...' : q.question}</td>
-                              <td className="p-2 capitalize">{q.type}</td>
-                              <td className="p-2">{q.marksObtained}/{q.totalMarks}</td>
-                              <td className="p-2">{q.userAnswer || 'Not attempted'}</td>
-                              <td className="p-2">{q.correctAnswer || 'N/A'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="topics" className="space-y-6">
-                  {currentResult && currentResult.topicPerformance && (
-                    <div className="space-y-4">
-                      {Object.entries(currentResult.topicPerformance).map(([topic, percentage]) => (
-                        <div key={topic} className="space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">{topic}</span>
-                            <span className="text-sm text-muted-foreground">{percentage}%</span>
-                          </div>
-                          <Progress value={percentage} className="h-2" />
                         </div>
-                      ))}
+                        <div className="flex items-center gap-2">
+                          <div className={`text-lg font-bold ${
+                            result.percentage >= 70 ? 'text-green-500' : 
+                            result.percentage >= 50 ? 'text-amber-500' : 'text-red-500'
+                          }`}>
+                            {result.percentage}%
+                          </div>
+                          <DeleteExamHandler 
+                            examId={result.examId} 
+                            variant="icon" 
+                            onDelete={() => handleDelete(result.examId)} 
+                          />
+                        </div>
+                      </div>
+                      
+                      <Separator className="my-3" />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Score</p>
+                          <p className="font-medium">{result.score} / {result.maxScore} points</p>
+                        </div>
+                        
+                        {result.questionTypesBreakdown && (
+                          <div className="col-span-2">
+                            <p className="text-sm text-muted-foreground">Question Type Breakdown</p>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {Object.entries(result.questionTypesBreakdown).map(([type, data]) => (
+                                <div key={type} className="text-xs bg-muted rounded-full px-2 py-1">
+                                  {type === 'mcq' ? 'Multiple Choice' : 
+                                   type === 'truefalse' ? 'True/False' : 
+                                   type === 'shortanswer' ? 'Short Answer' : 
+                                   type === 'essay' ? 'Essay' : type}
+                                  : {data.correct}/{data.total} ({data.percentage}%)
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </TabsContent>
-              </Tabs>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="recent">
+                <div className="space-y-4">
+                  {[...examResults]
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .slice(0, 5)
+                    .map((result) => (
+                      <div key={result.examId + result.date} className="border rounded-lg p-4">
+                        <div className="flex justify-between">
+                          <div>
+                            <h3 className="font-semibold">{result.examName}</h3>
+                            <p className="text-muted-foreground text-sm">
+                              {new Date(result.date).toLocaleDateString()} • {result.timeTaken}
+                            </p>
+                          </div>
+                          <div className={`text-lg font-bold ${
+                            result.percentage >= 70 ? 'text-green-500' : 
+                            result.percentage >= 50 ? 'text-amber-500' : 'text-red-500'
+                          }`}>
+                            {result.percentage}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="highest">
+                <div className="space-y-4">
+                  {[...examResults]
+                    .sort((a, b) => b.percentage - a.percentage)
+                    .slice(0, 5)
+                    .map((result) => (
+                      <div key={result.examId + result.date} className="border rounded-lg p-4">
+                        <div className="flex justify-between">
+                          <div>
+                            <h3 className="font-semibold">{result.examName}</h3>
+                            <p className="text-muted-foreground text-sm">
+                              {new Date(result.date).toLocaleDateString()} • {result.timeTaken}
+                            </p>
+                          </div>
+                          <div className={`text-lg font-bold ${
+                            result.percentage >= 70 ? 'text-green-500' : 
+                            result.percentage >= 50 ? 'text-amber-500' : 'text-red-500'
+                          }`}>
+                            {result.percentage}%
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </TabsContent>
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -177,30 +178,49 @@ export const useGeminiAI = async (
         }
       }
       
-      // Enhanced prompt for better question type distribution
-      if (params.prompt && params.questionTypes && params.questionTypes.length > 0) {
-        // Make sure we emphasize the question types in the prompt
-        if (!params.prompt.includes("Question Type Distribution")) {
-          const questionTypeDistribution = params.questionTypes.map(type => {
-            let count = Math.ceil(params.numberOfQuestions / params.questionTypes.length);
-            let label = "";
-            
-            // Map internal types to human-readable labels
-            if (type === "mcq") label = "Multiple Choice Questions";
-            else if (type === "truefalse") label = "True/False Questions";
-            else if (type === "shortanswer") label = "Short Answer Questions";
-            else if (type === "essay") label = "Essay Questions";
-            
-            return `- ${label}: ${count}`;
-          }).join('\n');
-          
-          params.prompt += `\n\nQuestion Type Distribution:\n${questionTypeDistribution}\n`;
-          
-          // Add specific instructions for each question type
-          params.prompt += `\n\nPlease ensure you include the requested number of each question type. 
-For true/false questions, clearly label them as "True/False Question" and end with "Answer: True" or "Answer: False".
-For essay questions, include "(Essay Question)" in the title and provide word count requirements like "(200-250 words)".`;
-        }
+      // Enhanced prompt for better question type distribution with specific counts
+      if (params.questionTypes && params.questionTypes.length > 0) {
+        // Calculate how many questions of each type
+        const typeCount = params.questionTypes.length;
+        const totalQuestions = params.numberOfQuestions || 10;
+        const baseCount = Math.floor(totalQuestions / typeCount);
+        const remainder = totalQuestions % typeCount;
+        
+        const typeCounts = params.questionTypes.map((type, index) => {
+          const count = index < remainder ? baseCount + 1 : baseCount;
+          return { type, count };
+        });
+        
+        // Create or enhance the prompt with specific distribution instructions
+        const basePrompt = params.prompt || "";
+        
+        // Create a detailed distribution prompt
+        const distributionPrompt = `
+Please create a balanced set of questions with the following specific distribution:
+
+${typeCounts.map(({ type, count }) => {
+  let label = "";
+  if (type === "mcq") label = "Multiple Choice Questions";
+  else if (type === "truefalse") label = "True/False Questions";
+  else if (type === "shortanswer") label = "Short Answer Questions";
+  else if (type === "essay") label = "Essay Questions";
+  
+  return `- ${label}: ${count} questions`;
+}).join('\n')}
+
+It's CRITICAL that you follow these exact counts for each question type. For each question, make sure to clearly indicate the question type in the following format:
+
+For MCQs: "MCQ: [question]"
+For True/False: "True/False: [question]" (end with "Answer: True" or "Answer: False")
+For Short Answer: "Short Answer: [question]"
+For Essay: "Essay: [question]" (include expected word count like "(200-250 words)")
+
+For MCQs, include 4 options labeled A, B, C, D and indicate the correct answer.
+For True/False questions, clearly state if the answer is True or False.
+`;
+        
+        // Update the prompt
+        params.prompt = basePrompt + "\n\n" + distributionPrompt;
       }
     }
     
