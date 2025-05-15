@@ -58,6 +58,16 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
     `;
   }
 
+  // Properly categorize questions by type
+  const questionsByType = {
+    mcq: questions.filter(q => q.type === 'mcq'),
+    truefalse: questions.filter(q => q.type === 'truefalse'),
+    shortanswer: questions.filter(q => q.type === 'shortanswer'),
+    essay: questions.filter(q => q.type === 'essay')
+  };
+
+  console.log("Categorized questions:", questionsByType);
+
   const questionsHtml = `
     <div class="exam-content">
       <div id="section-container">
@@ -1094,13 +1104,37 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
     return () => window.removeEventListener('message', handleExamMessage);
   }, [toast]);
 
-  // Filter questions by type
-  const questionsByType = {
-    mcq: parsedQuestions.filter(q => q.type === 'mcq'),
-    truefalse: parsedQuestions.filter(q => q.type === 'truefalse'),
-    shortanswer: parsedQuestions.filter(q => q.type === 'shortanswer'),
-    essay: parsedQuestions.filter(q => q.type === 'essay')
-  };
+  // Correct categorization of questions by type
+  const questionsByType = React.useMemo(() => {
+    // Explicitly convert question types for true/false and essay questions that may have been miscategorized
+    const processedQuestions = parsedQuestions.map(q => {
+      // Fix for true/false questions
+      if (q.question && (
+          q.question.toLowerCase().includes('true') && 
+          q.answer && 
+          (q.answer === 'True' || q.answer === 'False')
+        )) {
+        return { ...q, type: 'truefalse' };
+      } 
+      // Fix for essay questions - usually longer word count requirements
+      else if (q.question && 
+          (q.question.toLowerCase().includes('essay') || 
+           q.question.toLowerCase().includes('discuss') ||
+           q.question.toLowerCase().includes('150') ||
+           q.question.toLowerCase().includes('200 words')
+          )) {
+        return { ...q, type: 'essay' };
+      }
+      return q;
+    });
+    
+    return {
+      mcq: processedQuestions.filter(q => q.type === 'mcq'),
+      truefalse: processedQuestions.filter(q => q.type === 'truefalse'),
+      shortanswer: processedQuestions.filter(q => q.type === 'shortanswer'),
+      essay: processedQuestions.filter(q => q.type === 'essay')
+    };
+  }, [parsedQuestions]);
 
   // Navigation sections
   const sections = [
@@ -1144,10 +1178,33 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
     // Generate the HTML content for the exam window
     console.log("Generating exam with questions content:", exam.questions);
     const parsedQuestions = parseQuestions(exam.questions || "");
-    console.log("Parsed questions:", parsedQuestions);
+    
+    // Process questions for correct categorization
+    const processedQuestions = parsedQuestions.map(q => {
+      // Fix for true/false questions
+      if (q.question && (
+          q.question.toLowerCase().includes('true') && 
+          q.answer && 
+          (q.answer === 'True' || q.answer === 'False')
+        )) {
+        return { ...q, type: 'truefalse' };
+      } 
+      // Fix for essay questions - usually longer word count requirements
+      else if (q.question && 
+          (q.question.toLowerCase().includes('essay') || 
+           q.question.toLowerCase().includes('discuss') ||
+           q.question.toLowerCase().includes('150') ||
+           q.question.toLowerCase().includes('200 words')
+          )) {
+        return { ...q, type: 'essay' };
+      }
+      return q;
+    });
+    
+    console.log("Processed questions for exam window:", processedQuestions);
     
     // Generate HTML content for exam with simplified UI
-    const examContent = generateExamHtml(exam, parsedQuestions);
+    const examContent = generateExamHtml(exam, processedQuestions);
     
     // Write the content to the new window
     examWindow.document.open();
