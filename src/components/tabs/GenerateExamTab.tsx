@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import * as z from "zod";
 import { useForm } from "react-hook-form";
@@ -220,22 +219,65 @@ const GenerateExamTab = ({
 
     // Add question type configuration
     let questionTypeConfig: Record<string, number> = {};
+    let questionTypesArray: string[] = [];
     
-    if (values.questionTypes === "customized") {
-      // Always include all question types that have non-zero values
-      if (parseInt(values.mcqCount || "0") > 0) {
-        questionTypeConfig.mcq = parseInt(values.mcqCount || "0");
+    if (values.questionTypes === "mcq") {
+      questionTypesArray = ["mcq"];
+      questionTypeConfig = { mcq: parseInt(values.numberOfQuestions) };
+    } else if (values.questionTypes === "shortAnswer") {
+      questionTypesArray = ["shortAnswer"];
+      questionTypeConfig = { shortAnswer: parseInt(values.numberOfQuestions) };
+    } else if (values.questionTypes === "essay") {
+      questionTypesArray = ["essay"];
+      questionTypeConfig = { essay: parseInt(values.numberOfQuestions) };
+    } else if (values.questionTypes === "trueFalse") {
+      questionTypesArray = ["trueFalse"];
+      questionTypeConfig = { trueFalse: parseInt(values.numberOfQuestions) };
+    } else if (values.questionTypes === "mixed") {
+      // For mixed, we'll distribute evenly
+      questionTypesArray = ["mcq", "shortAnswer", "essay", "trueFalse"];
+      
+      const totalQuestions = parseInt(values.numberOfQuestions);
+      const baseCount = Math.floor(totalQuestions / 4);
+      const remainder = totalQuestions % 4;
+      
+      questionTypeConfig = {
+        mcq: baseCount + (remainder > 0 ? 1 : 0),
+        shortAnswer: baseCount + (remainder > 1 ? 1 : 0),
+        essay: baseCount + (remainder > 2 ? 1 : 0),
+        trueFalse: baseCount
+      };
+    } else if (values.questionTypes === "customized") {
+      // For customized, use the user's input
+      questionTypesArray = [];
+      
+      const mcqCount = parseInt(values.mcqCount || "0");
+      if (mcqCount > 0) {
+        questionTypesArray.push("mcq");
+        questionTypeConfig.mcq = mcqCount;
       }
-      if (parseInt(values.shortAnswerCount || "0") > 0) {
-        questionTypeConfig.shortAnswer = parseInt(values.shortAnswerCount || "0");
+      
+      const shortAnswerCount = parseInt(values.shortAnswerCount || "0");
+      if (shortAnswerCount > 0) {
+        questionTypesArray.push("shortAnswer");
+        questionTypeConfig.shortAnswer = shortAnswerCount;
       }
-      if (parseInt(values.essayCount || "0") > 0) {
-        questionTypeConfig.essay = parseInt(values.essayCount || "0");
+      
+      const essayCount = parseInt(values.essayCount || "0");
+      if (essayCount > 0) {
+        questionTypesArray.push("essay");
+        questionTypeConfig.essay = essayCount;
       }
-      if (parseInt(values.trueFalseCount || "0") > 0) {
-        questionTypeConfig.trueFalse = parseInt(values.trueFalseCount || "0");
+      
+      const trueFalseCount = parseInt(values.trueFalseCount || "0");
+      if (trueFalseCount > 0) {
+        questionTypesArray.push("trueFalse");
+        questionTypeConfig.trueFalse = trueFalseCount;
       }
     }
+    
+    console.log("Question types array:", questionTypesArray);
+    console.log("Question type config:", questionTypeConfig);
     
     // Construct the prompt for the AI
     let prompt = `Generate an exam with the following specifications:
@@ -244,25 +286,18 @@ const GenerateExamTab = ({
     Topics: ${values.topics.join(", ")}
     Number of Questions: ${values.numberOfQuestions}
     Difficulty: ${values.difficulty}
-    Question Types: ${values.questionTypes}
+    Question Types: ${questionTypesArray.join(", ")}
     `;
 
-    // Add question type configuration to the prompt if customized
-    if (values.questionTypes === "customized") {
-      prompt += "\nQuestion Type Distribution:\n";
-      if (questionTypeConfig.mcq) {
-        prompt += `- Multiple Choice Questions: ${questionTypeConfig.mcq}\n`;
-      }
-      if (questionTypeConfig.shortAnswer) {
-        prompt += `- Short Answer Questions: ${questionTypeConfig.shortAnswer}\n`;
-      }
-      if (questionTypeConfig.essay) {
-        prompt += `- Essay Questions: ${questionTypeConfig.essay}\n`;
-      }
-      if (questionTypeConfig.trueFalse) {
-        prompt += `- True/False Questions: ${questionTypeConfig.trueFalse}\n`;
-      }
-    }
+    // Add question type configuration to the prompt
+    prompt += "\nQuestion Type Distribution:\n";
+    Object.entries(questionTypeConfig).forEach(([type, count]) => {
+      const readableType = type === "mcq" ? "Multiple Choice Questions" :
+                          type === "shortAnswer" ? "Short Answer Questions" :
+                          type === "essay" ? "Essay Questions" :
+                          "True/False Questions";
+      prompt += `- ${readableType}: ${count}\n`;
+    });
 
     // Add syllabus context if available
     if (syllabus.trim()) {
@@ -275,28 +310,34 @@ const GenerateExamTab = ({
       Use a scale of 1-5, where 1 is easiest and 5 is most difficult.`;
     }
 
-    // Add formatting instructions
+    // Add formatting instructions with explicit type labeling
     prompt += `\n\nFormat the exam as follows:
     1. Start with a brief introduction
     2. For each question:
        - Clearly number the question
-       - For multiple choice, provide options labeled A, B, C, D
+       - IMPORTANT: Label each question with its type at the beginning (e.g., "MCQ:", "Short Answer:", "Essay:", "True/False:")
+       - For multiple choice, provide options labeled A, B, C, D on separate lines
        - For short answer, indicate expected answer length
-       - For essay questions, provide clear instructions
+       - For essay questions, provide clear instructions and word count guidance
        - For true/false questions, clearly state the statement to evaluate
     3. If question weights are included, indicate the weight of each question in parentheses after the question number
     
-    Please provide the correct answers at the end of the exam.`;
+    Please provide the correct answers at the end of the exam. For MCQs, clearly indicate the letter of the correct answer (e.g., "Answer: B").`;
 
     try {
       console.log("Calling Gemini AI with params:", {
         task: "generate_questions",
         prompt: prompt,
+        questionTypes: questionTypesArray,
       });
       
       const response = await useGeminiAI({
         task: "generate_questions",
         prompt: prompt,
+        questionTypes: questionTypesArray,
+        difficulty: values.difficulty,
+        numberOfQuestions: parseInt(values.numberOfQuestions),
+        topics: values.topics,
       });
 
       if (response.success && response.response) {
@@ -319,6 +360,7 @@ const GenerateExamTab = ({
 
         // Create the exam object
         const newExam: IExam = {
+          id: `exam-${Date.now()}`,
           name: values.examName,
           date: format(values.examDate, "yyyy-MM-dd"),
           time: values.examTime,
@@ -329,7 +371,9 @@ const GenerateExamTab = ({
           questionTypes: values.questionTypes,
           questions: examContent,
           questionWeights: Object.keys(weights).length > 0 ? weights : undefined,
-          questionTypeConfig: Object.keys(questionTypeConfig).length > 0 ? questionTypeConfig : undefined,
+          questionTypeConfig: questionTypeConfig,
+          questionDistribution: questionTypeConfig, // Add question distribution for rendering
+          created: new Date().toISOString(),
         };
 
         setGeneratedExam(newExam);

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -142,7 +141,7 @@ export const useGeminiAI = async (
     syllabusContent?: string; 
     topics?: string[];
     difficulty?: string;
-    questionTypes?: string[];
+    questionTypes?: string[] | string;
     numberOfQuestions?: number;
     examData?: any; // For exam evaluation
     sections?: {
@@ -179,6 +178,11 @@ export const useGeminiAI = async (
         }
       }
       
+      // Convert questionTypes to array if it's a string
+      if (typeof params.questionTypes === 'string') {
+        params.questionTypes = [params.questionTypes];
+      }
+      
       // Enhanced prompt for better question generation by sections
       if (params.sections && params.sections.length > 0) {
         // Create a structured prompt for organized sections
@@ -208,44 +212,28 @@ export const useGeminiAI = async (
         // Calculate how many questions of each type
         const typeCount = params.questionTypes.length;
         const totalQuestions = params.numberOfQuestions || 10;
-        const baseCount = Math.floor(totalQuestions / typeCount);
-        const remainder = totalQuestions % typeCount;
-        
-        const typeCounts = params.questionTypes.map((type, index) => {
-          const count = index < remainder ? baseCount + 1 : baseCount;
-          return { type, count };
-        });
         
         // Create or enhance the prompt with specific distribution instructions
         const basePrompt = params.prompt || "";
         
-        // Create a detailed distribution prompt
+        // Add specific instruction to label each question with its type
         const distributionPrompt = `
-Please create a balanced set of questions with the following specific distribution:
+Please create a balanced set of questions according to the specified distribution.
 
-${typeCounts.map(({ type, count }) => {
-  let label = "";
-  if (type === "mcq") label = "Multiple Choice Questions";
-  else if (type === "truefalse") label = "True/False Questions";
-  else if (type === "shortanswer") label = "Short Answer Questions";
-  else if (type === "essay") label = "Essay Questions";
-  
-  return `- ${label}: ${count} questions`;
-}).join('\n')}
+It's CRITICAL that you label each question with its type at the beginning of the question:
+- For MCQs: "MCQ: [question]"
+- For True/False: "True/False: [question]" (end with "Answer: True" or "Answer: False")
+- For Short Answer: "Short Answer: [question]"
+- For Essay: "Essay: [question]" (include expected word count like "(200-250 words)")
 
-It's CRITICAL that you follow these exact counts for each question type. For each question, make sure to clearly indicate the question type in the following format:
-
-For MCQs: "MCQ: [question]"
-For True/False: "True/False: [question]" (end with "Answer: True" or "Answer: False")
-For Short Answer: "Short Answer: [question]"
-For Essay: "Essay: [question]" (include expected word count like "(200-250 words)")
-
-For MCQs, include 4 options labeled A, B, C, D and indicate the correct answer.
-For True/False questions, clearly state if the answer is True or False.
+For MCQs, include 4 options labeled A, B, C, D and indicate the correct answer at the end with "Answer: [letter]".
+For True/False questions, clearly state if the answer is True or False at the end with "Answer: True/False".
 `;
         
-        // Update the prompt
-        params.prompt = basePrompt + "\n\n" + distributionPrompt;
+        // Update the prompt if it doesn't already contain these instructions
+        if (!basePrompt.includes("label each question with its type")) {
+          params.prompt = basePrompt + "\n\n" + distributionPrompt;
+        }
       }
     }
     
