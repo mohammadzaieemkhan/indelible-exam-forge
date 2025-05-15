@@ -41,10 +41,9 @@ const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) 
     <>
       <ExamCard 
         exam={props.exam}
-        onDeleteClick={props.onDeleteClick}
-        onEditClick={props.onEditClick}
-        onDuplicateClick={props.onDuplicateClick}
-        // We don't pass onView directly, as we handle it with our custom handler
+        onSendReminder={() => {}} // Add this required prop
+        onDeleteClick={() => props.onDeleteClick?.()}
+        onViewExam={() => handleView()} // Use our custom handler
       />
       <ExamHandwrittenUploadHandler examWindowRef={examWindowRef} />
     </>

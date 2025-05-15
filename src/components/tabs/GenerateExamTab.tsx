@@ -323,7 +323,8 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
             .join(", "),
           questions: result.response,
           sections: useSections ? sections : [],
-          questionWeights
+          questionWeights,
+          isActive: false // Add the missing isActive property
         };
         
         // Direct save to upcoming exams without showing preview
