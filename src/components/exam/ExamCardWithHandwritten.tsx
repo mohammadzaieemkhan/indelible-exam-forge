@@ -1,93 +1,73 @@
 
-import React, { useRef, useEffect, useState } from 'react';
-import ExamCard from './ExamCard';
-import { IExam } from '@/components/ExamTabs';
-import ExamHandwrittenUploadHandler from './ExamHandwrittenUploadHandler';
-import ExamRendererWithHandwritten from './ExamRendererWithHandwritten';
-import { toast } from '@/components/ui/use-toast';
+import React, { useRef } from "react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar, Clock, Edit, FileUp, Trash2, Copy } from "lucide-react";
+import { IExam } from "@/components/ExamTabs";
+import ExamSectionedRenderer from "./ExamSectionedRenderer";
+import ExamHandwrittenUploadHandler from "./ExamHandwrittenUploadHandler";
 
-interface ExamCardWithHandwrittenProps {
+interface ExamCardProps {
   exam: IExam;
-  onDeleteClick?: () => void;
-  onEditClick?: () => void;
-  onDuplicateClick?: () => void;
-  onView?: () => void;
+  onDeleteClick: () => void;
+  onEditClick: () => void;
+  onDuplicateClick: () => void;
 }
 
-const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) => {
+const ExamCardWithHandwritten = ({ exam, onDeleteClick, onEditClick, onDuplicateClick }: ExamCardProps) => {
   const examWindowRef = useRef<Window | null>(null);
-  // State to track if the exam is currently available
-  const [isExamAvailable, setIsExamAvailable] = useState(false);
   
-  // Check if the exam should be available based on current time
-  useEffect(() => {
-    const checkExamAvailability = () => {
-      const now = new Date();
-      const [year, month, day] = props.exam.date.split('-').map(Number);
-      
-      // Parse the exam time
-      let [hours, minutes] = [0, 0];
-      if (props.exam.time) {
-        [hours, minutes] = props.exam.time.split(':').map(Number);
-      }
-      
-      const examDate = new Date(year, month - 1, day, hours, minutes);
-      
-      // The exam is available if the current time is past the scheduled exam time
-      const available = now >= examDate || props.exam.isActive;
-      setIsExamAvailable(available);
-    };
-    
-    // Check availability immediately
-    checkExamAvailability();
-    
-    // Set up interval to check periodically (every minute)
-    const intervalId = setInterval(checkExamAvailability, 60000);
-    
-    // Clean up interval on component unmount
-    return () => clearInterval(intervalId);
-  }, [props.exam.date, props.exam.time, props.exam.isActive]);
-  
-  const handleExamWindowOpen = (examWindow: Window) => {
-    examWindowRef.current = examWindow;
-  };
-  
-  // Custom view handler that uses our ExamRendererWithHandwritten
-  const handleView = () => {
-    // Create the renderer instance without using 'new'
-    const renderer = ExamRendererWithHandwritten({
-      exam: {...props.exam, isActive: isExamAvailable},
-      onExamWindowOpen: handleExamWindowOpen
-    });
-    
-    // If onView is provided, use it, otherwise use the renderer's handleViewExam
-    if (props.onView) {
-      props.onView();
-    } else {
-      // Call the function directly 
-      renderer.handleViewExam();
+  const { handleViewExam } = ExamSectionedRenderer({ 
+    exam,
+    onExamWindowOpen: (window) => {
+      examWindowRef.current = window;
     }
-  };
-  
-  // Handle sending reminder
-  const handleSendReminder = () => {
-    toast({
-      title: "Reminder Set",
-      description: `You'll be reminded about "${props.exam.name}" exam on ${props.exam.date}.`,
-      duration: 3000,
-    });
-  };
-  
+  });
+
   return (
-    <>
-      <ExamCard 
-        exam={{...props.exam, isActive: isExamAvailable}}
-        onSendReminder={handleSendReminder}
-        onDeleteClick={props.onDeleteClick ? () => props.onDeleteClick?.() : undefined}
-        onViewExam={handleView}
-      />
+    <Card className="overflow-hidden transition-all hover:shadow-md">
+      <CardHeader className="bg-primary text-primary-foreground">
+        <CardTitle className="truncate">{exam.name}</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <div className="space-y-4">
+          <div className="flex items-center text-sm">
+            <Calendar className="h-4 w-4 mr-2" />
+            {exam.date}
+          </div>
+          <div className="flex items-center text-sm">
+            <Clock className="h-4 w-4 mr-2" />
+            {exam.duration} minutes
+          </div>
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {exam.description || "No description provided."}
+          </p>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-between pt-2">
+        <div className="flex space-x-2">
+          <Button size="sm" variant="outline" onClick={onEditClick}>
+            <Edit className="h-4 w-4 mr-1" />
+            <span className="sr-only md:not-sr-only md:inline-block">Edit</span>
+          </Button>
+          <Button size="sm" variant="outline" onClick={onDuplicateClick}>
+            <Copy className="h-4 w-4 mr-1" />
+            <span className="sr-only md:not-sr-only md:inline-block">Copy</span>
+          </Button>
+          <Button size="sm" variant="outline" onClick={onDeleteClick}>
+            <Trash2 className="h-4 w-4 mr-1" />
+            <span className="sr-only md:not-sr-only md:inline-block">Delete</span>
+          </Button>
+        </div>
+        <Button size="sm" onClick={handleViewExam}>
+          <FileUp className="h-4 w-4 mr-1" />
+          <span>Take Exam</span>
+        </Button>
+      </CardFooter>
+
+      {/* Handles the handwritten answer uploads */}
       <ExamHandwrittenUploadHandler examWindowRef={examWindowRef} />
-    </>
+    </Card>
   );
 };
 

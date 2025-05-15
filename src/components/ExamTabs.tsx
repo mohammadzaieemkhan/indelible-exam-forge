@@ -1,174 +1,232 @@
 
-import React, { useState, useRef } from 'react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import ExamHandwrittenUploadHandler from './exam/ExamHandwrittenUploadHandler';
+import React, { useState, useEffect, Suspense } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import UpcomingExamsTab from "@/components/tabs/UpcomingExamsTab";
+import PreviousExamsTab from "@/components/tabs/PreviousExamsTab";
+import PerformanceTab from "@/components/tabs/PerformanceTab";
+import GenerateExamTab from "@/components/tabs/GenerateExamTab";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
+import { useMobile } from "@/hooks/use-mobile";
 
-// Import all tab components
-import UpcomingExamsTab from './tabs/UpcomingExamsTab';
-import GenerateExamTab from './tabs/GenerateExamTab';
-import PreviousExamsTab from './tabs/PreviousExamsTab';
-import PerformanceTab from './tabs/PerformanceTab';
-
-// Define and export the IExam interface
 export interface IExam {
   id?: string;
   name: string;
+  description?: string;
   date: string;
-  time: string;
   duration: number;
-  numberOfQuestions: number;
-  topics: string[];
-  difficulty: string;
-  questionTypes: string;
   isActive: boolean;
-  questions?: string;
-  sections?: any[]; // Add this property
-  questionWeights?: { // Add this property
-    mcq?: number;
-    truefalse?: number;
-    shortanswer?: number;
-    essay?: number;
-    [key: string]: number | undefined;
-  };
+  questions?: string | any;
+  questionWeights?: { [key: string]: number };
 }
 
-// Main ExamTabs component
-const ExamTabs: React.FC<{
-  onExamWindowOpen?: (examWindow: Window) => void
-}> = ({ onExamWindowOpen }) => {
-  // State for managing exams
-  const [upcomingExams, setUpcomingExams] = useState<IExam[]>([]);
-  const [previousExams, setPreviousExams] = useState<IExam[]>([]);
-  const [generatedExam, setGeneratedExam] = useState<IExam | null>(null);
-  const [activeTab, setActiveTab] = useState("upcoming-exams");
-  
-  // Ref for exam window
-  const examWindowRef = useRef<Window | null>(null);
-  
-  // Function to be called when opening the exam window
-  const handleExamWindowOpen = (examWindow: Window) => {
-    examWindowRef.current = examWindow;
-    if (onExamWindowOpen) {
-      onExamWindowOpen(examWindow);
-    }
-  };
+const ExamTabs = () => {
+  const [currentTab, setCurrentTab] = useState("upcoming");
+  const [exams, setExams] = useState<IExam[]>([]);
+  const [completedExams, setCompletedExams] = useState<any[]>([]);
+  const { toast } = useToast();
+  const isMobile = useMobile();
 
-  // Load exams from localStorage on component mount
-  React.useEffect(() => {
-    try {
-      const savedUpcomingExams = localStorage.getItem('upcomingExams');
-      const savedPreviousExams = localStorage.getItem('previousExams');
-      
-      if (savedUpcomingExams) {
-        setUpcomingExams(JSON.parse(savedUpcomingExams));
+  // Load exams from localStorage on mount
+  useEffect(() => {
+    const savedExams = localStorage.getItem("exams");
+    if (savedExams) {
+      try {
+        const parsedExams = JSON.parse(savedExams);
+        setExams(parsedExams);
+      } catch (error) {
+        console.error("Error parsing saved exams:", error);
       }
-      
-      if (savedPreviousExams) {
-        setPreviousExams(JSON.parse(savedPreviousExams));
+    }
+
+    const savedCompletedExams = localStorage.getItem("completedExams");
+    if (savedCompletedExams) {
+      try {
+        const parsedCompletedExams = JSON.parse(savedCompletedExams);
+        setCompletedExams(parsedCompletedExams);
+      } catch (error) {
+        console.error("Error parsing completed exams:", error);
       }
-    } catch (error) {
-      console.error("Error loading exams from localStorage:", error);
     }
   }, []);
 
   // Save exams to localStorage whenever they change
-  React.useEffect(() => {
-    if (upcomingExams.length > 0) {
-      localStorage.setItem('upcomingExams', JSON.stringify(upcomingExams));
-    }
-    
-    if (previousExams.length > 0) {
-      localStorage.setItem('previousExams', JSON.stringify(previousExams));
-    }
-  }, [upcomingExams, previousExams]);
+  useEffect(() => {
+    localStorage.setItem("exams", JSON.stringify(exams));
+  }, [exams]);
 
-  // Handle saving a new exam
-  const handleSaveExam = (exam: IExam) => {
-    const newExam = {
-      ...exam,
-      id: `exam-${Date.now()}`, // Generate a unique ID
+  // Save completed exams to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("completedExams", JSON.stringify(completedExams));
+  }, [completedExams]);
+
+  // Listen for exam completion events
+  useEffect(() => {
+    const handleExamCompleted = (event: any) => {
+      try {
+        const examData = event.data?.examData || event.detail;
+        if (!examData) return;
+
+        // Add completion timestamp
+        const completedExam = {
+          ...examData,
+          completedAt: new Date().toISOString(),
+        };
+
+        // Update completed exams list
+        setCompletedExams((prev) => [...prev, completedExam]);
+
+        toast({
+          title: "Exam Completed",
+          description: "Your exam has been submitted successfully.",
+        });
+      } catch (error) {
+        console.error("Error processing exam completion:", error);
+      }
     };
-    
-    setUpcomingExams([...upcomingExams, newExam]);
-    setGeneratedExam(null);
-    setActiveTab("upcoming-exams");
+
+    // Listen for message from exam window
+    window.addEventListener("message", handleExamCompleted);
+    // Listen for custom event from exam window
+    document.addEventListener("examCompleted", handleExamCompleted);
+
+    return () => {
+      window.removeEventListener("message", handleExamCompleted);
+      document.removeEventListener("examCompleted", handleExamCompleted);
+    };
+  }, [toast]);
+
+  // Handle adding a new exam
+  const handleAddExam = (exam: IExam) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    const newExam = { ...exam, id };
+    setExams((prevExams) => [...prevExams, newExam]);
+    setCurrentTab("upcoming");
+    toast({
+      title: "Exam Created",
+      description: `${exam.name} has been created successfully.`,
+    });
   };
 
   // Handle deleting an exam
   const handleDeleteExam = (examId: string) => {
-    setUpcomingExams(upcomingExams.filter(exam => exam.id !== examId));
+    setExams((prevExams) => prevExams.filter((exam) => exam.id !== examId));
+    toast({
+      title: "Exam Deleted",
+      description: "The exam has been deleted successfully.",
+    });
   };
 
   // Handle editing an exam
   const handleEditExam = (examId: string) => {
     // Find the exam to edit
-    const examToEdit = upcomingExams.find(exam => exam.id === examId);
+    const examToEdit = exams.find((exam) => exam.id === examId);
     if (examToEdit) {
-      // Set it as the generated exam for editing
-      setGeneratedExam(examToEdit);
-      // Remove it from upcoming exams
-      setUpcomingExams(upcomingExams.filter(exam => exam.id !== examId));
-      // Switch to generate tab
-      setActiveTab("generate-exam");
+      // Logic for editing an exam would go here
+      // This is a placeholder that just displays a toast
+      toast({
+        title: "Edit Exam",
+        description: `Editing ${examToEdit.name}`,
+      });
     }
   };
 
   // Handle duplicating an exam
   const handleDuplicateExam = (examId: string) => {
-    const examToDuplicate = upcomingExams.find(exam => exam.id === examId);
+    const examToDuplicate = exams.find((exam) => exam.id === examId);
     if (examToDuplicate) {
       const duplicatedExam = {
         ...examToDuplicate,
-        id: `exam-${Date.now()}`,
-        name: `${examToDuplicate.name} (Copy)`
+        id: Math.random().toString(36).substring(2, 9),
+        name: `Copy of ${examToDuplicate.name}`,
       };
-      setUpcomingExams([...upcomingExams, duplicatedExam]);
+      setExams((prevExams) => [...prevExams, duplicatedExam]);
+      toast({
+        title: "Exam Duplicated",
+        description: `${duplicatedExam.name} has been created.`,
+      });
     }
   };
 
   return (
-    <>
-      <Tabs 
-        value={activeTab} 
-        onValueChange={setActiveTab}
-        className="w-full"
-      >
-        <TabsList className="w-full grid-cols-2 sm:grid-cols-4 grid">
-          <TabsTrigger id="upcoming-exam-tab" value="upcoming-exams">Upcoming</TabsTrigger>
-          <TabsTrigger id="generate-exam-tab" value="generate-exam">Generate</TabsTrigger>
-          <TabsTrigger id="previous-exams-tab" value="previous-exams">Previous</TabsTrigger>
-          <TabsTrigger id="performance-tab" value="performance">Performance</TabsTrigger>
-        </TabsList>
+    <div className="container mx-auto py-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Exam Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
+            <div className="overflow-x-auto">
+              <TabsList className={`${isMobile ? 'grid grid-cols-2 gap-2 w-full mb-2' : 'flex space-x-2'}`}>
+                <TabsTrigger 
+                  id="upcoming-tab" 
+                  value="upcoming"
+                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
+                >
+                  Upcoming Exams
+                </TabsTrigger>
+                <TabsTrigger
+                  id="previous-tab" 
+                  value="previous"
+                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
+                >
+                  Previous Exams
+                </TabsTrigger>
+                <TabsTrigger
+                  id="generate-exam-tab"
+                  value="generate"
+                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
+                >
+                  Generate Exam
+                </TabsTrigger>
+                <TabsTrigger
+                  id="performance-tab"
+                  value="performance"
+                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
+                >
+                  Performance
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-        <TabsContent value="upcoming-exams" className="mt-6">
-          <UpcomingExamsTab 
-            exams={upcomingExams}
-            onDeleteExam={handleDeleteExam}
-            onEditExam={handleEditExam}
-            onDuplicateExam={handleDuplicateExam}
-          />
-        </TabsContent>
+            <TabsContent value="upcoming" className="space-y-4">
+              <Suspense fallback={<div>Loading...</div>}>
+                <UpcomingExamsTab
+                  exams={exams.filter((exam) => exam.isActive)}
+                  onDeleteExam={handleDeleteExam}
+                  onEditExam={handleEditExam}
+                  onDuplicateExam={handleDuplicateExam}
+                />
+              </Suspense>
+            </TabsContent>
 
-        <TabsContent value="generate-exam" className="mt-6">
-          <GenerateExamTab 
-            onSaveExam={handleSaveExam}
-            generatedExam={generatedExam}
-            setGeneratedExam={setGeneratedExam}
-          />
-        </TabsContent>
+            <TabsContent value="previous" className="space-y-4">
+              <Suspense fallback={<div>Loading...</div>}>
+                <PreviousExamsTab
+                  exams={exams.filter((exam) => !exam.isActive)}
+                  onDeleteExam={handleDeleteExam}
+                  onEditExam={handleEditExam}
+                  onDuplicateExam={handleDuplicateExam}
+                />
+              </Suspense>
+            </TabsContent>
 
-        <TabsContent value="previous-exams" className="mt-6">
-          <PreviousExamsTab exams={previousExams} />
-        </TabsContent>
+            <TabsContent value="generate" className="space-y-4">
+              <Suspense fallback={<div>Loading...</div>}>
+                <GenerateExamTab onExamGenerated={handleAddExam} />
+              </Suspense>
+            </TabsContent>
 
-        <TabsContent value="performance" className="mt-6">
-          <PerformanceTab examData={[...upcomingExams, ...previousExams]} />
-        </TabsContent>
-      </Tabs>
-      
-      {/* Add the handwritten upload handler */}
-      <ExamHandwrittenUploadHandler examWindowRef={examWindowRef} />
-    </>
+            <TabsContent value="performance" className="space-y-4">
+              <Suspense fallback={<div>Loading...</div>}>
+                <PerformanceTab completedExams={completedExams} />
+              </Suspense>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
