@@ -267,9 +267,10 @@ For True/False questions, clearly state if the answer is True or False at the en
             }
           }
           
-          // Handle nested answer objects
-          if (value && typeof value === 'object' && value.value) {
-            formattedAnswers[key] = value.value;
+          // Handle nested answer objects - FIX HERE
+          if (value && typeof value === 'object' && 'value' in value) {
+            // Use type assertion or type guard to fix the TypeScript error
+            formattedAnswers[key] = (value as { value: string }).value;
           }
         });
       }
