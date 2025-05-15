@@ -221,18 +221,19 @@ const GenerateExamTab = ({
     // Add question type configuration
     let questionTypeConfig: Record<string, number> = {};
     
-    if (values.questionTypes === "customized" && selectedQuestionTypes.length > 0) {
-      if (selectedQuestionTypes.includes("mcq") && values.mcqCount) {
-        questionTypeConfig.mcq = parseInt(values.mcqCount);
+    if (values.questionTypes === "customized") {
+      // Always include all question types that have non-zero values
+      if (parseInt(values.mcqCount || "0") > 0) {
+        questionTypeConfig.mcq = parseInt(values.mcqCount || "0");
       }
-      if (selectedQuestionTypes.includes("shortAnswer") && values.shortAnswerCount) {
-        questionTypeConfig.shortAnswer = parseInt(values.shortAnswerCount);
+      if (parseInt(values.shortAnswerCount || "0") > 0) {
+        questionTypeConfig.shortAnswer = parseInt(values.shortAnswerCount || "0");
       }
-      if (selectedQuestionTypes.includes("essay") && values.essayCount) {
-        questionTypeConfig.essay = parseInt(values.essayCount);
+      if (parseInt(values.essayCount || "0") > 0) {
+        questionTypeConfig.essay = parseInt(values.essayCount || "0");
       }
-      if (selectedQuestionTypes.includes("trueFalse") && values.trueFalseCount) {
-        questionTypeConfig.trueFalse = parseInt(values.trueFalseCount);
+      if (parseInt(values.trueFalseCount || "0") > 0) {
+        questionTypeConfig.trueFalse = parseInt(values.trueFalseCount || "0");
       }
     }
     
@@ -288,6 +289,11 @@ const GenerateExamTab = ({
     Please provide the correct answers at the end of the exam.`;
 
     try {
+      console.log("Calling Gemini AI with params:", {
+        task: "generate_questions",
+        prompt: prompt,
+      });
+      
       const response = await useGeminiAI({
         task: "generate_questions",
         prompt: prompt,
@@ -360,16 +366,53 @@ const GenerateExamTab = ({
     
     if (value === "mcq") {
       setSelectedQuestionTypes(["mcq"]);
+      // Update counts to match the selection
+      form.setValue("mcqCount", form.getValues("numberOfQuestions"));
+      form.setValue("shortAnswerCount", "0");
+      form.setValue("essayCount", "0");
+      form.setValue("trueFalseCount", "0");
     } else if (value === "shortAnswer") {
       setSelectedQuestionTypes(["shortAnswer"]);
+      form.setValue("mcqCount", "0");
+      form.setValue("shortAnswerCount", form.getValues("numberOfQuestions"));
+      form.setValue("essayCount", "0");
+      form.setValue("trueFalseCount", "0");
     } else if (value === "essay") {
       setSelectedQuestionTypes(["essay"]);
+      form.setValue("mcqCount", "0");
+      form.setValue("shortAnswerCount", "0");
+      form.setValue("essayCount", form.getValues("numberOfQuestions"));
+      form.setValue("trueFalseCount", "0");
     } else if (value === "trueFalse") {
       setSelectedQuestionTypes(["trueFalse"]);
+      form.setValue("mcqCount", "0");
+      form.setValue("shortAnswerCount", "0");
+      form.setValue("essayCount", "0");
+      form.setValue("trueFalseCount", form.getValues("numberOfQuestions"));
     } else if (value === "mixed") {
       setSelectedQuestionTypes(["mcq", "shortAnswer", "essay", "trueFalse"]);
+      // Reset counts for mixed
+      form.setValue("mcqCount", "");
+      form.setValue("shortAnswerCount", "");
+      form.setValue("essayCount", "");
+      form.setValue("trueFalseCount", "");
     } else if (value === "customized") {
-      setSelectedQuestionTypes(["mcq", "shortAnswer"]);
+      // For customized, set all types but let user adjust counts
+      setSelectedQuestionTypes(["mcq", "shortAnswer", "essay", "trueFalse"]);
+      
+      // Set default values for customized distribution if empty
+      if (!form.getValues("mcqCount")) form.setValue("mcqCount", "5");
+      if (!form.getValues("shortAnswerCount")) form.setValue("shortAnswerCount", "3");
+      if (!form.getValues("essayCount")) form.setValue("essayCount", "1");
+      if (!form.getValues("trueFalseCount")) form.setValue("trueFalseCount", "1");
+      
+      // Update total count
+      const total = parseInt(form.getValues("mcqCount") || "0") + 
+                    parseInt(form.getValues("shortAnswerCount") || "0") + 
+                    parseInt(form.getValues("essayCount") || "0") + 
+                    parseInt(form.getValues("trueFalseCount") || "0");
+      
+      form.setValue("numberOfQuestions", total.toString());
     }
   };
 
@@ -642,6 +685,10 @@ const GenerateExamTab = ({
               {/* Question Type Configuration - Only show when "customized" is selected */}
               {form.watch("questionTypes") === "customized" && (
                 <div className="space-y-4 pl-4 border-l-2 border-muted-foreground/20 mt-4">
+                  <div className="text-sm font-medium text-foreground/80 mb-2">
+                    Specify the number of questions for each type:
+                  </div>
+                  
                   <FormField
                     control={form.control}
                     name="mcqCount"
