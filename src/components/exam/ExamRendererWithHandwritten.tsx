@@ -13,7 +13,11 @@ interface ExamRendererWithHandwrittenProps {
 const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWithHandwrittenProps) => {
   // Open exam in a new window
   const handleViewExam = () => {
-    if (!exam.isActive) {
+    // Check if the exam is available based on scheduled date and time
+    const now = new Date();
+    const examDate = new Date(`${exam.date}T${exam.time || '00:00'}`);
+    
+    if (!exam.isActive || now < examDate) {
       toast({
         title: "Exam Not Available",
         description: "This exam will be available at the scheduled date and time.",
@@ -77,8 +81,14 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
       // Parse questions and handle errors
       let parsedQuestions: ParsedQuestionItem[] = [];
       try {
-        console.log("About to parse questions:", exam.questions);
-        parsedQuestions = parseQuestions(exam.questions);
+        console.log("About to parse questions:", typeof exam.questions, exam.questions);
+        
+        // Ensure questions is a string when parsing
+        const questionsText = typeof exam.questions === 'string' 
+          ? exam.questions 
+          : JSON.stringify(exam.questions);
+        
+        parsedQuestions = parseQuestions(questionsText);
         console.log("Parsed questions:", parsedQuestions);
       } catch (parseError) {
         console.error("Error parsing questions:", parseError);
@@ -98,13 +108,19 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
             <style>
               body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
               .error { color: #e53e3e; margin-top: 20px; }
+              .raw-content { white-space: pre-wrap; text-align: left; padding: 15px; 
+                          background-color: #f7f7f7; border-radius: 5px; margin: 20px auto; 
+                          max-width: 90%; overflow-x: auto; }
             </style>
           </head>
           <body>
             <h1>${exam.name}</h1>
             <p class="error">There was a problem with the exam questions format.</p>
+            <p>Here is the raw content that couldn't be parsed:</p>
+            <div class="raw-content">${markdownToHtml(typeof exam.questions === 'string' 
+              ? exam.questions 
+              : JSON.stringify(exam.questions, null, 2))}</div>
             <p>Please go back and try generating this exam again.</p>
-            <pre class="text-left text-xs mt-4">${parseError instanceof Error ? parseError.message : 'Unknown error'}</pre>
             <button onclick="window.close()">Close</button>
           </body>
           </html>
@@ -133,7 +149,9 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
             <h1>${exam.name}</h1>
             <div class="question">
               <p><strong>Warning:</strong> The system couldn't parse the questions automatically. Here is the raw content:</p>
-              <div class="raw-content">${markdownToHtml(exam.questions)}</div>
+              <div class="raw-content">${markdownToHtml(typeof exam.questions === 'string' 
+                ? exam.questions 
+                : JSON.stringify(exam.questions, null, 2))}</div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
               <button onclick="window.close()">Close Exam</button>

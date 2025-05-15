@@ -120,13 +120,30 @@ const ExamTabs = () => {
   // Handle adding a new exam
   const handleAddExam = (exam: IExam) => {
     console.log("Adding new exam:", exam);
-    const id = Math.random().toString(36).substring(2, 9);
-    const newExam = { ...exam, id, isActive: true };
-    setExams((prevExams) => [...prevExams, newExam]);
+    
+    // Generate a unique ID for the exam if it doesn't have one
+    const id = exam.id || Math.random().toString(36).substring(2, 9);
+    
+    // Check if an exam with this ID already exists to prevent duplicates
+    const existingExamIndex = exams.findIndex(e => e.id === id);
+    
+    if (existingExamIndex >= 0) {
+      // Update existing exam
+      const updatedExams = [...exams];
+      updatedExams[existingExamIndex] = { ...exam, id };
+      setExams(updatedExams);
+    } else {
+      // Add new exam
+      const newExam = { ...exam, id, isActive: true };
+      setExams((prevExams) => [...prevExams, newExam]);
+    }
+    
+    // Switch to the upcoming tab to view the new/updated exam
     setCurrentTab("upcoming");
+    
     toast({
       title: "Exam Created",
-      description: `${exam.name} has been created successfully.`,
+      description: `${exam.name} has been ${existingExamIndex >= 0 ? 'updated' : 'created'} successfully.`,
     });
   };
 

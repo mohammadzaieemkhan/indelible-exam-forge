@@ -23,13 +23,21 @@ const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
     }
   };
 
-  // Filter active exams only
+  // Filter active exams only and ensure no duplicates by using unique IDs
   const activeExams = exams.filter(exam => exam.isActive === true);
+  // Remove duplicates by ID
+  const uniqueActiveExams = activeExams.reduce((acc, current) => {
+    const existingExam = acc.find(exam => exam.id === current.id);
+    if (!existingExam) {
+      acc.push(current);
+    }
+    return acc;
+  }, [] as IExam[]);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-      {activeExams.length > 0 ? (
-        activeExams.map((exam) => (
+      {uniqueActiveExams.length > 0 ? (
+        uniqueActiveExams.map((exam) => (
           <ExamCardWithHandwritten
             key={exam.id}
             exam={exam}

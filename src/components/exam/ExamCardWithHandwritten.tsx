@@ -25,6 +25,18 @@ const ExamCardWithHandwritten = ({ exam, onDeleteClick, onEditClick, onDuplicate
     }
   });
 
+  // Check if the exam is currently available based on scheduled date and time
+  const isExamAvailable = () => {
+    if (!exam.isActive) return false;
+    
+    const now = new Date();
+    const examDate = new Date(`${exam.date}T${exam.time || '00:00'}`);
+    
+    return now >= examDate;
+  };
+
+  const examAvailable = isExamAvailable();
+
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <CardHeader className="bg-primary text-primary-foreground">
@@ -71,9 +83,14 @@ const ExamCardWithHandwritten = ({ exam, onDeleteClick, onEditClick, onDuplicate
             <span className="sr-only md:not-sr-only md:inline-block">Delete</span>
           </Button>
         </div>
-        <Button size="sm" onClick={handleViewExam} className="bg-blue-600 hover:bg-blue-700">
+        <Button 
+          size="sm" 
+          onClick={examAvailable ? handleViewExam : undefined}
+          disabled={!examAvailable}
+          className={examAvailable ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed"}
+        >
           <FileText className="h-4 w-4 mr-1" />
-          <span>Take Exam</span>
+          <span>{examAvailable ? "Take Exam" : "Not Available Yet"}</span>
         </Button>
       </CardFooter>
 
