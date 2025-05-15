@@ -28,7 +28,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     let optionsHtml = '';
     
     // Clean up the question text by removing the answer part
-    let cleanText = question.text;
+    let cleanText = question.text || '';
     if (question.correctAnswer) {
       cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False)/i, '');
     }
@@ -62,7 +62,11 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     }
     
     // Extract just the question part (without instructions like "Select one:" etc.)
-    const questionText = cleanText.replace(/.*?([A-Za-z0-9].*?\?)/s, '$1').trim();
+    // Add a null check for cleanText
+    let questionText = cleanText;
+    if (cleanText) {
+      questionText = cleanText.replace(/.*?([A-Za-z0-9].*?\?)/s, '$1').trim();
+    }
     
     return `
       <div class="question-content" id="question-content-${question.id}" ${index > 0 ? 'style="display: none;"' : ''}>

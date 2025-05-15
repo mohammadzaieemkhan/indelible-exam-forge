@@ -1,3 +1,4 @@
+
 // Fix the import to use the correct path and import the new parseQuestions function
 import { parseQuestions } from "./utils/examParser";
 
@@ -11,9 +12,14 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
   const durationMs = parseInt(exam.duration) * 60 * 1000;
   const endTime = startTime + durationMs;
   
-  // Filter out the answer key questions (they usually have the same question number)
+  // Fix the error: check if q.question exists before accessing match
   const questionSet = new Set();
   const uniqueQuestions = questions.filter(q => {
+    // Guard against undefined question
+    if (!q.question) {
+      return false;
+    }
+    
     const questionNumber = q.question.match(/^\d+/);
     if (questionNumber && !questionSet.has(questionNumber[0])) {
       questionSet.add(questionNumber[0]);
@@ -282,14 +288,14 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.question}</div>
                 <div class="options">
-                  ${q.options.map((option, optIdx) => `
+                  ${q.options ? q.options.map((option, optIdx) => `
                     <div class="option">
                       <label>
                         <input type="radio" name="q${idx}" value="${option}" />
                         ${option}
                       </label>
                     </div>
-                  `).join('')}
+                  `).join('') : '<p>No options available for this question.</p>'}
                 </div>
               </div>
             `).join('') || '<p>No multiple choice questions available</p>'}
