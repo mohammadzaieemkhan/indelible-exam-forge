@@ -28,7 +28,7 @@ export interface IExam {
 }
 
 const ExamTabs = () => {
-  const [currentTab, setCurrentTab] = useState("upcoming");
+  const [currentTab, setCurrentTab] = useState("generate");
   const [exams, setExams] = useState<IExam[]>([]);
   const [completedExams, setCompletedExams] = useState<any[]>([]);
   const { toast } = useToast();
@@ -80,6 +80,13 @@ const ExamTabs = () => {
           completedAt: new Date().toISOString(),
         };
 
+        // Mark the exam as inactive in the exams list
+        setExams(prevExams => 
+          prevExams.map(exam => 
+            exam.id === completedExam.id ? {...exam, isActive: false} : exam
+          )
+        );
+
         // Update completed exams list
         setCompletedExams((prev) => [...prev, completedExam]);
 
@@ -97,16 +104,20 @@ const ExamTabs = () => {
     // Listen for custom event from exam window
     document.addEventListener("examCompleted", handleExamCompleted);
 
+    // Auto-submission when exam time is up
+    document.addEventListener("examTimeUp", handleExamCompleted);
+
     return () => {
       window.removeEventListener("message", handleExamCompleted);
       document.removeEventListener("examCompleted", handleExamCompleted);
+      document.removeEventListener("examTimeUp", handleExamCompleted);
     };
   }, [toast]);
 
   // Handle adding a new exam
   const handleAddExam = (exam: IExam) => {
     const id = Math.random().toString(36).substring(2, 9);
-    const newExam = { ...exam, id };
+    const newExam = { ...exam, id, isActive: true };
     setExams((prevExams) => [...prevExams, newExam]);
     setCurrentTab("upcoming");
     toast({
@@ -164,22 +175,8 @@ const ExamTabs = () => {
         <CardContent>
           <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
             <div className="overflow-x-auto">
-              <TabsList className={`${isMobile ? 'grid grid-cols-2 gap-2 w-full mb-2' : 'flex space-x-2'}`}>
+              <TabsList className={`${isMobile ? 'grid grid-cols-4 gap-2 w-full mb-2' : 'flex space-x-2'}`}>
                 <TabsTrigger 
-                  id="upcoming-tab" 
-                  value="upcoming"
-                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
-                >
-                  Upcoming Exams
-                </TabsTrigger>
-                <TabsTrigger
-                  id="previous-tab" 
-                  value="previous"
-                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
-                >
-                  Previous Exams
-                </TabsTrigger>
-                <TabsTrigger
                   id="generate-exam-tab"
                   value="generate"
                   className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
@@ -193,20 +190,40 @@ const ExamTabs = () => {
                 >
                   Performance
                 </TabsTrigger>
+                <TabsTrigger
+                  id="previous-tab" 
+                  value="previous"
+                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
+                >
+                  Previous Exams
+                </TabsTrigger>
+                <TabsTrigger 
+                  id="upcoming-tab" 
+                  value="upcoming"
+                  className={`${isMobile ? 'text-sm py-1 px-2' : ''} flex-grow`}
+                >
+                  Upcoming Exams
+                </TabsTrigger>
               </TabsList>
             </div>
 
-            <TabsContent value="upcoming" className="space-y-4">
+            <TabsContent value="generate" className="space-y-4">
               <Suspense fallback={<div>Loading...</div>}>
-                <UpcomingExamsTab
-                  exams={exams.filter((exam) => exam.isActive)}
-                  onDeleteExam={handleDeleteExam}
-                  onEditExam={handleEditExam}
-                  onDuplicateExam={handleDuplicateExam}
+                <GenerateExamTab 
+                  onSaveExam={handleAddExam} 
+                  onExamGenerated={handleAddExam}
                 />
               </Suspense>
             </TabsContent>
 
+            <TabsContent value="performance" className="space-y-4">
+              <Suspense fallback={<div>Loading...</div>}>
+                <PerformanceTab 
+                  completedExams={completedExams}
+                />
+              </Suspense>
+            </TabsContent>
+            
             <TabsContent value="previous" className="space-y-4">
               <Suspense fallback={<div>Loading...</div>}>
                 <PreviousExamsTab
@@ -218,15 +235,14 @@ const ExamTabs = () => {
               </Suspense>
             </TabsContent>
 
-            <TabsContent value="generate" className="space-y-4">
+            <TabsContent value="upcoming" className="space-y-4">
               <Suspense fallback={<div>Loading...</div>}>
-                <GenerateExamTab onSaveExam={handleAddExam} />
-              </Suspense>
-            </TabsContent>
-
-            <TabsContent value="performance" className="space-y-4">
-              <Suspense fallback={<div>Loading...</div>}>
-                <PerformanceTab completedExams={completedExams} />
+                <UpcomingExamsTab
+                  exams={exams.filter((exam) => exam.isActive)}
+                  onDeleteExam={handleDeleteExam}
+                  onEditExam={handleEditExam}
+                  onDuplicateExam={handleDuplicateExam}
+                />
               </Suspense>
             </TabsContent>
           </Tabs>

@@ -180,7 +180,15 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam, onExamGe
   
   // Handle date change
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setExamDate(e.target.value);
+    const selectedDate = e.target.value;
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (selectedDate < today) {
+      setFormErrors(prev => ({...prev, date: "Date cannot be in the past"}));
+      return;
+    }
+    
+    setExamDate(selectedDate);
     setFormErrors(prev => ({...prev, date: undefined}));
   };
 
@@ -200,6 +208,12 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam, onExamGe
 
     if (!examDate) {
       errors.date = "Exam date is required";
+    } else {
+      // Validate if date is not in the past
+      const today = new Date().toISOString().split('T')[0];
+      if (examDate < today) {
+        errors.date = "Date cannot be in the past";
+      }
     }
 
     if (!examTime) {

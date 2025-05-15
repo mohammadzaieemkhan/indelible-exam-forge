@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Filter, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -369,7 +368,7 @@ const PreviousExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
                 <div className="text-sm text-muted-foreground">
                   <p>Date: {selectedExam.date}</p>
                   <p>Duration: {selectedExam.duration} minutes</p>
-                  <p>Difficulty: {selectedExam.difficulty}</p>
+                  {selectedExam.difficulty && <p>Difficulty: {selectedExam.difficulty}</p>}
                 </div>
               </div>
             ) : (

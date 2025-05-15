@@ -14,6 +14,15 @@ interface UpcomingExamsTabProps {
 }
 
 const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: UpcomingExamsTabProps) => {
+  // Function to handle redirect to the generate exam tab
+  const handleRedirectToGenerateExam = () => {
+    // Find the generate exam tab element and trigger a click
+    const generateExamTab = document.getElementById("generate-exam-tab");
+    if (generateExamTab) {
+      generateExamTab.click();
+    }
+  };
+  
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
       {exams.length > 0 ? (
@@ -33,7 +42,7 @@ const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
             <div className="flex justify-center">
               <Button
                 variant="outline"
-                onClick={() => document.getElementById("generate-exam-tab")?.click()}
+                onClick={handleRedirectToGenerateExam}
                 className="inline-flex items-center"
               >
                 <FileText className="mr-2 h-4 w-4" />
