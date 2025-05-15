@@ -253,6 +253,17 @@ export const generateExamHtml = (exam, questions) => {
         .essay-input {
           min-height: 200px;
         }
+        .answer-save-indicator {
+          display: inline-block;
+          margin-left: 10px;
+          font-size: 12px;
+          color: #10B981;
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        .answer-save-indicator.visible {
+          opacity: 1;
+        }
         @media (max-width: 768px) {
           #exam-container {
             flex-direction: column;
@@ -313,12 +324,13 @@ export const generateExamHtml = (exam, questions) => {
                     return `
                     <div class="option">
                       <label>
-                        <input type="radio" name="q${idx}" value="${optionLetter}" data-question-id="${idx}" data-question-type="mcq" onclick="saveAnswer('q${idx}', '${optionLetter}', 'mcq')"/>
+                        <input type="radio" name="q${idx}" value="${optionLetter}" data-question-id="${idx}" data-question-type="mcq" data-mcq-index="${idx}" onclick="saveAnswer('q${idx}', '${optionLetter}', 'mcq')"/>
                         ${optionText}
                       </label>
                     </div>
                   `}).join('')}
                 </div>
+                <div class="answer-save-indicator" id="save-indicator-q${idx}">Answer saved</div>
               </div>
             `).join('')}
           </div>` : ''}
@@ -332,17 +344,18 @@ export const generateExamHtml = (exam, questions) => {
                 <div class="options">
                   <div class="option">
                     <label>
-                      <input type="radio" name="tf${idx}" value="true" data-question-id="${idx}" data-question-type="trueFalse" onclick="saveAnswer('tf${idx}', 'true', 'trueFalse')"/>
+                      <input type="radio" name="tf${idx}" value="true" data-question-id="${idx}" data-question-type="trueFalse" data-tf-index="${idx}" onclick="saveAnswer('tf${idx}', 'true', 'trueFalse')"/>
                       True
                     </label>
                   </div>
                   <div class="option">
                     <label>
-                      <input type="radio" name="tf${idx}" value="false" data-question-id="${idx}" data-question-type="trueFalse" onclick="saveAnswer('tf${idx}', 'false', 'trueFalse')"/>
+                      <input type="radio" name="tf${idx}" value="false" data-question-id="${idx}" data-question-type="trueFalse" data-tf-index="${idx}" onclick="saveAnswer('tf${idx}', 'false', 'trueFalse')"/>
                       False
                     </label>
                   </div>
                 </div>
+                <div class="answer-save-indicator" id="save-indicator-tf${idx}">Answer saved</div>
               </div>
             `).join('')}
           </div>` : ''}
@@ -354,7 +367,12 @@ export const generateExamHtml = (exam, questions) => {
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
-                  <input type="text" id="sa${idx}" placeholder="Enter your answer here..." data-question-id="${idx}" data-question-type="shortAnswer" oninput="saveAnswer('sa${idx}', this.value, 'shortAnswer')" onchange="saveAnswer('sa${idx}', this.value, 'shortAnswer')"/>
+                  <input type="text" id="sa${idx}" placeholder="Enter your answer here..." 
+                    data-question-id="${idx}" data-question-type="shortAnswer" data-sa-index="${idx}"
+                    oninput="saveAnswer('sa${idx}', this.value, 'shortAnswer')" 
+                    onchange="saveAnswer('sa${idx}', this.value, 'shortAnswer')"
+                    onblur="saveAnswer('sa${idx}', this.value, 'shortAnswer')"
+                  />
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('sa${idx}', 'shortanswer')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
@@ -362,6 +380,7 @@ export const generateExamHtml = (exam, questions) => {
                     </svg>
                     Upload Image
                   </button>
+                  <div class="answer-save-indicator" id="save-indicator-sa${idx}">Answer saved</div>
                 </div>
               </div>
             `).join('')}
@@ -374,7 +393,12 @@ export const generateExamHtml = (exam, questions) => {
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
-                  <textarea id="essay${idx}" class="essay-input" placeholder="Write your answer here..." data-question-id="${idx}" data-question-type="essay" oninput="saveAnswer('essay${idx}', this.value, 'essay')" onchange="saveAnswer('essay${idx}', this.value, 'essay')"></textarea>
+                  <textarea id="essay${idx}" class="essay-input" placeholder="Write your answer here..." 
+                    data-question-id="${idx}" data-question-type="essay" data-essay-index="${idx}"
+                    oninput="saveAnswer('essay${idx}', this.value, 'essay')" 
+                    onchange="saveAnswer('essay${idx}', this.value, 'essay')"
+                    onblur="saveAnswer('essay${idx}', this.value, 'essay')"
+                  ></textarea>
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('essay${idx}', 'essay')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
@@ -382,6 +406,7 @@ export const generateExamHtml = (exam, questions) => {
                     </svg>
                     Upload Image
                   </button>
+                  <div class="answer-save-indicator" id="save-indicator-essay${idx}">Answer saved</div>
                 </div>
               </div>
             `).join('')}
@@ -539,18 +564,70 @@ export const generateExamHtml = (exam, questions) => {
           e.target.value = '';
         });
         
-        // Collect answers - improved to properly save all answer types
+        // Show the save indicator for a brief period
+        function showSaveIndicator(elementId) {
+          const indicator = document.getElementById('save-indicator-' + elementId);
+          if (indicator) {
+            indicator.classList.add('visible');
+            setTimeout(() => {
+              indicator.classList.remove('visible');
+            }, 1500);
+          }
+        }
+        
+        // Collect answers - completely revised for robust answer handling
         function saveAnswer(questionId, value, type) {
           console.log("Saving answer for:", questionId, "Value:", value, "Type:", type);
           
-          // Store answers in the format expected by the evaluation system
-          // For MCQs, we remove the 'q' prefix to get the actual question index
-          let actualQuestionId = questionId;
+          // Show the save animation
+          showSaveIndicator(questionId);
+          
+          // Store answers in multiple formats to ensure they're captured
           
           // First store in answers object with the ID format expected by the evaluation code
           examData.answers[questionId] = value;
           
-          console.log("Updated exam data answers:", examData.answers);
+          // Also store using additional formats based on data attributes
+          if (type === 'mcq') {
+            // Find the actual index from the data attribute
+            const radioEl = document.querySelector(`input[name="${questionId}"]:checked`);
+            if (radioEl) {
+              const mcqIndex = radioEl.getAttribute('data-mcq-index');
+              if (mcqIndex !== null) {
+                // Store with plain numeric index
+                examData.answers[mcqIndex] = value;
+                // Store with question- prefix
+                examData.answers[`question-${mcqIndex}`] = value;
+              }
+            }
+          } else if (type === 'trueFalse') {
+            const radioEl = document.querySelector(`input[name="${questionId}"]:checked`);
+            if (radioEl) {
+              const tfIndex = radioEl.getAttribute('data-tf-index');
+              if (tfIndex !== null) {
+                examData.answers[tfIndex] = value;
+                examData.answers[`question-${tfIndex}`] = value;
+              }
+            }
+          } else if (type === 'shortAnswer') {
+            const inputEl = document.getElementById(questionId);
+            if (inputEl) {
+              const saIndex = inputEl.getAttribute('data-sa-index');
+              if (saIndex !== null) {
+                examData.answers[saIndex] = value;
+                examData.answers[`question-${saIndex}`] = value;
+              }
+            }
+          } else if (type === 'essay') {
+            const textareaEl = document.getElementById(questionId);
+            if (textareaEl) {
+              const essayIndex = textareaEl.getAttribute('data-essay-index');
+              if (essayIndex !== null) {
+                examData.answers[essayIndex] = value;
+                examData.answers[`question-${essayIndex}`] = value;
+              }
+            }
+          }
           
           // Add visual feedback that answer was saved
           if (type === 'mcq' || type === 'trueFalse') {
@@ -566,7 +643,7 @@ export const generateExamHtml = (exam, questions) => {
           }
           
           // Debug the answers state - full dump for troubleshooting
-          console.log("Current answers state (complete):", JSON.stringify(examData.answers));
+          console.log("Current answers state:", JSON.stringify(examData.answers));
           
           // Store answers in localStorage as backup
           try {
@@ -590,6 +667,7 @@ export const generateExamHtml = (exam, questions) => {
                 // Only restore if we're in the same exam session
                 if (questionId) {
                   examData.answers[questionId] = value;
+                  
                   // Find the corresponding UI element and set its value
                   if (questionId.startsWith('q')) {
                     // MCQ question
@@ -612,7 +690,7 @@ export const generateExamHtml = (exam, questions) => {
             console.error("Failed to restore saved answers:", e);
           }
           
-          // For radio buttons (MCQ and True/False)
+          // For radio buttons (MCQ and True/False) - add multiple event types
           document.querySelectorAll('input[type="radio"]').forEach(radio => {
             ['change', 'click'].forEach(eventType => {
               radio.addEventListener(eventType, function() {
@@ -624,7 +702,7 @@ export const generateExamHtml = (exam, questions) => {
             });
           });
           
-          // For text inputs (Short Answer)
+          // For text inputs (Short Answer) - add multiple event types
           document.querySelectorAll('input[type="text"]').forEach(input => {
             ['input', 'change', 'blur', 'keyup'].forEach(eventType => {
               input.addEventListener(eventType, function() {
@@ -636,7 +714,7 @@ export const generateExamHtml = (exam, questions) => {
             });
           });
           
-          // For textareas (Essay)
+          // For textareas (Essay) - add multiple event types
           document.querySelectorAll('textarea').forEach(textarea => {
             ['input', 'change', 'blur', 'keyup'].forEach(eventType => {
               textarea.addEventListener(eventType, function() {
@@ -647,21 +725,20 @@ export const generateExamHtml = (exam, questions) => {
               });
             });
           });
+          
+          // Add interval to periodically save all answers as backup
+          setInterval(collectAllAnswers, 10000);
         });
         
-        // Form submission - enhanced to ensure answers are collected
-        function submitExam(autoSubmit = false) {
-          clearInterval(timerInterval);
-          
-          // CRITICAL: Force collect ALL answers one last time before submission
-          console.log("Submitting exam - collecting final answers");
+        // Collect all answers from the DOM
+        function collectAllAnswers() {
+          console.log("Periodically saving all answers");
           
           // For multiple choice questions
           document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
             const qId = radio.getAttribute('name');
             const qType = radio.getAttribute('data-question-type') || (qId.startsWith('q') ? 'mcq' : 'trueFalse');
             saveAnswer(qId, radio.value, qType);
-            console.log('Final collection - radio: ' + qId + ' = ' + radio.value);
           });
           
           // For text inputs
@@ -670,7 +747,6 @@ export const generateExamHtml = (exam, questions) => {
               const qId = input.id;
               const qType = input.getAttribute('data-question-type') || 'shortAnswer';
               saveAnswer(qId, input.value, qType);
-              console.log('Final collection - text: ' + qId + ' = ' + input.value);
             }
           });
           
@@ -680,7 +756,62 @@ export const generateExamHtml = (exam, questions) => {
               const qId = textarea.id;
               const qType = textarea.getAttribute('data-question-type') || 'essay';
               saveAnswer(qId, textarea.value, qType);
-              console.log('Final collection - textarea: ' + qId + ' = ' + textarea.value.substring(0, 20) + '...');
+            }
+          });
+          
+          // Debug the answers state
+          console.log("Answers collected:", Object.keys(examData.answers).length);
+        }
+        
+        // Form submission - enhanced to ensure answers are collected
+        function submitExam(autoSubmit = false) {
+          clearInterval(timerInterval);
+          
+          // CRITICAL: Force collect ALL answers one last time before submission
+          console.log("Submitting exam - collecting final answers");
+          collectAllAnswers();
+          
+          // Additional collection of answers using a different approach for maximum redundancy
+          
+          // For multiple choice questions
+          document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+            const qId = radio.getAttribute('name');
+            const mcqIndex = radio.getAttribute('data-mcq-index');
+            const tfIndex = radio.getAttribute('data-tf-index');
+            
+            // Store answers in multiple formats
+            if (qId) examData.answers[qId] = radio.value;
+            if (mcqIndex) examData.answers[mcqIndex] = radio.value;
+            if (tfIndex) examData.answers[tfIndex] = radio.value;
+            
+            console.log('Final collection - radio:', qId, '=', radio.value);
+          });
+          
+          // For text inputs
+          document.querySelectorAll('input[type="text"]').forEach(input => {
+            if (input.value.trim()) {
+              const qId = input.id;
+              const saIndex = input.getAttribute('data-sa-index');
+              
+              // Store answers in multiple formats
+              if (qId) examData.answers[qId] = input.value;
+              if (saIndex) examData.answers[saIndex] = input.value;
+              
+              console.log('Final collection - text:', qId, '=', input.value);
+            }
+          });
+          
+          // For textareas
+          document.querySelectorAll('textarea').forEach(textarea => {
+            if (textarea.value.trim()) {
+              const qId = textarea.id;
+              const essayIndex = textarea.getAttribute('data-essay-index');
+              
+              // Store answers in multiple formats
+              if (qId) examData.answers[qId] = textarea.value;
+              if (essayIndex) examData.answers[essayIndex] = textarea.value;
+              
+              console.log('Final collection - textarea:', qId, '=', textarea.value.substring(0, 20) + '...');
             }
           });
           

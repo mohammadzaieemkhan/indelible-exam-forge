@@ -98,69 +98,119 @@ serve(async (req) => {
         break;
         
       case "evaluate_answer":
-        systemPrompt = "You are an AI specialized in evaluating and grading student answers. Provide constructive feedback and suggestions for improvement.";
+        systemPrompt = "You are an AI specialized in evaluating and grading student answers with extreme detail and accuracy. Provide constructive feedback and evaluate each answer with precision.";
         
         // Enhanced evaluation prompt if we have exam data
         if (examData) {
           console.log("Evaluating exam submission with Gemini AI");
           
-          // Get the correct answers for comparison
+          // Debug the exam data structure
+          console.log("Exam structure:", JSON.stringify(examData, null, 2));
+          console.log("Available answers:", examData.answers ? Object.keys(examData.answers) : "No answers object found");
+          
+          // Get the correct answers and format the questions for clearer evaluation
           let correctAnswersMap = {};
+          let questionMap = {};
+          
           if (examData.questions && Array.isArray(examData.questions)) {
             examData.questions.forEach((q, idx) => {
-              if (q.type === 'mcq' || q.type === 'trueFalse') {
-                // For MCQ questions, convert index to question ID format used in the answers
-                correctAnswersMap[`q${idx}`] = q.answer;
-              }
+              // Store both by index and by ID format for robust matching
+              correctAnswersMap[`q${idx}`] = q.answer;
+              correctAnswersMap[idx] = q.answer;
+              
+              // Also store complete question data for reference
+              questionMap[`q${idx}`] = q;
+              questionMap[idx] = q;
             });
           }
           
-          // Format questions and user responses for evaluation
-          let formattedPrompt = `Evaluate the following exam responses:
-        
-      Exam: ${examData.examName}
+          console.log("Mapped correct answers:", correctAnswersMap);
+          console.log("Answer keys available:", Object.keys(examData.answers || {}));
+          
+          // Format questions and user responses for evaluation with extremely clear instructions
+          let formattedPrompt = `EXAM EVALUATION TASK
+          
+      Please evaluate this exam submission with maximum precision. The student has submitted answers to multiple choice questions.
+
+      Exam: ${examData.examName || "Untitled Exam"}
       Topic(s): ${examData.topics ? examData.topics.join(", ") : "General Knowledge"}
       Difficulty: ${examData.difficulty || "medium"}
+      
+      IMPORTANT INSTRUCTIONS:
+      - Evaluate each question with extreme care and accuracy
+      - For unanswered questions, mark them as incorrect with 0 points
+      - Compare user answers directly with correct answers
+      - Provide clear feedback for each question
+      - Calculate the final score precisely
       
       Questions and Responses:
       `;
           
-          // Add each question and response
+          // Add each question and response with detailed information for better evaluation
           if (examData.questions && Array.isArray(examData.questions)) {
             examData.questions.forEach((q, idx) => {
-              const questionId = `q${idx}`;
-              const userAnswer = examData.answers && examData.answers[questionId] 
-                ? examData.answers[questionId] 
-                : "Not answered";
+              // Construct different possible question identifiers to find the answer
+              const possibleKeys = [
+                `q${idx}`, 
+                `question-${idx + 1}`,
+                `question-q${idx}`,
+                `${idx}`,
+                `question${idx}`,
+                `q-${idx}`
+              ];
               
+              // Try to find the user answer using multiple possible key formats
+              let userAnswer = "Not answered";
+              for (const key of possibleKeys) {
+                if (examData.answers && examData.answers[key] !== undefined) {
+                  userAnswer = examData.answers[key];
+                  console.log(`Found answer for question ${idx} using key ${key}: ${userAnswer}`);
+                  break;
+                }
+              }
+              
+              // Fall back to direct array index if object lookup failed
+              if (userAnswer === "Not answered" && examData.answers && Array.isArray(examData.answers) && examData.answers[idx]) {
+                userAnswer = examData.answers[idx];
+                console.log(`Found answer using array index ${idx}: ${userAnswer}`);
+              }
+              
+              // Get the question weight
               const weight = examData.questionWeights?.[idx] || 1;
+              
+              // Format the options nicely for the prompt
               const options = q.options && Array.isArray(q.options) 
                 ? q.options.join(" | ") 
                 : "No options provided";
               
+              // Add detailed question information to the prompt
               formattedPrompt += `
-        Question ${idx + 1} (${q.type}, weight: ${weight}): ${q.question}
+        Question ${idx + 1} (${q.type || 'unknown'}, weight: ${weight}): ${q.question || 'Unknown question'}
         Options: ${options}
-        Correct Answer: ${correctAnswersMap[questionId] || "N/A"}
+        Correct Answer: ${q.answer || correctAnswersMap[`q${idx}`] || "Unknown"}
         User Answer: ${userAnswer}
-        \n\n`;
+
+        `;
             });
+          } else {
+            formattedPrompt += "\nWARNING: No questions array found in exam data. Evaluation may be incomplete.\n";
           }
           
-          // Add evaluation instructions
+          // Add extremely detailed evaluation instructions
           formattedPrompt += `
-      For each question, provide:
+      CRITICAL EVALUATION INSTRUCTIONS:
+      For each question, you MUST provide:
       1. Whether the answer is correct (full points), partially correct (partial points), or incorrect (0 points)
-      2. A brief explanation/feedback
-      3. The points awarded out of the question weight
+      2. A brief but thorough explanation/feedback
+      3. The exact points awarded out of the question weight
       
-      Also provide:
-      - Total score (sum of awarded points)
-      - Total possible score (sum of question weights)
-      - Percentage score
+      Then provide:
+      - Total score (accurate sum of awarded points)
+      - Total possible score (exact sum of question weights)
+      - Percentage score (precise calculation)
       - Performance breakdown by topic
       
-      Use the following JSON format for your response:
+      YOUR RESPONSE MUST USE THIS EXACT JSON FORMAT:
       {
         "questionDetails": [
           {
@@ -183,7 +233,9 @@ serve(async (req) => {
         }
       }`;
           
+          // Update the user prompt
           userPrompt = formattedPrompt;
+          console.log("Prepared detailed evaluation prompt");
         }
         break;
         
@@ -254,6 +306,9 @@ serve(async (req) => {
     );
 
     const geminiData = await geminiResponse.json();
+    
+    // Log the complete API response for debugging
+    console.log("Complete Gemini API response:", JSON.stringify(geminiData, null, 2));
     
     // Safely extract the AI response text with better error handling
     let aiResponse = "";

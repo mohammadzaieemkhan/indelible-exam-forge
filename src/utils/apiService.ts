@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -238,18 +237,48 @@ For True/False questions, clearly state if the answer is True or False at the en
       }
     }
     
-    // Add evaluation logic for exam submissions
+    // Enhancement for exam evaluation - completely revised for robust answer handling
     if (params.task === "evaluate_answer" && params.examData) {
-      console.log("Evaluating exam submission with Gemini AI:", params.examData);
+      console.log("Evaluating exam submission with Gemini AI");
       
-      // Log the answers directly for debugging
+      // Thorough debugging of the exam data, especially the answers
+      console.log("Exam data structure:", JSON.stringify(params.examData, null, 2));
       console.log("Answers for evaluation:", params.examData.answers);
+      console.log("Question list:", params.examData.questions?.map(q => q.question).join('\n'));
       
-      // Convert the answers format if needed to match the expected format
+      // Create a comprehensive mapping of answers with multiple key formats for robustness
       const formattedAnswers = {};
-      if (params.examData.answers) {
+      
+      // Handle object structure answers
+      if (params.examData.answers && typeof params.examData.answers === 'object') {
+        // Create multiple formats for robustness
         Object.entries(params.examData.answers).forEach(([key, value]) => {
+          // Keep the original key-value pair
           formattedAnswers[key] = value;
+          
+          // Add alternative key formats for robustness
+          if (key.startsWith('q')) {
+            const index = parseInt(key.substring(1));
+            if (!isNaN(index)) {
+              // Add numeric index format
+              formattedAnswers[index] = value;
+              // Add alternative q format
+              formattedAnswers[`question-${index}`] = value;
+            }
+          }
+          
+          // Handle nested answer objects
+          if (value && typeof value === 'object' && value.value) {
+            formattedAnswers[key] = value.value;
+          }
+        });
+      }
+      
+      // Handle array structure answers
+      if (params.examData.answers && Array.isArray(params.examData.answers)) {
+        params.examData.answers.forEach((answer, index) => {
+          formattedAnswers[`q${index}`] = answer;
+          formattedAnswers[index] = answer;
         });
       }
       
@@ -259,6 +288,8 @@ For True/False questions, clearly state if the answer is True or False at the en
       console.log("Formatted answers for evaluation:", params.examData.answers);
     }
     
+    // Make the API call with enhanced logging
+    console.log("Making API call to gemini-ai with task:", params.task);
     const { data, error } = await supabase.functions.invoke('gemini-ai', {
       body: params
     });
@@ -287,15 +318,19 @@ For True/False questions, clearly state if the answer is True or False at the en
       };
     }
     
-    // If this was an exam evaluation, process the results
+    // If this was an exam evaluation, process the results with enhanced robustness
     if (params.task === "evaluate_answer" && params.examData) {
-      // Process evaluation response and calculate results
+      // Process evaluation response and calculate results with multiple fallbacks
       try {
-        // Try to parse the JSON response from Gemini
+        console.log("Processing evaluation response");
+        // Try to parse the JSON response from Gemini with multiple approaches for robustness
         let evaluationData;
         const responseText = data.response;
         
-        // Extract JSON if it's wrapped in markdown code blocks
+        // Log the complete response for debugging
+        console.log("Full evaluation response:", responseText);
+        
+        // Approach 1: Extract JSON from markdown code blocks
         if (responseText.includes('```json')) {
           const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
           if (jsonMatch && jsonMatch[1]) {
@@ -308,10 +343,9 @@ For True/False questions, clearly state if the answer is True or False at the en
           }
         }
         
-        // If we couldn't extract from code block, try as raw JSON
+        // Approach 2: Look for any JSON object in the response
         if (!evaluationData) {
           try {
-            // Look for a JSON object in the string
             const jsonMatch = responseText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
               evaluationData = JSON.parse(jsonMatch[0]);
@@ -319,6 +353,33 @@ For True/False questions, clearly state if the answer is True or False at the en
             }
           } catch (jsonError) {
             console.error("Error parsing raw JSON:", jsonError);
+          }
+        }
+        
+        // Approach 3: Try again with a more lenient regex
+        if (!evaluationData) {
+          try {
+            // Find anything that looks like a JSON object starting with { and ending with }
+            const jsonRegex = /(\{[\s\S]*?\})/g;
+            const matches = responseText.match(jsonRegex);
+            
+            if (matches) {
+              // Try each possible match
+              for (const match of matches) {
+                try {
+                  const possibleJson = JSON.parse(match);
+                  if (possibleJson.questionDetails && possibleJson.totalScore !== undefined) {
+                    evaluationData = possibleJson;
+                    console.log("Found valid evaluation JSON using lenient regex:", evaluationData);
+                    break;
+                  }
+                } catch (e) {
+                  // Continue to the next match
+                }
+              }
+            }
+          } catch (error) {
+            console.error("Error with lenient JSON parsing:", error);
           }
         }
         
@@ -330,13 +391,28 @@ For True/False questions, clearly state if the answer is True or False at the en
         const evaluation = evaluationData || {
           questionDetails: params.examData.questions.map((q, idx) => {
             const questionId = `q${idx}`;
-            const userAnswer = params.examData.answers[questionId] || "Not answered";
+            let userAnswer = "Not answered";
+            
+            // Try multiple potential answer keys
+            const possibleKeys = [
+              questionId,
+              idx.toString(),
+              `question-${idx}`,
+              `question-${questionId}`
+            ];
+            
+            for (const key of possibleKeys) {
+              if (params.examData.answers[key] !== undefined) {
+                userAnswer = params.examData.answers[key];
+                break;
+              }
+            }
             
             return {
               question: q.question,
               type: q.type,
               isCorrect: false,
-              feedback: "The question was not answered correctly.",
+              feedback: "The question was not answered or could not be evaluated.",
               marksObtained: 0,
               totalMarks: 1,
               userAnswer: userAnswer,
@@ -349,7 +425,7 @@ For True/False questions, clearly state if the answer is True or False at the en
           topicPerformance: {}
         };
         
-        // Create a final result object
+        // Create a final result object with comprehensive data
         const result = {
           examId: params.examData.examId,
           examName: params.examData.examName,
