@@ -1,8 +1,15 @@
 
-import React, { useRef } from 'react';
+import React, { useState, useRef } from 'react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import ExamHandwrittenUploadHandler from './exam/ExamHandwrittenUploadHandler';
 
-// Define and export the IExam interface - this will fix most of our import errors
+// Import all tab components
+import UpcomingExamsTab from './tabs/UpcomingExamsTab';
+import GenerateExamTab from './tabs/GenerateExamTab';
+import PreviousExamsTab from './tabs/PreviousExamsTab';
+import PerformanceTab from './tabs/PerformanceTab';
+
+// Define and export the IExam interface
 export interface IExam {
   id?: string;
   name: string;
@@ -25,10 +32,17 @@ export interface IExam {
   };
 }
 
-// Create a wrapper component for ExamTabs that will handle the exam window reference
-const ExamTabsWithHandwrittenSupport: React.FC<{
+// Main ExamTabs component
+const ExamTabs: React.FC<{
   onExamWindowOpen?: (examWindow: Window) => void
 }> = ({ onExamWindowOpen }) => {
+  // State for managing exams
+  const [upcomingExams, setUpcomingExams] = useState<IExam[]>([]);
+  const [previousExams, setPreviousExams] = useState<IExam[]>([]);
+  const [generatedExam, setGeneratedExam] = useState<IExam | null>(null);
+  const [activeTab, setActiveTab] = useState("upcoming-exams");
+  
+  // Ref for exam window
   const examWindowRef = useRef<Window | null>(null);
   
   // Function to be called when opening the exam window
@@ -38,14 +52,119 @@ const ExamTabsWithHandwrittenSupport: React.FC<{
       onExamWindowOpen(examWindow);
     }
   };
-  
+
+  // Load exams from localStorage on component mount
+  React.useEffect(() => {
+    try {
+      const savedUpcomingExams = localStorage.getItem('upcomingExams');
+      const savedPreviousExams = localStorage.getItem('previousExams');
+      
+      if (savedUpcomingExams) {
+        setUpcomingExams(JSON.parse(savedUpcomingExams));
+      }
+      
+      if (savedPreviousExams) {
+        setPreviousExams(JSON.parse(savedPreviousExams));
+      }
+    } catch (error) {
+      console.error("Error loading exams from localStorage:", error);
+    }
+  }, []);
+
+  // Save exams to localStorage whenever they change
+  React.useEffect(() => {
+    if (upcomingExams.length > 0) {
+      localStorage.setItem('upcomingExams', JSON.stringify(upcomingExams));
+    }
+    
+    if (previousExams.length > 0) {
+      localStorage.setItem('previousExams', JSON.stringify(previousExams));
+    }
+  }, [upcomingExams, previousExams]);
+
+  // Handle saving a new exam
+  const handleSaveExam = (exam: IExam) => {
+    const newExam = {
+      ...exam,
+      id: `exam-${Date.now()}`, // Generate a unique ID
+    };
+    
+    setUpcomingExams([...upcomingExams, newExam]);
+    setGeneratedExam(null);
+    setActiveTab("upcoming-exams");
+  };
+
+  // Handle deleting an exam
+  const handleDeleteExam = (examId: string) => {
+    setUpcomingExams(upcomingExams.filter(exam => exam.id !== examId));
+  };
+
+  // Handle editing an exam
+  const handleEditExam = (examId: string) => {
+    // Find the exam to edit
+    const examToEdit = upcomingExams.find(exam => exam.id === examId);
+    if (examToEdit) {
+      // Set it as the generated exam for editing
+      setGeneratedExam(examToEdit);
+      // Remove it from upcoming exams
+      setUpcomingExams(upcomingExams.filter(exam => exam.id !== examId));
+      // Switch to generate tab
+      setActiveTab("generate-exam");
+    }
+  };
+
+  // Handle duplicating an exam
+  const handleDuplicateExam = (examId: string) => {
+    const examToDuplicate = upcomingExams.find(exam => exam.id === examId);
+    if (examToDuplicate) {
+      const duplicatedExam = {
+        ...examToDuplicate,
+        id: `exam-${Date.now()}`,
+        name: `${examToDuplicate.name} (Copy)`
+      };
+      setUpcomingExams([...upcomingExams, duplicatedExam]);
+    }
+  };
+
   return (
     <>
-      {/* This should be the actual tab content - will need to refactor this elsewhere but fixing the errors first */}
-      <div className="p-3">
-        <h2 className="text-lg font-medium mb-4">Exam Tabs Content</h2>
-        <p>This component needs proper implementation. Currently fixing build errors.</p>
-      </div>
+      <Tabs 
+        value={activeTab} 
+        onValueChange={setActiveTab}
+        className="w-full"
+      >
+        <TabsList className="w-full grid grid-cols-4">
+          <TabsTrigger id="upcoming-exam-tab" value="upcoming-exams">Upcoming Exams</TabsTrigger>
+          <TabsTrigger id="generate-exam-tab" value="generate-exam">Generate Exam</TabsTrigger>
+          <TabsTrigger id="previous-exams-tab" value="previous-exams">Previous Exams</TabsTrigger>
+          <TabsTrigger id="performance-tab" value="performance">Performance</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upcoming-exams" className="mt-6">
+          <UpcomingExamsTab 
+            exams={upcomingExams}
+            onDeleteExam={handleDeleteExam}
+            onEditExam={handleEditExam}
+            onDuplicateExam={handleDuplicateExam}
+          />
+        </TabsContent>
+
+        <TabsContent value="generate-exam" className="mt-6">
+          <GenerateExamTab 
+            onSaveExam={handleSaveExam}
+            generatedExam={generatedExam}
+            setGeneratedExam={setGeneratedExam}
+          />
+        </TabsContent>
+
+        <TabsContent value="previous-exams" className="mt-6">
+          <PreviousExamsTab exams={previousExams} />
+        </TabsContent>
+
+        <TabsContent value="performance" className="mt-6">
+          <PerformanceTab exams={[...upcomingExams, ...previousExams]} />
+        </TabsContent>
+      </Tabs>
       
       {/* Add the handwritten upload handler */}
       <ExamHandwrittenUploadHandler examWindowRef={examWindowRef} />
@@ -53,4 +172,4 @@ const ExamTabsWithHandwrittenSupport: React.FC<{
   );
 };
 
-export default ExamTabsWithHandwrittenSupport;
+export default ExamTabs;
