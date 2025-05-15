@@ -47,7 +47,7 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
     return null;
   };
 
-  // Helper function to clean question text
+  // Helper function to clean question text - improved to thoroughly remove answers
   const cleanQuestionText = (text: string, type: 'mcq' | 'shortAnswer' | 'essay' | 'trueFalse' | 'unknown'): string => {
     // Start with the original text
     let cleanText = text;
@@ -57,16 +57,20 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
       cleanText = cleanText.replace(/([A-D])[).]\s*([^\n]+)(?:\n|$)/g, '');
     }
     
-    // Remove Answer sections for all question types
+    // Remove all types of Answer sections for all question types
     cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False).*?(?:\n|$)/gi, '');
+    cleanText = cleanText.replace(/(?:Answer|Sample Answer|Suggested Answer|Expected Answer|Model Answer|Correct Answer):.*?(?:\n|$)/gis, '');
     
     // For short answer and essay, remove any suggested answers or answer content
     if (type === 'shortAnswer' || type === 'essay') {
-      // Remove content after "Answer:" or "Sample Answer:" or "Suggested Answer:"
-      cleanText = cleanText.replace(/(?:Answer|Sample Answer|Suggested Answer|Expected Answer|Model Answer):.*?(?=\n\n|\n$|$)/gis, '');
+      // Remove all sections that might contain answer content
+      cleanText = cleanText.replace(/(?:Answer|Sample Answer|Suggested Answer|Expected Answer|Model Answer|Example Answer|Solution):[\s\S]*?(?=\n\n|\n$|$)/gis, '');
       
       // Remove content after "Word count:", "Word limit:" etc.
-      cleanText = cleanText.replace(/(?:Word count|Word limit|Expected length):.*?(?=\n\n|\n$|$)/gi, '');
+      cleanText = cleanText.replace(/(?:Word count|Word limit|Expected length|Character limit):.*?(?=\n\n|\n$|$)/gi, '');
+      
+      // Remove response guidelines
+      cleanText = cleanText.replace(/(?:Guidelines|Response Guidelines|Answer Guidelines):.*?(?=\n\n|\n$|$)/gi, '');
     }
     
     // Remove any "Select one:" or similar instructions
@@ -74,6 +78,9 @@ export const parseQuestions = (examText: string): ParsedQuestion[] => {
     
     // Remove potential point values that might appear
     cleanText = cleanText.replace(/\(\s*\d+\s*points?\s*\)/gi, '');
+    
+    // Remove grading criteria if present
+    cleanText = cleanText.replace(/(?:Grading criteria|Grading rubric|Marking scheme):.*?(?=\n\n|\n$|$)/gis, '');
     
     // Trim extra whitespace and newlines
     cleanText = cleanText.trim().replace(/\n{3,}/g, '\n\n');
