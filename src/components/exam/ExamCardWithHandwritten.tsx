@@ -17,12 +17,14 @@ interface ExamCardProps {
 const ExamCardWithHandwritten = ({ exam, onDeleteClick, onEditClick, onDuplicateClick }: ExamCardProps) => {
   const examWindowRef = useRef<Window | null>(null);
   
-  const { handleViewExam } = ExamSectionedRenderer({ 
+  const examRenderer = ExamSectionedRenderer({ 
     exam,
     onExamWindowOpen: (window) => {
       examWindowRef.current = window;
     }
   });
+  
+  const handleViewExam = examRenderer.handleViewExam;
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">

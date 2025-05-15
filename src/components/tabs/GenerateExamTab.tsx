@@ -15,11 +15,12 @@ import SyllabusUploaderSection from "@/components/exam-generation/SyllabusUpload
 
 interface GenerateExamTabProps {
   onSaveExam: (exam: IExam) => void;
-  generatedExam: IExam | null;
-  setGeneratedExam: (exam: IExam | null) => void;
+  generatedExam?: IExam | null;
+  setGeneratedExam?: (exam: IExam | null) => void;
+  onExamGenerated?: (exam: IExam) => void;
 }
 
-const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: GenerateExamTabProps) => {
+const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam, onExamGenerated }: GenerateExamTabProps) => {
   // Form states
   const [examName, setExamName] = useState<string>("New Exam");
   const [examDate, setExamDate] = useState<string>("");
@@ -326,6 +327,9 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam }: Genera
         
         // Direct save to upcoming exams without showing preview
         onSaveExam(newExam);
+        if (onExamGenerated) {
+          onExamGenerated(newExam);
+        }
         
         toast({
           title: "Success",

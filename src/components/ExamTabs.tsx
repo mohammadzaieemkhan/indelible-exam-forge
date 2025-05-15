@@ -8,17 +8,23 @@ import GenerateExamTab from "@/components/tabs/GenerateExamTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 import { useToast } from "@/hooks/use-toast";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface IExam {
   id?: string;
   name: string;
   description?: string;
   date: string;
+  time?: string;
   duration: number;
   isActive: boolean;
   questions?: string | any;
   questionWeights?: { [key: string]: number };
+  topics?: string[];
+  difficulty?: string;
+  numberOfQuestions?: number;
+  questionTypes?: string;
+  sections?: any[];
 }
 
 const ExamTabs = () => {
@@ -26,7 +32,7 @@ const ExamTabs = () => {
   const [exams, setExams] = useState<IExam[]>([]);
   const [completedExams, setCompletedExams] = useState<any[]>([]);
   const { toast } = useToast();
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
 
   // Load exams from localStorage on mount
   useEffect(() => {
@@ -214,7 +220,7 @@ const ExamTabs = () => {
 
             <TabsContent value="generate" className="space-y-4">
               <Suspense fallback={<div>Loading...</div>}>
-                <GenerateExamTab onExamGenerated={handleAddExam} />
+                <GenerateExamTab onSaveExam={handleAddExam} />
               </Suspense>
             </TabsContent>
 

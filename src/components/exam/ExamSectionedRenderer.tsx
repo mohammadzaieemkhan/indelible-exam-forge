@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import HandwrittenAnswerUpload from "./HandwrittenAnswerUpload";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { AnimatedAspectRatio } from "@/components/ui/aspect-ratio";
 import { motion } from "framer-motion";
 
