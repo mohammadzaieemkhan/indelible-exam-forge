@@ -1,4 +1,5 @@
 import { formatExamWithLayout } from "./utils/examParser";
+import { parseQuestions } from "./utils/examParser";
 import { ParsedQuestion, ExamSubmissionData } from "./types/examTypes";
 
 // This function will be used instead of the original ExamRenderer
@@ -7,8 +8,32 @@ export const renderExamWithNumbersPanel = (exam) => {
   // Create a version of the exam without answers for display
   const examWithoutAnswers = { ...exam };
   
-  // If questions have answers, remove them from what's shown to students
-  if (examWithoutAnswers.questions) {
+  // Parse questions if they are provided as a string
+  let parsedQuestions = [];
+  if (typeof examWithoutAnswers.questions === 'string') {
+    parsedQuestions = parseQuestions(examWithoutAnswers.questions);
+    
+    // Create question objects without answers
+    const questionsWithoutAnswers = parsedQuestions.map(question => {
+      // Create a clean version of the question without the answer part
+      let cleanText = question.text;
+      if (question.correctAnswer) {
+        cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*)/i, '');
+      }
+      
+      return {
+        ...question,
+        text: cleanText,
+        // Remove correctAnswer from what's displayed to students
+        correctAnswer: undefined
+      };
+    });
+    
+    // Replace the string questions with the parsed array without answers
+    examWithoutAnswers.questions = questionsWithoutAnswers;
+  } 
+  // If questions are already in array format, clean them up
+  else if (Array.isArray(examWithoutAnswers.questions)) {
     const questionsWithoutAnswers = examWithoutAnswers.questions.map(question => {
       // Create a clean version of the question without the answer part
       let cleanText = question.text;
@@ -26,11 +51,21 @@ export const renderExamWithNumbersPanel = (exam) => {
     
     examWithoutAnswers.questions = questionsWithoutAnswers;
   }
+  // If questions property is neither a string nor an array, create an empty array
+  else {
+    console.warn("Exam questions format is invalid. Expected string or array.");
+    examWithoutAnswers.questions = [];
+    parsedQuestions = [];
+  }
   
   const examHtml = formatExamWithLayout(examWithoutAnswers);
   
-  // Keep original answers for evaluation
-  const originalQuestions = exam.questions;
+  // Keep original questions for evaluation
+  // If we parsed them from a string, use the parsed questions
+  // Otherwise, use the original questions array
+  const originalQuestions = typeof exam.questions === 'string' 
+    ? parseQuestions(exam.questions)
+    : exam.questions;
   
   // This function mimics what handleViewExam does but uses our enhanced renderer
   const openExamWindow = () => {
