@@ -1,9 +1,10 @@
 
 import { formatExamWithLayout, parseQuestions } from "./utils/examParser";
+import { IExam } from '@/components/ExamTabs';
 
 // This function will be used instead of the original ExamRenderer
 // when we want the two-panel layout
-export const renderExamWithNumbersPanel = (exam) => {
+export const renderExamWithNumbersPanel = (exam: IExam) => {
   // Parse questions from the exam content
   const questions = parseQuestions(exam.questions || '');
   

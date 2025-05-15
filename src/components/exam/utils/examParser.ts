@@ -1,5 +1,15 @@
+
 import { IExam } from '@/components/ExamTabs';
-import { ParsedQuestion } from '@/components/exam/ExamRenderer';
+
+// Define the ParsedQuestion interface locally
+export interface ParsedQuestion {
+  id: number;
+  text: string;
+  type: 'mcq' | 'shortAnswer' | 'essay' | 'trueFalse' | 'unknown';
+  options?: string[];
+  correctAnswer?: string;
+  weight?: number;
+}
 
 // Parse questions from text content
 export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
