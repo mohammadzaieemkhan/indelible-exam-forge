@@ -1,6 +1,6 @@
 
 import React from "react";
-import { ParsedQuestionItem, parseQuestions } from "./utils/examParser";
+import { ParsedQuestionItem, parseQuestions, markdownToHtml } from "@/components/exam/utils/examParser";
 import { IExam } from "@/components/ExamTabs";
 import { toast } from "@/components/ui/use-toast";
 import { generateExamHtml } from "./ExamRenderer"; // Reuse the HTML generator
@@ -77,6 +77,7 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
       // Parse questions and handle errors
       let parsedQuestions: ParsedQuestionItem[] = [];
       try {
+        console.log("About to parse questions:", exam.questions);
         parsedQuestions = parseQuestions(exam.questions);
         console.log("Parsed questions:", parsedQuestions);
       } catch (parseError) {
@@ -115,33 +116,34 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
       if (parsedQuestions.length === 0) {
         console.warn("No questions found or unable to parse questions");
         
-        toast({
-          title: "No Questions Found",
-          description: "The exam was generated but no questions were found.",
-          variant: "destructive"
-        });
-        
-        // Generate a basic HTML with a message if no questions
-        const errorHtml = `
+        // Try to display the raw text if parsing failed
+        const examHtml = `
           <!DOCTYPE html>
           <html>
           <head>
             <title>${exam.name}</title>
             <style>
-              body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
-              .error { color: #e53e3e; margin-top: 20px; }
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1 { text-align: center; margin-bottom: 20px; }
+              .question { margin-bottom: 20px; padding: 10px; border: 1px solid #eee; border-radius: 5px; }
+              .raw-content { white-space: pre-wrap; margin-top: 20px; padding: 15px; background-color: #f7f7f7; border-radius: 5px; }
             </style>
           </head>
           <body>
             <h1>${exam.name}</h1>
-            <p class="error">This exam has no questions or the questions couldn't be loaded.</p>
-            <p>If you generated this exam recently, please go back and check if the exam generation was successful.</p>
-            <button onclick="window.close()">Close</button>
+            <div class="question">
+              <p><strong>Warning:</strong> The system couldn't parse the questions automatically. Here is the raw content:</p>
+              <div class="raw-content">${markdownToHtml(exam.questions)}</div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+              <button onclick="window.close()">Close Exam</button>
+            </div>
           </body>
           </html>
         `;
+        
         examWindow.document.open();
-        examWindow.document.write(errorHtml);
+        examWindow.document.write(examHtml);
         examWindow.document.close();
         return;
       }
@@ -193,4 +195,3 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
 };
 
 export default ExamRendererWithHandwritten;
-

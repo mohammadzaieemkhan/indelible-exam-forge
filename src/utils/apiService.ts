@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 
@@ -137,8 +138,8 @@ export interface GeminiAIParams {
     numberOfQuestions: number | string;
     difficulty: string;
   }[];
-  syllabusContent?: string; // Add missing property
-  questionWeights?: Record<string, number>; // Add missing property
+  syllabusContent?: string;
+  questionWeights?: Record<string, number>;
 }
 
 // Function to call Gemini AI via Supabase Edge Function
@@ -146,12 +147,16 @@ export const useGeminiAI = async (params: GeminiAIParams) => {
   try {
     // Default validation
     if (!params || !params.task) {
+      console.error("Invalid parameters for AI call:", params);
       return { success: false, error: "Invalid parameters" };
     }
     
     // Validate params based on the task
     if (params.task === "generate_questions") {
+      console.log("Generating questions with parameters:", JSON.stringify(params, null, 2));
+      
       if (!params.topics && (!params.sections || params.sections.length === 0)) {
+        console.error("No topics or sections provided for question generation");
         return { success: false, error: "No topics or sections provided" };
       }
       
@@ -177,6 +182,8 @@ export const useGeminiAI = async (params: GeminiAIParams) => {
       }))
     };
     
+    console.log("Calling Gemini AI with processed parameters:", JSON.stringify(processedParams, null, 2));
+    
     const { data, error } = await supabase.functions.invoke('gemini-ai', {
       body: processedParams
     });
@@ -186,6 +193,7 @@ export const useGeminiAI = async (params: GeminiAIParams) => {
       return { success: false, error: error.message || "Failed to call AI service" };
     }
 
+    console.log("Gemini AI response received:", data);
     return { success: true, response: data };
 
   } catch (error) {

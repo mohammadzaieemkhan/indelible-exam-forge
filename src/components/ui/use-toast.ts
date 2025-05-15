@@ -6,3 +6,6 @@ import { useToast as useToastHook, toast as toastFunction } from "@/hooks/use-to
 // Re-export the hook and toast function
 export const useToast = useToastHook;
 export const toast = toastFunction;
+
+// Export toast types for convenience
+export type { ToastProps, ToastActionElement } from "@/hooks/use-toast";
