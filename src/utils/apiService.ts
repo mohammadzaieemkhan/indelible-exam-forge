@@ -121,46 +121,41 @@ export const parseSyllabusContent = async (
   }
 };
 
-/**
- * Use Gemini AI for various tasks
- */
-export const useGeminiAI = async (
-  params: {
-    prompt?: string;
-    task: "generate_questions" | "evaluate_answer" | "performance_insights" | "parse_syllabus";
-    syllabus?: string;
-    syllabusContent?: string; 
-    topics?: string[];
-    difficulty?: string;
-    questionTypes?: string[];
-    numberOfQuestions?: number | string;  // Updated to accept both number and string
-    organizeBySections?: boolean;
-    sections?: {
-      title: string;
-      topics: string[];
-      questionTypes: string[];
-      numberOfQuestions: number | string;  // Updated to accept both number and string
-      difficulty: string;
-    }[];
-  }
-): Promise<{ success: boolean; response?: string; error?: string }> => {
+// Define the parameters interface for the AI API call
+export interface GeminiAIParams {
+  task: "generate_questions" | "analyze_answers" | "extract_topics" | "custom_prompt";
+  customPrompt?: string;
+  topics?: string[];
+  difficulty?: string;
+  questionTypes?: string[];
+  numberOfQuestions?: number | string;
+  organizeBySections?: boolean;
+  sections?: {
+    title: string;
+    topics: string[];
+    questionTypes: string[];
+    numberOfQuestions: number | string;
+    difficulty: string;
+  }[];
+}
+
+// Function to call Gemini AI via Supabase Edge Function
+export const useGeminiAI = async (params: GeminiAIParams) => {
   try {
-    console.log("Calling Gemini AI with params:", params);
-    
-    // Ensure all required parameters are provided
-    if (!params.task) {
-      return { 
-        success: false, 
-        error: "Task parameter is required" 
-      };
+    // Default validation
+    if (!params || !params.task) {
+      return { success: false, error: "Invalid parameters" };
     }
     
-    // Add validation and defaults
+    // Validate params based on the task
     if (params.task === "generate_questions") {
-      if (!params.topics || params.topics.length === 0) {
-        if (!params.sections || params.sections.length === 0) {
-          params.topics = ["General Knowledge"];
-        }
+      if (!params.topics && (!params.sections || params.sections.length === 0)) {
+        return { success: false, error: "No topics or sections provided" };
+      }
+      
+      // Provide default difficulty if not specified
+      if (!params.difficulty && !params.sections) {
+        params.difficulty = "medium";
       }
       
       if (!params.numberOfQuestions || (typeof params.numberOfQuestions === 'number' && params.numberOfQuestions <= 0)) {
@@ -185,38 +180,15 @@ export const useGeminiAI = async (
     });
 
     if (error) {
-      console.error("Error using Gemini AI:", error);
-      toast({
-        title: "AI Generation Error",
-        description: "Failed to generate content with AI",
-        variant: "destructive",
-      });
-      return { success: false, error: error.message };
+      console.error("Error calling Gemini AI:", error);
+      return { success: false, error: error.message || "Failed to call AI service" };
     }
-    
-    console.log("Gemini AI response:", data);
-    
-    if (!data || !data.response) {
-      toast({
-        title: "AI Response Error",
-        description: "Received an empty response from AI",
-        variant: "destructive",
-      });
-      return { 
-        success: false, 
-        error: "Received an empty response from AI" 
-      };
-    }
-    
-    return { success: true, response: data.response };
+
+    return { success: true, response: data };
+
   } catch (error) {
-    console.error("Error invoking gemini-ai function:", error);
-    toast({
-      title: "AI Generation Error",
-      description: "An unexpected error occurred",
-      variant: "destructive",
-    });
-    return { success: false, error: error.message };
+    console.error("Error in useGeminiAI:", error);
+    return { success: false, error: error.message || "An unexpected error occurred" };
   }
 };
 
