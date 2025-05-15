@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -381,30 +382,6 @@ const ExamTabs = () => {
     }
   };
   
-  // Extract exam results for the Performance tab
-  const getExamResultsWithExams = () => {
-    // Get all saved exam results
-    const savedResults = localStorage.getItem('examResults');
-    const examResults = savedResults ? JSON.parse(savedResults) : [];
-    
-    // Match results with the corresponding exams from previousExams
-    return examResults.map((result: any) => {
-      const matchedExam = previousExams.find(exam => exam.id === result.examId) || {
-        id: result.examId,
-        name: result.examName,
-        date: result.date,
-        time: "",
-        duration: "",
-        numberOfQuestions: "",
-        topics: [],
-        difficulty: "",
-        questionTypes: ""
-      };
-      
-      return { exam: matchedExam, result };
-    });
-  };
-  
   // Handle tab change
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -534,7 +511,7 @@ const ExamTabs = () => {
         
         {/* Performance Tab */}
         <TabsContent value="performance" className="space-y-6 animate-fade-in">
-          <PerformanceTab examsWithResults={getExamResultsWithExams()} />
+          <PerformanceTab />
         </TabsContent>
         
         {/* Previous Exams Tab */}

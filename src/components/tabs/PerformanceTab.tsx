@@ -1,77 +1,18 @@
 
 import { useState } from "react";
+import { Bar, Radar, Line } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChartContainer } from "@/components/ui/chart";
+import { getExamAverageScore, getTopicPerformance } from "@/components/PerformanceCharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { IExam, IExamResult } from "@/components/ExamTabs";
+import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Cell, Legend } from "recharts";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ResponsiveContainer, BarChart, LineChart, XAxis, YAxis, Tooltip, Line, Bar, Cell, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis } from "recharts";
-
-interface IExam {
-  id?: string;
-  name: string;
-  date: string;
-  time: string;
-  duration: string;
-  numberOfQuestions: string;
-  topics: string[];
-  difficulty: string;
-  questionTypes: string;
-}
-
-interface IExamResult {
-  examId: string;
-  examName: string;
-  date: string;
-  score: number;
-  totalMarks: number;
-  percentage: number;
-  timeTaken: string;
-  questionStats: {
-    correct: number;
-    incorrect: number;
-    unattempted: number;
-    total: number;
-  };
-  topicPerformance: Record<string, number>;
-}
 
 interface PerformanceTabProps {
   examsWithResults: { exam: IExam; result: IExamResult }[];
 }
-
-// Helper functions to get data for charts
-const getExamAverageScore = (examsWithResults: { exam: IExam; result: IExamResult }[]) => {
-  return examsWithResults.map(({ exam, result }) => ({
-    name: exam.name,
-    date: new Date(result.date).toLocaleDateString(),
-    score: result.percentage,
-  })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-};
-
-const getTopicPerformance = (examsWithResults: { exam: IExam; result: IExamResult }[]) => {
-  const topicScores: Record<string, { total: number; count: number }> = {};
-  
-  // Collect all topic scores
-  examsWithResults.forEach(({ result }) => {
-    if (result.topicPerformance) {
-      Object.entries(result.topicPerformance).forEach(([topic, score]) => {
-        if (!topicScores[topic]) {
-          topicScores[topic] = { total: 0, count: 0 };
-        }
-        topicScores[topic].total += score;
-        topicScores[topic].count += 1;
-      });
-    }
-  });
-  
-  // Calculate averages and format for radar chart
-  return Object.entries(topicScores).map(([topic, { total, count }]) => ({
-    subject: topic,
-    score: Math.round(total / count),
-    fullMark: 100,
-  }));
-};
 
 const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
   const [activeTab, setActiveTab] = useState<string>("overview");
@@ -155,16 +96,11 @@ const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
                 </CardHeader>
                 <CardContent className="h-[150px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
+                    <ChartContainer
+                      title="Recent performance"
                       data={scoresOverTime}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      showAnimation={true}
                     >
-                      <XAxis dataKey="date" stroke="#71717a" />
-                      <YAxis stroke="#71717a" domain={[0, 100]} />
-                      <Tooltip 
-                        formatter={(value: any) => [`${value}%`, 'Score']}
-                        contentStyle={{ backgroundColor: '#27272a', borderColor: '#3f3f46', color: '#f4f4f5' }}
-                      />
                       <Line
                         type="monotone"
                         dataKey="score"
@@ -172,7 +108,10 @@ const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
                         strokeWidth={2}
                         activeDot={{ r: 6 }}
                       />
-                    </LineChart>
+                      <ChartTooltip>
+                        <ChartTooltipContent />
+                      </ChartTooltip>
+                    </ChartContainer>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
@@ -193,7 +132,7 @@ const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
                       tick={{ fontSize: 12 }}
                     />
                     <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
-                    <Tooltip formatter={(value: any) => [`${value}%`, "Score"]} />
+                    <Tooltip formatter={(value) => [`${value}%`, "Score"]} />
                     <Legend />
                     <Bar dataKey="score" name="Score (%)">
                       {examScores.map((entry, index) => (
@@ -213,23 +152,21 @@ const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
               </CardHeader>
               <CardContent className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart 
-                    cx="50%" 
-                    cy="50%" 
-                    outerRadius="80%" 
+                  <ChartContainer
+                    title="Topic Performance"
                     data={topicPerformance}
+                    showAnimation={true}
                   >
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="subject" />
                     <Radar
-                      name="Score"
                       dataKey="score"
                       stroke="#0ea5e9"
                       fill="#0ea5e9"
                       fillOpacity={0.6}
                     />
-                    <Tooltip formatter={(value: any) => [`${value}%`, "Score"]} />
-                  </RadarChart>
+                    <ChartTooltip>
+                      <ChartTooltipContent />
+                    </ChartTooltip>
+                  </ChartContainer>
                 </ResponsiveContainer>
               </CardContent>
             </Card>

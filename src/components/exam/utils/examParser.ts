@@ -1,4 +1,3 @@
-
 import { generateExamLayoutHtml } from "../ExamLayout";
 
 // Enhanced exam parser to work with our layout requirements
@@ -31,11 +30,6 @@ export const parseQuestionsEnhanced = (questionsText: string) => {
   }
   
   return { questions, answers };
-};
-
-// Add the parseQuestions function that is being imported in ExamRenderer.ts
-export const parseQuestions = (questionsText: string) => {
-  return parseQuestionsEnhanced(questionsText).questions;
 };
 
 // Function to format an exam using the enhanced layout
