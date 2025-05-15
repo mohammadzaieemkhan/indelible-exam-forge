@@ -71,8 +71,11 @@ const ExamTabs = () => {
   useEffect(() => {
     const handleExamCompleted = (event: any) => {
       try {
+        console.log("Exam completion detected:", event);
         const examData = event.data?.examData || event.detail;
         if (!examData) return;
+
+        console.log("Processing exam completion for:", examData);
 
         // Add completion timestamp
         const completedExam = {
@@ -116,6 +119,7 @@ const ExamTabs = () => {
 
   // Handle adding a new exam
   const handleAddExam = (exam: IExam) => {
+    console.log("Adding new exam:", exam);
     const id = Math.random().toString(36).substring(2, 9);
     const newExam = { ...exam, id, isActive: true };
     setExams((prevExams) => [...prevExams, newExam]);

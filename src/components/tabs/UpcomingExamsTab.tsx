@@ -22,11 +22,14 @@ const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: 
       generateExamTab.click();
     }
   };
+
+  // Filter active exams only
+  const activeExams = exams.filter(exam => exam.isActive === true);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-      {exams.length > 0 ? (
-        exams.map((exam) => (
+      {activeExams.length > 0 ? (
+        activeExams.map((exam) => (
           <ExamCardWithHandwritten
             key={exam.id}
             exam={exam}

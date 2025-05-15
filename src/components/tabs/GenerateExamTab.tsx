@@ -268,6 +268,9 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam, onExamGe
         }
       }
 
+      // Log the API call for debugging
+      console.log("Starting exam generation API call");
+      
       let params: any = {
         task: "generate_questions"
       };
@@ -316,6 +319,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam, onExamGe
       
       // Call Gemini AI via our edge function
       const result = await useGeminiAI(params);
+      console.log("API response:", result);
       
       if (result.success && result.response) {
         // Create exam object to save
@@ -336,8 +340,10 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam, onExamGe
           questions: result.response,
           sections: useSections ? sections : [],
           questionWeights,
-          isActive: false // Ensure isActive is always set
+          isActive: true // Mark the exam as active by default
         };
+        
+        console.log("Created new exam:", newExam);
         
         // Direct save to upcoming exams without showing preview
         onSaveExam(newExam);
@@ -356,6 +362,7 @@ const GenerateExamTab = ({ onSaveExam, generatedExam, setGeneratedExam, onExamGe
         setExamTime("10:00");
         setTopics([]);
       } else {
+        console.error("API response error:", result.error);
         throw new Error(result.error || "Failed to generate questions");
       }
     } catch (error) {
