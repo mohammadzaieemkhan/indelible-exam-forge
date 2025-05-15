@@ -1,125 +1,22 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { ParsedQuestionItem, parseQuestions, markdownToHtml } from "./utils/examParser";
 import { IExam } from "@/components/ExamTabs";
 import { useToast } from "@/hooks/use-toast";
 import { extractTextFromImage } from "@/utils/ocrUtils";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
+import ImageUploadButton from "./ImageUploadButton";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 interface ExamRendererProps {
   exam: IExam;
 }
 
-// Function to render different question types as HTML
-export const renderQuestionHtml = (question: ParsedQuestionItem, index: number) => {
-  const questionId = `question-${index}`;
-  
-  switch (question.type) {
-    case 'mcq':
-      return `
-        <div class="options">
-          ${question.options?.map((option, optIndex) => `
-            <div class="option">
-              <label class="option-label" for="${questionId}-option-${optIndex}">
-                <input 
-                  type="radio" 
-                  name="${questionId}" 
-                  id="${questionId}-option-${optIndex}" 
-                  value="${optIndex}"
-                  class="radio-input"
-                  onchange="selectOption(${index}, ${optIndex})"
-                />
-                <span class="radio-custom"></span>
-                <div class="option-text">${option}</div>
-              </label>
-            </div>
-          `).join('') || ''}
-        </div>
-      `;
-    case 'truefalse':
-      return `
-        <div class="options">
-          <div class="option">
-            <label class="option-label" for="${questionId}-true">
-              <input 
-                type="radio" 
-                name="${questionId}" 
-                id="${questionId}-true" 
-                value="true"
-                class="radio-input"
-                onchange="selectOption(${index}, 0)"
-              />
-              <span class="radio-custom"></span>
-              <div class="option-text">True</div>
-            </label>
-          </div>
-          <div class="option">
-            <label class="option-label" for="${questionId}-false">
-              <input 
-                type="radio" 
-                name="${questionId}" 
-                id="${questionId}-false" 
-                value="false"
-                class="radio-input"
-                onchange="selectOption(${index}, 1)"
-              />
-              <span class="radio-custom"></span>
-              <div class="option-text">False</div>
-            </label>
-          </div>
-        </div>
-      `;
-    case 'shortanswer':
-      return `
-        <div class="text-input-container">
-          <input type="text" class="text-input" id="answer-${index}" 
-            placeholder="Enter your short answer here..." 
-            onchange="saveAnswer(${index}, this.value)" />
-          <div class="mt-2">
-            <button
-              type="button" 
-              class="upload-image-button"
-              data-question-id="${index}"
-              data-question-type="shortanswer"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
-                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
-                <circle cx="9" cy="9" r="2"></circle>
-                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
-              </svg>
-              Upload from Photo
-            </button>
-          </div>
-        </div>
-      `;
-    case 'essay':
-      return `
-        <div class="textarea-container">
-          <textarea class="essay-input" id="answer-${index}" 
-            placeholder="Write your essay here..."
-            onchange="saveAnswer(${index}, this.value)"></textarea>
-          <div class="mt-2">
-            <button
-              type="button" 
-              class="upload-image-button"
-              data-question-id="${index}"
-              data-question-type="essay"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
-                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
-                <circle cx="9" cy="9" r="2"></circle>
-                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
-              </svg>
-              Upload from Photo
-            </button>
-          </div>
-        </div>
-      `;
-    default:
-      return `<p class="text-muted">Unsupported question type</p>`;
-  }
-};
+// Available question types
+type QuestionSection = "mcq" | "truefalse" | "shortanswer" | "essay";
 
-// Generate HTML content for the exam window
+// Function to generate HTML content for the exam window
 export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) => {
   console.log("Generating exam HTML with questions:", questions);
   
@@ -161,23 +58,13 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
     `;
   }
 
-  // Create a simpler exam UI with all questions displayed on a single page
-  const questionsHtml = questions.map((question, index) => {
-    return `
-      <div class="question-box" id="question-${index}">
-        <div class="question-header">
-          <h3>Question ${index + 1}</h3>
-        </div>
-        <div class="question-content">
-          ${markdownToHtml(question.question)}
-        </div>
-        <div class="answer-section">
-          ${renderQuestionHtml(question, index)}
-        </div>
-        <hr class="question-divider" />
+  const questionsHtml = `
+    <div class="exam-content">
+      <div id="section-container">
+        <!-- Questions will be dynamically loaded here -->
       </div>
-    `;
-  }).join('');
+    </div>
+  `;
 
   return `
     <!DOCTYPE html>
@@ -193,33 +80,86 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           color: #333;
           background-color: #f8f9fa;
           margin: 0;
-          padding: 20px;
+          padding: 0;
         }
         
         .exam-header {
           text-align: center;
-          margin-bottom: 30px;
-          padding-bottom: 15px;
+          padding: 15px 20px;
+          background-color: #fff;
           border-bottom: 1px solid #e2e8f0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+          position: sticky;
+          top: 0;
+          z-index: 10;
         }
         
         .exam-title {
           font-size: 24px;
-          margin: 0 0 10px 0;
+          margin: 0 0 5px 0;
         }
         
         .exam-info {
           color: #64748b;
           font-size: 14px;
+          margin: 0;
         }
         
         .timer {
           background-color: #f1f5f9;
-          padding: 10px;
+          padding: 8px 12px;
           border-radius: 6px;
-          text-align: center;
-          margin-bottom: 20px;
+          display: inline-block;
           font-weight: bold;
+          margin-top: 10px;
+        }
+        
+        .exam-layout {
+          display: flex;
+          min-height: calc(100vh - 120px);
+        }
+        
+        .section-nav {
+          width: 250px;
+          background-color: #f8fafc;
+          border-right: 1px solid #e2e8f0;
+          padding: 20px 0;
+          flex-shrink: 0;
+        }
+        
+        .section-list {
+          list-style: none;
+          padding: 0;
+          margin: 0;
+        }
+        
+        .section-item {
+          padding: 12px 20px;
+          cursor: pointer;
+          border-left: 3px solid transparent;
+          transition: all 0.2s ease;
+        }
+        
+        .section-item:hover {
+          background-color: #f1f5f9;
+        }
+        
+        .section-item.active {
+          background-color: #e0e7ff;
+          border-left-color: #4f46e5;
+          color: #4338ca;
+          font-weight: 600;
+        }
+        
+        .section-content {
+          flex: 1;
+          padding: 20px;
+          overflow-y: auto;
+        }
+        
+        .section-content-inner {
+          max-width: 800px;
+          margin: 0 auto;
         }
         
         .question-box {
@@ -242,12 +182,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         
         .question-content {
           margin-bottom: 20px;
-        }
-        
-        .question-divider {
-          border: 0;
-          border-top: 1px solid #e2e8f0;
-          margin: 20px 0 10px 0;
         }
         
         .options {
@@ -346,6 +280,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           font-size: 14px;
           cursor: pointer;
           transition: all 0.2s ease;
+          margin-top: 10px;
         }
         
         .upload-image-button:hover {
@@ -355,8 +290,9 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         .exam-footer {
           display: flex;
           justify-content: center;
-          margin-top: 30px;
-          margin-bottom: 50px;
+          padding: 20px;
+          background-color: #fff;
+          border-top: 1px solid #e2e8f0;
         }
         
         .button {
@@ -381,8 +317,52 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           background-color: #1d4ed8;
         }
         
+        .section-title {
+          font-size: 20px;
+          font-weight: 600;
+          margin-bottom: 20px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .section-empty {
+          text-align: center;
+          padding: 40px 0;
+          color: #64748b;
+        }
+        
         #image-upload-input {
           display: none;
+        }
+        
+        @media (max-width: 768px) {
+          .exam-layout {
+            flex-direction: column;
+          }
+          
+          .section-nav {
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 10px 0;
+          }
+          
+          .section-list {
+            display: flex;
+            overflow-x: auto;
+          }
+          
+          .section-item {
+            padding: 10px 15px;
+            white-space: nowrap;
+            border-left: none;
+            border-bottom: 3px solid transparent;
+          }
+          
+          .section-item.active {
+            border-left-color: transparent;
+            border-bottom-color: #4f46e5;
+          }
         }
       </style>
     </head>
@@ -395,8 +375,25 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
         </div>
       </div>
       
-      <div class="exam-content">
-        ${questionsHtml}
+      <div class="exam-layout">
+        <div class="section-nav">
+          <ul class="section-list">
+            <li class="section-item active" data-section="mcq">Multiple Choice Questions</li>
+            <li class="section-item" data-section="truefalse">True / False Questions</li>
+            <li class="section-item" data-section="shortanswer">Short Answer Questions</li>
+            <li class="section-item" data-section="essay">Essay Type Questions</li>
+          </ul>
+        </div>
+        
+        <div class="section-content">
+          <div class="section-content-inner">
+            <h2 class="section-title">Multiple Choice Questions</h2>
+            <div id="section-mcq"></div>
+            <div id="section-truefalse" style="display: none;"></div>
+            <div id="section-shortanswer" style="display: none;"></div>
+            <div id="section-essay" style="display: none;"></div>
+          </div>
+        </div>
       </div>
       
       <div class="exam-footer">
@@ -407,29 +404,30 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
       
       <script>
         let currentUploadQuestionId = null;
+        let currentUploadQuestionType = null;
         let isProcessingImage = false;
         let answeredQuestions = {};
         let examStartTime = new Date();
         let examTimerInterval;
         let examDuration = ${exam.duration || 60}; // Default to 60 minutes if not specified
+        let currentSection = 'mcq';
         
-        // Set up image upload buttons
+        // Parse questions from the exam data
+        const allQuestions = ${JSON.stringify(questions)};
+        
+        // Group questions by type
+        const questionsByType = {
+          mcq: allQuestions.filter(q => q.type === 'mcq'),
+          truefalse: allQuestions.filter(q => q.type === 'truefalse'),
+          shortanswer: allQuestions.filter(q => q.type === 'shortanswer'),
+          essay: allQuestions.filter(q => q.type === 'essay')
+        };
+        
+        // Initialize exam
         document.addEventListener('DOMContentLoaded', () => {
-          // Initialize exam
           initExam();
-          
-          // Add click handlers for all upload image buttons
-          document.querySelectorAll('.upload-image-button').forEach(button => {
-            button.addEventListener('click', () => {
-              if (isProcessingImage) return;
-              
-              // Store the question ID for the current upload
-              currentUploadQuestionId = button.dataset.questionId;
-              
-              // Trigger file input click
-              document.getElementById('image-upload-input').click();
-            });
-          });
+          renderSections();
+          setupSectionNavigation();
           
           // Handle file selection
           document.getElementById('image-upload-input').addEventListener('change', handleImageUpload);
@@ -448,6 +446,201 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
               submitExam(true);
             }, examDuration * 60 * 1000);
           }
+        }
+        
+        // Setup section navigation
+        function setupSectionNavigation() {
+          const sectionItems = document.querySelectorAll('.section-item');
+          
+          sectionItems.forEach(item => {
+            item.addEventListener('click', () => {
+              // Remove active class from all items
+              sectionItems.forEach(i => i.classList.remove('active'));
+              
+              // Add active class to clicked item
+              item.classList.add('active');
+              
+              // Get the section type
+              const sectionType = item.dataset.section;
+              
+              // Update section title
+              const sectionTitle = document.querySelector('.section-title');
+              sectionTitle.textContent = item.textContent;
+              
+              // Hide all sections
+              document.querySelectorAll('[id^="section-"]').forEach(section => {
+                section.style.display = 'none';
+              });
+              
+              // Show the selected section
+              document.getElementById('section-' + sectionType).style.display = 'block';
+              
+              // Update current section
+              currentSection = sectionType;
+            });
+          });
+        }
+        
+        // Render all sections
+        function renderSections() {
+          // Render each section
+          renderQuestionSection('mcq');
+          renderQuestionSection('truefalse');
+          renderQuestionSection('shortanswer');
+          renderQuestionSection('essay');
+        }
+        
+        // Render a specific question section
+        function renderQuestionSection(sectionType) {
+          const sectionContainer = document.getElementById('section-' + sectionType);
+          const questions = questionsByType[sectionType];
+          
+          if (!questions || questions.length === 0) {
+            sectionContainer.innerHTML = '<div class="section-empty">No questions available for this section</div>';
+            return;
+          }
+          
+          // Generate HTML for each question
+          const questionsHtml = questions.map((question, questionIndex) => {
+            const originalIndex = allQuestions.findIndex(q => 
+              q.question === question.question && q.type === question.type);
+            
+            return renderQuestionHtml(question, originalIndex, sectionType);
+          }).join('');
+          
+          sectionContainer.innerHTML = questionsHtml;
+        }
+        
+        // Function to render different question types
+        function renderQuestionHtml(question, index, sectionType) {
+          const questionId = \`question-\${index}\`;
+          
+          let answerHtml = '';
+          
+          switch (question.type) {
+            case 'mcq':
+              answerHtml = \`
+                <div class="options">
+                  \${question.options?.map((option, optIndex) => \`
+                    <div class="option">
+                      <label class="option-label" for="\${questionId}-option-\${optIndex}">
+                        <input 
+                          type="radio" 
+                          name="\${questionId}" 
+                          id="\${questionId}-option-\${optIndex}" 
+                          value="\${optIndex}"
+                          class="radio-input"
+                          onchange="selectOption(\${index}, \${optIndex})"
+                        />
+                        <span class="radio-custom"></span>
+                        <div class="option-text">\${option}</div>
+                      </label>
+                    </div>
+                  \`).join('') || ''}
+                </div>
+              \`;
+              break;
+            
+            case 'truefalse':
+              answerHtml = \`
+                <div class="options">
+                  <div class="option">
+                    <label class="option-label" for="\${questionId}-true">
+                      <input 
+                        type="radio" 
+                        name="\${questionId}" 
+                        id="\${questionId}-true" 
+                        value="true"
+                        class="radio-input"
+                        onchange="selectOption(\${index}, 0)"
+                      />
+                      <span class="radio-custom"></span>
+                      <div class="option-text">True</div>
+                    </label>
+                  </div>
+                  <div class="option">
+                    <label class="option-label" for="\${questionId}-false">
+                      <input 
+                        type="radio" 
+                        name="\${questionId}" 
+                        id="\${questionId}-false" 
+                        value="false"
+                        class="radio-input"
+                        onchange="selectOption(\${index}, 1)"
+                      />
+                      <span class="radio-custom"></span>
+                      <div class="option-text">False</div>
+                    </label>
+                  </div>
+                </div>
+              \`;
+              break;
+            
+            case 'shortanswer':
+              answerHtml = \`
+                <div class="text-input-container">
+                  <input type="text" class="text-input" id="answer-\${index}" 
+                    placeholder="Enter your short answer here..." 
+                    onchange="saveAnswer(\${index}, this.value)" />
+                  <div class="mt-2">
+                    <button
+                      type="button" 
+                      class="upload-image-button"
+                      onclick="initiateImageUpload(\${index}, 'shortanswer')"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                        <circle cx="9" cy="9" r="2"></circle>
+                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                      </svg>
+                      Upload from Photo
+                    </button>
+                  </div>
+                </div>
+              \`;
+              break;
+            
+            case 'essay':
+              answerHtml = \`
+                <div class="textarea-container">
+                  <textarea class="essay-input" id="answer-\${index}" 
+                    placeholder="Write your essay here..."
+                    onchange="saveAnswer(\${index}, this.value)"></textarea>
+                  <div class="mt-2">
+                    <button
+                      type="button" 
+                      class="upload-image-button"
+                      onclick="initiateImageUpload(\${index}, 'essay')"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                        <circle cx="9" cy="9" r="2"></circle>
+                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                      </svg>
+                      Upload from Photo
+                    </button>
+                  </div>
+                </div>
+              \`;
+              break;
+            
+            default:
+              answerHtml = '<p class="text-muted">Unsupported question type</p>';
+          }
+          
+          return \`
+            <div class="question-box" id="question-\${index}">
+              <div class="question-header">
+                <h3>Question \${index + 1}</h3>
+              </div>
+              <div class="question-content">
+                \${markdownToHtml(question.question)}
+              </div>
+              <div class="answer-section">
+                \${answerHtml}
+              </div>
+            </div>
+          \`;
         }
         
         // Update the timer display
@@ -476,6 +669,18 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           }
         }
         
+        // Trigger file input when upload button is clicked
+        function initiateImageUpload(questionId, questionType) {
+          if (isProcessingImage) return;
+          
+          // Store the question ID for the current upload
+          currentUploadQuestionId = questionId;
+          currentUploadQuestionType = questionType;
+          
+          // Trigger file input click
+          document.getElementById('image-upload-input').click();
+        }
+        
         // Save answer for multiple choice questions
         function selectOption(questionIndex, optionIndex) {
           answeredQuestions[questionIndex] = optionIndex;
@@ -490,9 +695,101 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           }
         }
         
+        // Handle image upload and text extraction
+        async function handleImageUpload(event) {
+          const file = event.target.files[0];
+          if (!file || !currentUploadQuestionId) return;
+          
+          // Check if file is an image
+          if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+          }
+          
+          try {
+            // Show loading state
+            isProcessingImage = true;
+            const buttons = document.querySelectorAll('.upload-image-button');
+            buttons.forEach(btn => {
+              btn.textContent = "Processing image...";
+              btn.disabled = true;
+            });
+            
+            // Convert image to base64
+            const base64 = await fileToBase64(file);
+            
+            // Call parent window to extract text
+            window.opener.postMessage({
+              type: 'extractText',
+              imageBase64: base64,
+              questionId: currentUploadQuestionId
+            }, "*");
+            
+            // Listen for response from parent
+            window.addEventListener('message', function textResponseHandler(e) {
+              if (e.data.type === 'textExtracted' && e.data.questionId === currentUploadQuestionId) {
+                // Set the extracted text to the answer field
+                const questionId = parseInt(currentUploadQuestionId);
+                
+                if (currentUploadQuestionType === 'essay') {
+                  document.getElementById(\`answer-\${questionId}\`).value = e.data.text;
+                } else {
+                  document.getElementById(\`answer-\${questionId}\`).value = e.data.text;
+                }
+                
+                // Save the answer
+                saveAnswer(questionId, e.data.text);
+                
+                // Reset loading state
+                isProcessingImage = false;
+                
+                // Reset buttons
+                buttons.forEach(btn => {
+                  btn.innerHTML = \`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                      <circle cx="9" cy="9" r="2"></circle>
+                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                    </svg>
+                    Upload from Photo
+                  \`;
+                  btn.disabled = false;
+                });
+                
+                // Remove this event listener
+                window.removeEventListener('message', textResponseHandler);
+                
+                // Clear the input value to allow selecting the same file again
+                event.target.value = '';
+              }
+            });
+          } catch (error) {
+            console.error('Error processing image:', error);
+            alert('Error processing image: ' + (error.message || 'Unknown error'));
+            
+            // Reset loading state
+            isProcessingImage = false;
+            const buttons = document.querySelectorAll('.upload-image-button');
+            buttons.forEach(btn => {
+              btn.innerHTML = \`
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+                  <circle cx="9" cy="9" r="2"></circle>
+                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                </svg>
+                Upload from Photo
+              \`;
+              btn.disabled = false;
+            });
+            
+            // Clear the input value
+            event.target.value = '';
+          }
+        }
+        
         // Submit the exam
         function submitExam(isAutoSubmit = false) {
-          const totalQuestions = ${questions.length};
+          const totalQuestions = allQuestions.length;
           const answeredCount = Object.keys(answeredQuestions).length;
           
           if (!isAutoSubmit && answeredCount < totalQuestions) {
@@ -569,99 +866,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
           }
         }
         
-        // Handle image upload and text extraction
-        async function handleImageUpload(event) {
-          const file = event.target.files[0];
-          if (!file || !currentUploadQuestionId) return;
-          
-          // Check if file is an image
-          if (!file.type.startsWith('image/')) {
-            alert('Please select an image file');
-            return;
-          }
-          
-          try {
-            // Show loading state
-            isProcessingImage = true;
-            const buttons = document.querySelectorAll('.upload-image-button');
-            buttons.forEach(btn => {
-              btn.textContent = "Processing image...";
-              btn.disabled = true;
-            });
-            
-            // Convert image to base64
-            const base64 = await fileToBase64(file);
-            
-            // Call parent window to extract text
-            window.opener.postMessage({
-              type: 'extractText',
-              imageBase64: base64,
-              questionId: currentUploadQuestionId
-            }, "*");
-            
-            // Listen for response from parent
-            window.addEventListener('message', function textResponseHandler(e) {
-              if (e.data.type === 'textExtracted' && e.data.questionId === currentUploadQuestionId) {
-                // Set the extracted text to the answer field
-                const questionId = parseInt(currentUploadQuestionId);
-                const questionType = document.querySelector(\`[data-question-id="\${questionId}"]\`).dataset.questionType;
-                
-                if (questionType === 'essay') {
-                  document.getElementById(\`answer-\${questionId}\`).value = e.data.text;
-                } else {
-                  document.getElementById(\`answer-\${questionId}\`).value = e.data.text;
-                }
-                
-                // Save the answer
-                saveAnswer(questionId, e.data.text);
-                
-                // Reset loading state
-                isProcessingImage = false;
-                
-                // Reset buttons
-                buttons.forEach(btn => {
-                  btn.innerHTML = \`
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
-                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
-                      <circle cx="9" cy="9" r="2"></circle>
-                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
-                    </svg>
-                    Upload from Photo
-                  \`;
-                  btn.disabled = false;
-                });
-                
-                // Remove this event listener
-                window.removeEventListener('message', textResponseHandler);
-                
-                // Clear the input value to allow selecting the same file again
-                event.target.value = '';
-              }
-            });
-          } catch (error) {
-            console.error('Error processing image:', error);
-            alert('Error processing image: ' + (error.message || 'Unknown error'));
-            
-            // Reset loading state
-            isProcessingImage = false;
-            const buttons = document.querySelectorAll('.upload-image-button');
-            buttons.forEach(btn => {
-              btn.innerHTML = \`
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
-                  <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
-                  <circle cx="9" cy="9" r="2"></circle>
-                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
-                </svg>
-                Upload from Photo
-              \`;
-              btn.disabled = false;
-            });
-            
-            // Clear the input value
-            event.target.value = '';
-          }
-        }
-        
         // Utility function to convert file to base64
         function fileToBase64(file) {
           return new Promise((resolve, reject) => {
@@ -685,8 +889,139 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestionItem[]) =
   `;
 };
 
+// Define UI components for the React version
+const ExamSectionNav = ({ sections, activeSection, onSectionChange }) => {
+  return (
+    <div className="w-64 bg-gray-50 border-r border-gray-200 flex-shrink-0 h-full">
+      <ul className="py-4">
+        {sections.map((section) => (
+          <li key={section.id}>
+            <button
+              className={cn(
+                "w-full text-left px-4 py-3 text-sm font-medium flex items-center border-l-4",
+                activeSection === section.id
+                  ? "border-primary bg-primary/5 text-primary"
+                  : "border-transparent hover:bg-gray-100"
+              )}
+              onClick={() => onSectionChange(section.id)}
+            >
+              {section.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+const QuestionMCQ = ({ question, index, onAnswerChange }) => {
+  return (
+    <div className="mb-8 bg-white p-6 rounded-lg border border-gray-200">
+      <h3 className="font-semibold mb-3">Question {index + 1}</h3>
+      <div 
+        className="mb-4"
+        dangerouslySetInnerHTML={{ __html: markdownToHtml(question.question) }}
+      />
+      
+      <RadioGroup onValueChange={(value) => onAnswerChange(index, parseInt(value))}>
+        {question.options?.map((option, optIndex) => (
+          <div key={optIndex} className="flex items-start space-x-2 p-3 rounded-md border border-gray-200 mb-2 hover:bg-gray-50">
+            <RadioGroupItem value={optIndex.toString()} id={`q${index}-option-${optIndex}`} />
+            <label 
+              htmlFor={`q${index}-option-${optIndex}`} 
+              className="flex-grow cursor-pointer text-gray-700"
+            >
+              {option}
+            </label>
+          </div>
+        ))}
+      </RadioGroup>
+    </div>
+  );
+};
+
+const QuestionTrueFalse = ({ question, index, onAnswerChange }) => {
+  return (
+    <div className="mb-8 bg-white p-6 rounded-lg border border-gray-200">
+      <h3 className="font-semibold mb-3">Question {index + 1}</h3>
+      <div 
+        className="mb-4"
+        dangerouslySetInnerHTML={{ __html: markdownToHtml(question.question) }}
+      />
+      
+      <RadioGroup onValueChange={(value) => onAnswerChange(index, value === "true" ? 0 : 1)}>
+        <div className="flex items-start space-x-2 p-3 rounded-md border border-gray-200 mb-2 hover:bg-gray-50">
+          <RadioGroupItem value="true" id={`q${index}-true`} />
+          <label 
+            htmlFor={`q${index}-true`} 
+            className="flex-grow cursor-pointer text-gray-700"
+          >
+            True
+          </label>
+        </div>
+        <div className="flex items-start space-x-2 p-3 rounded-md border border-gray-200 mb-2 hover:bg-gray-50">
+          <RadioGroupItem value="false" id={`q${index}-false`} />
+          <label 
+            htmlFor={`q${index}-false`} 
+            className="flex-grow cursor-pointer text-gray-700"
+          >
+            False
+          </label>
+        </div>
+      </RadioGroup>
+    </div>
+  );
+};
+
+const QuestionWithTextInput = ({ question, index, onAnswerChange, isEssay = false }) => {
+  const handleTextExtracted = (text) => {
+    onAnswerChange(index, text);
+  };
+  
+  return (
+    <div className="mb-8 bg-white p-6 rounded-lg border border-gray-200">
+      <h3 className="font-semibold mb-3">Question {index + 1}</h3>
+      <div 
+        className="mb-4"
+        dangerouslySetInnerHTML={{ __html: markdownToHtml(question.question) }}
+      />
+      
+      {isEssay ? (
+        <textarea 
+          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-h-[150px]"
+          placeholder={`Write your ${isEssay ? "essay" : "answer"} here...`}
+          onChange={(e) => onAnswerChange(index, e.target.value)}
+        />
+      ) : (
+        <input 
+          type="text" 
+          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          placeholder="Enter your short answer here..."
+          onChange={(e) => onAnswerChange(index, e.target.value)}
+        />
+      )}
+      
+      <div className="mt-3">
+        <ImageUploadButton onTextExtracted={(text) => handleTextExtracted(text)} />
+      </div>
+    </div>
+  );
+};
+
 const ExamRenderer = ({ exam }: ExamRendererProps) => {
   const { toast } = useToast();
+  const [parsedQuestions, setParsedQuestions] = useState<ParsedQuestionItem[]>([]);
+  const [activeSection, setActiveSection] = useState<QuestionSection>("mcq");
+  const [answers, setAnswers] = useState<Record<number, any>>({});
+
+  // Initialize questions
+  React.useEffect(() => {
+    if (exam?.questions) {
+      const questions = parseQuestions(exam.questions);
+      setParsedQuestions(questions);
+      console.log("Parsed questions:", questions);
+    }
+  }, [exam]);
 
   // Handle text extraction request from the exam iframe
   React.useEffect(() => {
@@ -758,6 +1093,30 @@ const ExamRenderer = ({ exam }: ExamRendererProps) => {
     window.addEventListener('message', handleExamMessage);
     return () => window.removeEventListener('message', handleExamMessage);
   }, [toast]);
+
+  // Filter questions by type
+  const questionsByType = {
+    mcq: parsedQuestions.filter(q => q.type === 'mcq'),
+    truefalse: parsedQuestions.filter(q => q.type === 'truefalse'),
+    shortanswer: parsedQuestions.filter(q => q.type === 'shortanswer'),
+    essay: parsedQuestions.filter(q => q.type === 'essay')
+  };
+
+  // Navigation sections
+  const sections = [
+    { id: "mcq", label: "Multiple Choice Questions" },
+    { id: "truefalse", label: "True / False Questions" },
+    { id: "shortanswer", label: "Short Answer Questions" },
+    { id: "essay", label: "Essay Type Questions" }
+  ];
+
+  // Handle answer changes
+  const handleAnswerChange = (questionIndex: number, value: any) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questionIndex]: value
+    }));
+  };
 
   // Open exam in a new window
   const handleViewExam = () => {
