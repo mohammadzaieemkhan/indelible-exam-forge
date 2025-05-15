@@ -1,12 +1,10 @@
 
 import { useState } from "react";
-import { Bar, Radar, Line } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getExamAverageScore, getTopicPerformance } from "@/components/PerformanceCharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { IExam, IExamResult } from "@/components/ExamTabs";
-import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Cell, Legend } from "recharts";
+import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Cell, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Line, LineChart } from "recharts";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -96,11 +94,13 @@ const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
                 </CardHeader>
                 <CardContent className="h-[150px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ChartContainer
-                      title="Recent performance"
+                    <LineChart
                       data={scoresOverTime}
-                      showAnimation={true}
+                      margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
                     >
+                      <XAxis dataKey="date" />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip formatter={(value) => [`${value}%`, "Score"]} />
                       <Line
                         type="monotone"
                         dataKey="score"
@@ -108,10 +108,7 @@ const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
                         strokeWidth={2}
                         activeDot={{ r: 6 }}
                       />
-                      <ChartTooltip>
-                        <ChartTooltipContent />
-                      </ChartTooltip>
-                    </ChartContainer>
+                    </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
@@ -152,21 +149,19 @@ const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
               </CardHeader>
               <CardContent className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ChartContainer
-                    title="Topic Performance"
-                    data={topicPerformance}
-                    showAnimation={true}
-                  >
+                  <RadarChart outerRadius={150} data={topicPerformance}>
+                    <PolarGrid />
+                    <PolarAngleAxis dataKey="topic" />
+                    <PolarRadiusAxis domain={[0, 100]} />
                     <Radar
+                      name="Score"
                       dataKey="score"
                       stroke="#0ea5e9"
                       fill="#0ea5e9"
                       fillOpacity={0.6}
                     />
-                    <ChartTooltip>
-                      <ChartTooltipContent />
-                    </ChartTooltip>
-                  </ChartContainer>
+                    <Tooltip formatter={(value) => [`${value}%`, "Score"]} />
+                  </RadarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>

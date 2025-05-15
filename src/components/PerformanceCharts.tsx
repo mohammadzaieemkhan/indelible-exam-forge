@@ -15,6 +15,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { IExam, IExamResult } from "@/components/ExamTabs";
 
 interface ExamScore {
   examId: string;
@@ -29,6 +30,49 @@ interface ExamScore {
     percentage: number;
   }>;
 }
+
+// New helper functions needed by PerformanceTab
+export const getExamAverageScore = (examsWithResults: { exam: IExam; result: IExamResult }[]) => {
+  if (!examsWithResults || examsWithResults.length === 0) {
+    return [];
+  }
+  
+  return examsWithResults
+    .map(({ exam, result }, index) => ({
+      name: exam.name,
+      date: new Date(exam.created_at || Date.now()).toLocaleDateString(),
+      score: result.percentage,
+    }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+};
+
+export const getTopicPerformance = (examsWithResults: { exam: IExam; result: IExamResult }[]) => {
+  if (!examsWithResults || examsWithResults.length === 0) {
+    return [];
+  }
+  
+  // Extract topics from exams
+  const topicsMap = new Map();
+  
+  examsWithResults.forEach(({ exam, result }) => {
+    const topics = exam.topics || [];
+    topics.forEach(topic => {
+      if (!topicsMap.has(topic)) {
+        topicsMap.set(topic, { totalScore: 0, count: 0 });
+      }
+      
+      const topicData = topicsMap.get(topic);
+      topicData.totalScore += result.percentage;
+      topicData.count += 1;
+    });
+  });
+  
+  // Calculate average score for each topic
+  return Array.from(topicsMap.entries()).map(([topic, data]) => ({
+    topic,
+    score: Math.round(data.totalScore / data.count),
+  }));
+};
 
 interface PerformanceChartsProps {
   examScores: ExamScore[];
