@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -60,13 +61,22 @@ const UpcomingExamsTab = ({
       return;
     }
     
-    // Use the new renderer helper to open the exam with the two-panel layout
-    const { openExamWindow } = renderExamWithNumbersPanel(exam);
-    
-    if (!openExamWindow()) {
+    try {
+      // Use the renderer helper to open the exam with the two-panel layout
+      const { openExamWindow } = renderExamWithNumbersPanel(exam);
+      
+      if (!openExamWindow()) {
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups for this site to take the exam.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error opening exam:", error);
       toast({
-        title: "Popup Blocked",
-        description: "Please allow popups for this site to take the exam.",
+        title: "Error Opening Exam",
+        description: "There was a problem opening the exam. Please try again.",
         variant: "destructive"
       });
     }
