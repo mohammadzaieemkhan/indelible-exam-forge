@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,7 +31,28 @@ const UpcomingExamsTab = ({
 }: UpcomingExamsTabProps) => {
   const [examToDelete, setExamToDelete] = useState<IExam | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [activeExams, setActiveExams] = useState<IExam[]>([]);
   const { toast } = useToast();
+  
+  // Check which exams should be active based on current time
+  useEffect(() => {
+    const now = new Date();
+    
+    const updatedExams = exams.map(exam => {
+      // Create a date object from exam date and time
+      const examDateTime = new Date(`${exam.date}T${exam.time}`);
+      
+      // Mark exam as active if current time is past scheduled time
+      const isActive = examDateTime <= now;
+      
+      return {
+        ...exam,
+        isActive: isActive
+      };
+    });
+    
+    setActiveExams(updatedExams);
+  }, [exams]);
   
   // Handle delete exam button click
   const handleDeleteClick = (exam: IExam) => {
@@ -54,11 +75,16 @@ const UpcomingExamsTab = ({
   
   // Open exam in a new window
   const handleViewExam = (exam: IExam) => {
-    // Directly call the handleViewExam method from ExamRenderer
-    if (!exam.isActive) {
+    // Check if the exam should be available based on current time
+    const now = new Date();
+    const examDateTime = new Date(`${exam.date}T${exam.time}`);
+    const isAvailable = examDateTime <= now;
+    
+    if (!isAvailable) {
+      const timeRemaining = getTimeRemaining(examDateTime);
       toast({
-        title: "Exam Not Available",
-        description: "This exam is not yet available to take.",
+        title: "Exam Not Available Yet",
+        description: `This exam will be available in ${timeRemaining}`,
         variant: "destructive"
       });
       return;
@@ -105,6 +131,26 @@ const UpcomingExamsTab = ({
     });
   };
   
+  // Helper function to format time remaining
+  const getTimeRemaining = (examTime: Date): string => {
+    const now = new Date();
+    const diffMs = examTime.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return "now";
+    
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (diffDays > 0) {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} and ${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+    } else if (diffHours > 0) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} and ${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+    } else {
+      return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+    }
+  };
+  
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -135,15 +181,22 @@ const UpcomingExamsTab = ({
           </Alert>
         ) : (
           <div className="space-y-4">
-            {exams.map((exam, index) => (
-              <ExamCard 
-                key={exam.id || index}
-                exam={exam} 
-                onSendReminder={onSendReminder}
-                onDeleteClick={handleDeleteClick}
-                onViewExam={handleViewExam}
-              />
-            ))}
+            {exams.map((exam, index) => {
+              // Calculate if exam should be active
+              const now = new Date();
+              const examDateTime = new Date(`${exam.date}T${exam.time}`);
+              const isActive = examDateTime <= now;
+              
+              return (
+                <ExamCard 
+                  key={exam.id || index}
+                  exam={{...exam, isActive: isActive}} 
+                  onSendReminder={onSendReminder}
+                  onDeleteClick={handleDeleteClick}
+                  onViewExam={handleViewExam}
+                />
+              );
+            })}
           </div>
         )}
       </CardContent>
