@@ -192,5 +192,5 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
   };
 };
 
-export { parseQuestions };
 export default ExamRendererWithHandwritten;
+
