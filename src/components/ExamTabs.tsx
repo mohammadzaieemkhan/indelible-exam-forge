@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,7 +29,9 @@ export interface IExam {
   sections?: any[];
   questionWeights?: Record<number, number>;
   questionTypeConfig?: Record<string, number>; // New field for question type configuration
+  questionDistribution?: Record<string, number>; // Added this property to fix the error
   created_at?: string; // Add this field to resolve property access issue
+  created?: string; // Add this property since it's used in GenerateExamTab.tsx
 }
 
 const ExamTabs = () => {
