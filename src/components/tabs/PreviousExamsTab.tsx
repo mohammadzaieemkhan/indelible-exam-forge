@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from "react";
 import { Filter, Eye, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -374,17 +373,15 @@ const PreviousExamsTab = ({ exams, onDeleteExam }: PreviousExamsTabProps) => {
                           Report
                         </Button>
                       )}
-                      {onDeleteExam && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleDelete(exam.id || '')}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
-                        >
-                          <Trash className="h-4 w-4" />
-                          <span className="sr-only md:not-sr-only md:ml-1">Delete</span>
-                        </Button>
-                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDelete(exam.id || '')}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
+                      >
+                        <Trash className="h-4 w-4" />
+                        <span className="sr-only md:not-sr-only md:ml-1">Delete</span>
+                      </Button>
                     </td>
                   </tr>
                 );

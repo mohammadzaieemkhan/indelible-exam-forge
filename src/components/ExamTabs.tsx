@@ -506,6 +506,35 @@ const ExamTabs = () => {
     localStorage.setItem('upcomingExams', JSON.stringify(updatedExams));
   };
   
+  // Handle deleting a previous exam
+  const handleDeletePreviousExam = (examId: string) => {
+    console.log("Deleting previous exam with ID:", examId);
+    
+    // Filter out the exam with the specified ID
+    const updatedExams = previousExams.filter(exam => exam.id !== examId);
+    setPreviousExams(updatedExams);
+    
+    // Save the updated exams to localStorage
+    localStorage.setItem('previousExams', JSON.stringify(updatedExams));
+    
+    // Also remove from exam results if it exists there
+    const savedResults = localStorage.getItem('examResults');
+    if (savedResults) {
+      try {
+        const examResults = JSON.parse(savedResults);
+        const updatedResults = examResults.filter(result => result.examId !== examId);
+        localStorage.setItem('examResults', JSON.stringify(updatedResults));
+      } catch (error) {
+        console.error('Error updating exam results:', error);
+      }
+    }
+    
+    toast({
+      title: "Exam Deleted",
+      description: "The exam has been removed from your history",
+    });
+  };
+  
   // Handle deleting an exam result
   const handleDeleteExamResult = (examId: string) => {
     console.log("Deleting exam result with ID:", examId);
@@ -578,7 +607,10 @@ const ExamTabs = () => {
         
         {/* Previous Exams Tab */}
         <TabsContent value="previous" className="space-y-6 animate-fade-in">
-          <PreviousExamsTab exams={previousExams} />
+          <PreviousExamsTab 
+            exams={previousExams} 
+            onDeleteExam={handleDeletePreviousExam} 
+          />
         </TabsContent>
         
         {/* Upcoming Exams Tab */}
