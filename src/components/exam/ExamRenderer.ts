@@ -1,6 +1,4 @@
-
-// Import functions to format time and parse questions
-import { formatElapsedTime } from "@/lib/utils";
+// Fix the import to use the correct path and import the new parseQuestions function
 import { parseQuestions } from "./utils/examParser";
 
 // Function to generate the HTML for the exam

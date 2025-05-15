@@ -31,7 +31,7 @@ interface ExamScore {
   }>;
 }
 
-// New helper functions needed by PerformanceTab
+// Helper functions for PerformanceTab
 export const getExamAverageScore = (examsWithResults: { exam: IExam; result: IExamResult }[]) => {
   if (!examsWithResults || examsWithResults.length === 0) {
     return [];
@@ -40,7 +40,7 @@ export const getExamAverageScore = (examsWithResults: { exam: IExam; result: IEx
   return examsWithResults
     .map(({ exam, result }, index) => ({
       name: exam.name,
-      date: new Date(exam.created_at || Date.now()).toLocaleDateString(),
+      date: new Date(exam.created_at || exam.date || Date.now()).toLocaleDateString(),
       score: result.percentage,
     }))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());

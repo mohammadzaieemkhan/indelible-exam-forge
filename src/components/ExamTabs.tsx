@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bell, Calendar, BarChart, BookOpen, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,9 +27,10 @@ export interface IExam {
   sections?: any[];
   questionWeights?: Record<number, number>;
   questionTypeConfig?: Record<string, number>; // New field for question type configuration
+  created_at?: string; // Add this field to resolve property access issue
 }
 
-interface ExamResult {
+interface IExamResult {
   examId: string;
   examName: string;
   date: string;
@@ -38,6 +38,7 @@ interface ExamResult {
   timeTaken: string;
   questionTypes: Array<string>;
   questionWeights: Record<number, number>;
+  percentage: number; // Add percentage to match the expected interface
   questions: Array<{
     question: string;
     type: string;
@@ -382,6 +383,43 @@ const ExamTabs = () => {
     }
   };
   
+  // Get saved exam results from localStorage for performance tab
+  const getExamResults = () => {
+    const savedResults = localStorage.getItem('examResults');
+    const examResults = savedResults ? JSON.parse(savedResults) : [];
+    return examResults;
+  };
+
+  // Prepare data for performance tab
+  const prepareExamsWithResults = () => {
+    const examResults = getExamResults();
+    const examsWithResults = [];
+    
+    // Match exam results with the exams
+    for (const result of examResults) {
+      // Find the exam in previous exams
+      const exam = previousExams.find(e => e.id === result.examId) || {
+        id: result.examId,
+        name: result.examName,
+        date: result.date,
+        time: "",
+        duration: "",
+        numberOfQuestions: "",
+        topics: [],
+        difficulty: "",
+        questionTypes: "",
+        created_at: result.date
+      };
+      
+      examsWithResults.push({
+        exam,
+        result
+      });
+    }
+    
+    return examsWithResults;
+  };
+
   // Handle tab change
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -511,7 +549,7 @@ const ExamTabs = () => {
         
         {/* Performance Tab */}
         <TabsContent value="performance" className="space-y-6 animate-fade-in">
-          <PerformanceTab />
+          <PerformanceTab examsWithResults={prepareExamsWithResults()} />
         </TabsContent>
         
         {/* Previous Exams Tab */}

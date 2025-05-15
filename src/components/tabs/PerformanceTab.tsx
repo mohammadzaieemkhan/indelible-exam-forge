@@ -4,7 +4,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getExamAverageScore, getTopicPerformance } from "@/components/PerformanceCharts";
 import { IExam, IExamResult } from "@/components/ExamTabs";
-import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Cell, Legend, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Line, LineChart } from "recharts";
+import { 
+  ResponsiveContainer, 
+  BarChart, 
+  Bar,
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  Cell, 
+  Legend, 
+  Radar, 
+  RadarChart, 
+  PolarGrid, 
+  PolarAngleAxis, 
+  PolarRadiusAxis, 
+  Line, 
+  LineChart 
+} from "recharts";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -15,32 +31,35 @@ interface PerformanceTabProps {
 const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
   const [activeTab, setActiveTab] = useState<string>("overview");
 
+  // Ensure examsWithResults is defined to prevent errors
+  const safeExamsWithResults = examsWithResults || [];
+
   // Color palette for charts
   const colors = ["#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#a855f7", "#ec4899"];
 
   // Calculate overall average score
   const overallAverage =
-    examsWithResults.length > 0
+    safeExamsWithResults.length > 0
       ? Math.round(
-          examsWithResults.reduce((sum, { result }) => sum + result.percentage, 0) /
-            examsWithResults.length
+          safeExamsWithResults.reduce((sum, { result }) => sum + result.percentage, 0) /
+            safeExamsWithResults.length
         )
       : 0;
 
   // Calculate average score by exam
-  const examScores = examsWithResults.map(({ exam, result }) => ({
+  const examScores = safeExamsWithResults.map(({ exam, result }) => ({
     name: exam.name,
     score: result.percentage,
     color: colors[Math.floor(Math.random() * colors.length)],
   }));
 
   // Get topic performance data
-  const topicPerformance = getTopicPerformance(examsWithResults);
+  const topicPerformance = getTopicPerformance(safeExamsWithResults);
 
   // Get average scores over time
-  const scoresOverTime = getExamAverageScore(examsWithResults);
+  const scoresOverTime = getExamAverageScore(safeExamsWithResults);
 
-  if (examsWithResults.length === 0) {
+  if (safeExamsWithResults.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -82,8 +101,8 @@ const PerformanceTab = ({ examsWithResults }: PerformanceTabProps) => {
                 <CardContent>
                   <div className="text-3xl font-bold">{overallAverage}%</div>
                   <p className="text-xs text-muted-foreground">
-                    Based on {examsWithResults.length} completed exam
-                    {examsWithResults.length !== 1 ? "s" : ""}
+                    Based on {safeExamsWithResults.length} completed exam
+                    {safeExamsWithResults.length !== 1 ? "s" : ""}
                   </p>
                 </CardContent>
               </Card>
