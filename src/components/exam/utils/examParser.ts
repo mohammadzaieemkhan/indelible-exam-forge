@@ -5,6 +5,7 @@ import { ParsedQuestion } from '@/components/exam/types/examTypes';
 // Parse questions from text content
 export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
   const questions: ParsedQuestion[] = [];
+  console.log("Parsing questions from text:", questionsText?.substring(0, 200) + "...");
   
   // Split by question numbers (1., 2., etc.)
   const questionRegex = /(\d+\.)(.*?)(?=\d+\.|$)/gs;
@@ -46,15 +47,33 @@ export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
     // Check for short answer questions
     else if (questionContent.toLowerCase().includes('short answer') || 
              questionContent.toLowerCase().includes('briefly explain') ||
-             questionContent.toLowerCase().includes('in a few sentences')) {
+             questionContent.toLowerCase().includes('in a few sentences') ||
+             questionContent.toLowerCase().match(/\(\s*\d+\s*words?\s*\)/i)) {
       type = 'shortAnswer';
+      
+      // Look for correct answer
+      const answerMatch = questionContent.match(/Answer:\s*(.*?)(?=\n|\r|$)/i);
+      if (answerMatch) {
+        correctAnswer = answerMatch[1].trim();
+      }
     }
     // Check for essay questions
     else if (questionContent.toLowerCase().includes('essay') || 
              questionContent.toLowerCase().includes('write an essay') ||
              questionContent.toLowerCase().includes('in detail') ||
-             questionContent.toLowerCase().includes('word limit')) {
+             questionContent.toLowerCase().includes('word limit') ||
+             questionContent.toLowerCase().includes('compare and contrast') ||
+             questionContent.toLowerCase().includes('discuss') ||
+             questionContent.toLowerCase().includes('explain') ||
+             questionContent.toLowerCase().includes('describe') ||
+             questionContent.match(/\(\s*\d+\s*words?\s*\)/i)) {
       type = 'essay';
+      
+      // Look for correct answer or key points
+      const answerMatch = questionContent.match(/Answer:\s*(.*?)(?=\n|\r|$)/i);
+      if (answerMatch) {
+        correctAnswer = answerMatch[1].trim();
+      }
     }
     
     // Extract weight if present (e.g., "(5 points)")
@@ -73,6 +92,12 @@ export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
       weight
     });
   }
+  
+  console.log(`Parsed ${questions.length} questions with types:`, 
+    questions.map(q => q.type).reduce((acc, type) => {
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>));
   
   return questions;
 };
@@ -101,7 +126,7 @@ export const formatExamWithLayout = (exam: IExam): string => {
     // Clean up the question text by removing the answer part
     let cleanText = question.text;
     if (question.correctAnswer) {
-      cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False)/i, '');
+      cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*?)(?=\n|\r|$)/i, '');
     }
     
     // Format based on question type
@@ -110,8 +135,10 @@ export const formatExamWithLayout = (exam: IExam): string => {
         const optionLetter = option.charAt(0);
         return `
           <div class="option">
-            <input type="radio" name="question-${question.id}" id="option-${question.id}-${optionLetter}">
-            <label for="option-${question.id}-${optionLetter}">${option}</label>
+            <label>
+              <input type="radio" name="question-${question.id}" id="option-${question.id}-${optionLetter}">
+              <label for="option-${question.id}-${optionLetter}">${option}</label>
+            </label>
           </div>
         `;
       }).join('');
@@ -129,11 +156,12 @@ export const formatExamWithLayout = (exam: IExam): string => {
     } else if (question.type === 'shortAnswer') {
       optionsHtml = `<textarea placeholder="Enter your answer here..." rows="3"></textarea>`;
     } else if (question.type === 'essay') {
-      optionsHtml = `<textarea placeholder="Write your essay here..." rows="8"></textarea>`;
+      optionsHtml = `<textarea placeholder="Write your essay here..." rows="8" class="essay-input"></textarea>`;
     }
     
     // Extract just the question part (without instructions like "Select one:" etc.)
-    const questionText = cleanText.replace(/.*?([A-Za-z0-9].*?\?)/s, '$1').trim();
+    // Add null check before using replace
+    const questionText = cleanText ? cleanText.replace(/Answer:\s*([A-D]|True|False|.*?)(?=\n|\r|$)/i, '').trim() : `Question ${question.id}`;
     
     return `
       <div class="question-content" id="question-content-${question.id}" ${index > 0 ? 'style="display: none;"' : ''}>
@@ -368,6 +396,39 @@ export const formatExamWithLayout = (exam: IExam): string => {
           resize: vertical;
         }
         
+        .short-answer-container, .essay-container {
+          width: 100%;
+        }
+        
+        .answer-instructions {
+          margin-top: 5px;
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.7);
+          font-style: italic;
+        }
+        
+        .short-answer-input, .essay-input {
+          width: 100%;
+          padding: 12px;
+          border-radius: 5px;
+          border: 1px solid var(--light-gray);
+          background-color: var(--white);
+          color: #333;
+          font-size: 1rem;
+          resize: vertical;
+          margin-bottom: 5px;
+        }
+        
+        .essay-input {
+          min-height: 200px;
+        }
+        
+        textarea:focus {
+          outline: none;
+          border-color: var(--blue);
+          box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.25);
+        }
+        
         .navigation-buttons {
           display: flex;
           justify-content: space-between;
@@ -476,7 +537,7 @@ export const formatExamWithLayout = (exam: IExam): string => {
             </div>
             <div class="legend-item">
               <div class="legend-color not-visited-color"></div>
-              <span>No Visited</span>
+              <span>Not Visited</span>
             </div>
           </div>
           
@@ -570,6 +631,23 @@ export const formatExamWithLayout = (exam: IExam): string => {
           }
         });
         
+        // Also listen for input events on textareas
+        document.addEventListener('input', function(e) {
+          if (e.target.tagName.toLowerCase() === 'textarea') {
+            const closestContent = e.target.closest('.question-content');
+            if (closestContent) {
+              const questionId = parseInt(closestContent.id.split('-')[2]);
+              
+              if (e.target.value.trim() !== '') {
+                questionStatus[questionId] = 'answered';
+              } else {
+                questionStatus[questionId] = 'unanswered';
+              }
+              updateQuestionNumbers();
+            }
+          }
+        });
+        
         // Timer functionality
         function startTimer(minutes) {
           let totalSeconds = minutes * 60;
@@ -623,48 +701,82 @@ export const formatExamWithLayout = (exam: IExam): string => {
           // Collect all answers
           const answers = {};
           
+          // Get all radio button answers (MCQ and true/false questions)
           document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
             const questionId = radio.name.split('-')[1];
-            const value = radio.id.split('-')[2];
+            const value = radio.value;
             answers[questionId] = value;
           });
           
+          // Get all textarea answers (short answer and essay questions)
           document.querySelectorAll('textarea').forEach(textarea => {
-            // Find the closest question container to get the ID
-            const questionContent = textarea.closest('.question-content');
-            if (questionContent) {
-              const questionId = questionContent.id.split('-')[2];
-              if (textarea.value.trim()) {
-                answers[questionId] = textarea.value;
-              }
+            const questionContainer = textarea.closest('.question-content');
+            if (questionContainer) {
+              const questionId = questionContainer.id.split('-')[2];
+              answers[questionId] = textarea.value.trim();
             }
           });
           
-          // You would typically send these answers to a server
-          console.log('Exam submitted with answers:', answers);
+          // Prepare exam data for submission
+          const examData = {
+            examId: "${exam.id || ''}",
+            examName: "${exam.name || 'Exam'}",
+            date: new Date().toISOString(),
+            topics: ${JSON.stringify(exam.topics || [])},
+            answers: answers,
+            timeTaken: formatElapsedTime(startTime, Date.now()),
+            questionTypes: ${JSON.stringify(questions.map(q => q.type))}
+          };
           
-          // Show completion message
-          document.body.innerHTML = \`
-            <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 30px; background-color: #004d40; color: white; border-radius: 10px;">
-              <h1>Exam Submitted</h1>
-              <p>Thank you for completing the exam. Your answers have been recorded.</p>
-              <p>You will be redirected to the results page shortly.</p>
-            </div>
-          \`;
-          
-          // Notify the parent window that the exam is complete
+          // Submit the exam data
           if (window.opener) {
             try {
-              window.opener.postMessage({ type: 'examCompleted', answers }, '*');
+              window.opener.postMessage({ 
+                type: 'examCompleted', 
+                examData 
+              }, '*');
+              console.log('Sent exam completion data to parent window');
+              
+              // Show a success message to the user
+              document.body.innerHTML = \`
+                <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 30px; background-color: #004d40; color: white; border-radius: 10px;">
+                  <h1>Exam Submitted</h1>
+                  <p>Thank you for completing the exam. Your answers have been recorded.</p>
+                  <p>Your exam is being evaluated and results will be available in the Performance tab.</p>
+                  <button onclick="window.close()" style="margin-top: 20px; background-color: white; color: #004d40; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Close Window</button>
+                </div>
+              \`;
             } catch (e) {
               console.error('Could not send message to parent window:', e);
+              
+              // Show an error message but note that results are still saved
+              document.body.innerHTML = \`
+                <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 30px; background-color: #004d40; color: white; border-radius: 10px;">
+                  <h1>Exam Submitted</h1>
+                  <p>There was an issue communicating with the parent window, but your answers have been saved.</p>
+                  <p>You can safely close this window.</p>
+                  <button onclick="window.close()" style="margin-top: 20px; background-color: white; color: #004d40; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Close Window</button>
+                </div>
+              \`;
             }
           }
+          
+          // Store the data in localStorage as backup
+          localStorage.setItem('lastExamResults', JSON.stringify(examData));
+          localStorage.setItem('completedExamId', examData.examId);
           
           // Close the window after a delay
           setTimeout(() => {
             window.close();
-          }, 3000);
+          }, 5000);
+        }
+        
+        // Format time function
+        function formatElapsedTime(start, end) {
+          const elapsed = end - start;
+          const minutes = Math.floor(elapsed / 60000);
+          const seconds = Math.floor((elapsed % 60000) / 1000);
+          return \`\${minutes}m \${seconds}s\`;
         }
       </script>
     </body>

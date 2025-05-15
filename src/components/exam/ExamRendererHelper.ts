@@ -1,3 +1,4 @@
+
 import { formatExamWithLayout } from "./utils/examParser";
 import { parseQuestions } from "./utils/examParser";
 import { ParsedQuestion, ExamSubmissionData } from "./types/examTypes";
@@ -6,12 +7,14 @@ import { generateExamHtml } from "./ExamRenderer";
 // This function will be used instead of the original ExamRenderer
 // when we want the two-panel layout
 export const renderExamWithNumbersPanel = (exam) => {
+  console.log("Rendering exam with numbers panel:", exam);
   // Create a version of the exam without answers for display
   const examWithoutAnswers = { ...exam };
   
   // Parse questions if they are provided as a string
   let parsedQuestions = [];
   if (typeof examWithoutAnswers.questions === 'string') {
+    console.log("Parsing questions from string format");
     parsedQuestions = parseQuestions(examWithoutAnswers.questions);
     
     // Create question objects without answers
@@ -19,7 +22,8 @@ export const renderExamWithNumbersPanel = (exam) => {
       // Create a clean version of the question without the answer part
       let cleanText = question.text;
       if (question.correctAnswer) {
-        cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*)/i, '');
+        // Remove "Answer: X" parts from the text
+        cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*?)(?=\n|\r|$)/gi, '');
       }
       
       return {
@@ -35,11 +39,15 @@ export const renderExamWithNumbersPanel = (exam) => {
   } 
   // If questions are already in array format, clean them up
   else if (Array.isArray(examWithoutAnswers.questions)) {
+    console.log("Processing questions already in array format");
     const questionsWithoutAnswers = examWithoutAnswers.questions.map(question => {
+      if (!question) return null; // Handle null or undefined questions
+      
       // Create a clean version of the question without the answer part
       let cleanText = question.text;
       if (question.correctAnswer) {
-        cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*)/i, '');
+        // Remove "Answer: X" parts from the text
+        cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*?)(?=\n|\r|$)/gi, '');
       }
       
       return {
@@ -48,7 +56,7 @@ export const renderExamWithNumbersPanel = (exam) => {
         // Remove correctAnswer from what's displayed to students
         correctAnswer: undefined
       };
-    });
+    }).filter(q => q !== null); // Filter out any null questions
     
     examWithoutAnswers.questions = questionsWithoutAnswers;
   }
@@ -65,6 +73,9 @@ export const renderExamWithNumbersPanel = (exam) => {
   const originalQuestions = typeof exam.questions === 'string' 
     ? parseQuestions(exam.questions)
     : exam.questions;
+  
+  console.log("Original questions for evaluation:", originalQuestions);
+  console.log("Clean questions for display:", examWithoutAnswers.questions);
   
   // Use the enhanced ExamRenderer to generate HTML with the two-panel layout
   const examHtml = generateExamHtml(examWithoutAnswers, examWithoutAnswers.questions || []);

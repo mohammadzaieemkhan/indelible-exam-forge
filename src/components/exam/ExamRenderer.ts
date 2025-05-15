@@ -5,6 +5,8 @@ import { ParsedQuestion } from "./types/examTypes";
 
 // Function to generate the HTML for the exam
 export const generateExamHtml = (exam, questions) => {
+  console.log("Generating exam HTML with questions:", questions);
+  
   // Ensure questions is an array - if not, make it an empty array
   const questionArray = Array.isArray(questions) ? questions : [];
   
@@ -47,6 +49,8 @@ export const generateExamHtml = (exam, questions) => {
     shortanswer: uniqueQuestions.filter(q => q.type === 'shortAnswer'),
     essay: uniqueQuestions.filter(q => q.type === 'essay')
   };
+  
+  console.log("Grouped questions:", groupedQuestions);
 
   // HTML content for the exam
   return `
@@ -246,6 +250,9 @@ export const generateExamHtml = (exam, questions) => {
           border-radius: 8px;
           margin: 20px 0;
         }
+        .essay-input {
+          min-height: 200px;
+        }
         @media (max-width: 768px) {
           #exam-container {
             flex-direction: column;
@@ -283,17 +290,18 @@ export const generateExamHtml = (exam, questions) => {
             <p><strong>Duration:</strong> ${exam.duration || '60'} minutes</p>
           </div>
           <ul class="nav-list">
-            <li class="nav-item active" data-section="mcq">Multiple Choice Questions</li>
-            <li class="nav-item" data-section="truefalse">True / False Questions</li>
-            <li class="nav-item" data-section="shortanswer">Short Answer Questions</li>
-            <li class="nav-item" data-section="essay">Essay Type Questions</li>
+            ${groupedQuestions.mcq.length > 0 ? '<li class="nav-item active" data-section="mcq">Multiple Choice Questions</li>' : ''}
+            ${groupedQuestions.truefalse.length > 0 ? '<li class="nav-item" data-section="truefalse">True / False Questions</li>' : ''}
+            ${groupedQuestions.shortanswer.length > 0 ? '<li class="nav-item" data-section="shortanswer">Short Answer Questions</li>' : ''}
+            ${groupedQuestions.essay.length > 0 ? '<li class="nav-item" data-section="essay">Essay Type Questions</li>' : ''}
           </ul>
         </div>
         
         <div class="content-panel">
+          ${groupedQuestions.mcq.length > 0 ? `
           <div class="section active" id="mcq-section">
             <h2 class="section-title">Multiple Choice Questions</h2>
-            ${groupedQuestions.mcq.length > 0 ? groupedQuestions.mcq.map((q, idx) => `
+            ${groupedQuestions.mcq.map((q, idx) => `
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div class="options">
@@ -307,12 +315,13 @@ export const generateExamHtml = (exam, questions) => {
                   `).join('')}
                 </div>
               </div>
-            `).join('') : '<div class="no-questions-message">No multiple choice questions available</div>'}
-          </div>
+            `).join('')}
+          </div>` : ''}
           
-          <div class="section" id="truefalse-section">
+          ${groupedQuestions.truefalse.length > 0 ? `
+          <div class="section ${groupedQuestions.mcq.length === 0 ? 'active' : ''}" id="truefalse-section">
             <h2 class="section-title">True / False Questions</h2>
-            ${groupedQuestions.truefalse.length > 0 ? groupedQuestions.truefalse.map((q, idx) => `
+            ${groupedQuestions.truefalse.map((q, idx) => `
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div class="options">
@@ -330,12 +339,13 @@ export const generateExamHtml = (exam, questions) => {
                   </div>
                 </div>
               </div>
-            `).join('') : '<div class="no-questions-message">No true/false questions available</div>'}
-          </div>
+            `).join('')}
+          </div>` : ''}
           
-          <div class="section" id="shortanswer-section">
+          ${groupedQuestions.shortanswer.length > 0 ? `
+          <div class="section ${groupedQuestions.mcq.length === 0 && groupedQuestions.truefalse.length === 0 ? 'active' : ''}" id="shortanswer-section">
             <h2 class="section-title">Short Answer Questions</h2>
-            ${groupedQuestions.shortanswer.length > 0 ? groupedQuestions.shortanswer.map((q, idx) => `
+            ${groupedQuestions.shortanswer.map((q, idx) => `
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
@@ -349,16 +359,17 @@ export const generateExamHtml = (exam, questions) => {
                   </button>
                 </div>
               </div>
-            `).join('') : '<div class="no-questions-message">No short answer questions available</div>'}
-          </div>
+            `).join('')}
+          </div>` : ''}
           
-          <div class="section" id="essay-section">
+          ${groupedQuestions.essay.length > 0 ? `
+          <div class="section ${groupedQuestions.mcq.length === 0 && groupedQuestions.truefalse.length === 0 && groupedQuestions.shortanswer.length === 0 ? 'active' : ''}" id="essay-section">
             <h2 class="section-title">Essay Type Questions</h2>
-            ${groupedQuestions.essay.length > 0 ? groupedQuestions.essay.map((q, idx) => `
+            ${groupedQuestions.essay.map((q, idx) => `
               <div class="question-container">
                 <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
-                  <textarea id="essay${idx}" placeholder="Write your answer here..."></textarea>
+                  <textarea id="essay${idx}" class="essay-input" placeholder="Write your answer here..."></textarea>
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('essay${idx}', 'essay')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
@@ -368,8 +379,12 @@ export const generateExamHtml = (exam, questions) => {
                   </button>
                 </div>
               </div>
-            `).join('') : '<div class="no-questions-message">No essay questions available</div>'}
-          </div>
+            `).join('')}
+          </div>` : ''}
+          
+          ${(groupedQuestions.mcq.length === 0 && groupedQuestions.truefalse.length === 0 && 
+            groupedQuestions.shortanswer.length === 0 && groupedQuestions.essay.length === 0) ? 
+            '<div class="no-questions-message">No questions available for this exam</div>' : ''}
           
           <div class="actions">
             <button type="button" id="submit-btn" onclick="submitExam()">Submit Exam</button>
@@ -396,7 +411,7 @@ export const generateExamHtml = (exam, questions) => {
             question: q.text || '',
             type: q.type || 'unknown',
             options: q.options || [],
-            answer: q.correctAnswer || ''
+            answer: ''  // Don't include correct answers here
           })))}
         };
         
@@ -594,4 +609,3 @@ export const generateExamHtml = (exam, questions) => {
 
 // Export functions for use in other modules
 export { parseQuestions };
-
