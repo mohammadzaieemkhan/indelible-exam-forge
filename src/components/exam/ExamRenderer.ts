@@ -328,7 +328,7 @@ export const generateExamHtml = (exam, questions) => {
                         ${optionText}
                       </label>
                     </div>
-                  `}).join('')}
+                  `;}).join('')}
                 </div>
                 <div class="answer-save-indicator" id="save-indicator-q${idx}">Answer saved</div>
               </div>
@@ -590,23 +590,23 @@ export const generateExamHtml = (exam, questions) => {
           // Also store using additional formats based on data attributes
           if (type === 'mcq') {
             // Find the actual index from the data attribute
-            const radioEl = document.querySelector(`input[name="${questionId}"]:checked`);
+            const radioEl = document.querySelector(\`input[name="\${questionId}"]:checked\`);
             if (radioEl) {
               const mcqIndex = radioEl.getAttribute('data-mcq-index');
               if (mcqIndex !== null) {
                 // Store with plain numeric index
                 examData.answers[mcqIndex] = value;
                 // Store with question- prefix
-                examData.answers[`question-${mcqIndex}`] = value;
+                examData.answers[\`question-\${mcqIndex}\`] = value;
               }
             }
           } else if (type === 'trueFalse') {
-            const radioEl = document.querySelector(`input[name="${questionId}"]:checked`);
+            const radioEl = document.querySelector(\`input[name="\${questionId}"]:checked\`);
             if (radioEl) {
               const tfIndex = radioEl.getAttribute('data-tf-index');
               if (tfIndex !== null) {
                 examData.answers[tfIndex] = value;
-                examData.answers[`question-${tfIndex}`] = value;
+                examData.answers[\`question-\${tfIndex}\`] = value;
               }
             }
           } else if (type === 'shortAnswer') {
@@ -615,7 +615,7 @@ export const generateExamHtml = (exam, questions) => {
               const saIndex = inputEl.getAttribute('data-sa-index');
               if (saIndex !== null) {
                 examData.answers[saIndex] = value;
-                examData.answers[`question-${saIndex}`] = value;
+                examData.answers[\`question-\${saIndex}\`] = value;
               }
             }
           } else if (type === 'essay') {
@@ -624,7 +624,7 @@ export const generateExamHtml = (exam, questions) => {
               const essayIndex = textareaEl.getAttribute('data-essay-index');
               if (essayIndex !== null) {
                 examData.answers[essayIndex] = value;
-                examData.answers[`question-${essayIndex}`] = value;
+                examData.answers[\`question-\${essayIndex}\`] = value;
               }
             }
           }
@@ -885,3 +885,4 @@ export const generateExamHtml = (exam, questions) => {
 
 // Export functions for use in other modules
 export { parseQuestions };
+
