@@ -257,7 +257,7 @@ const PreviousExamsTab = ({ exams, onDeleteExam }: PreviousExamsTabProps) => {
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle>Previous Exams</CardTitle>
-          <CardDescription>View and analyze your past exams</CardDescription>
+          <CardDescription>View and manage your past exams</CardDescription>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
@@ -365,7 +365,7 @@ const PreviousExamsTab = ({ exams, onDeleteExam }: PreviousExamsTabProps) => {
                         <span className="text-muted-foreground">No result</span>
                       )}
                     </td>
-                    <td className="p-2 flex gap-2">
+                    <td className="p-2 flex gap-2 items-center">
                       <Button variant="ghost" size="sm" onClick={() => handleViewExam(exam)}>
                         <Eye className="h-4 w-4 mr-1" /> View
                       </Button>
@@ -382,7 +382,7 @@ const PreviousExamsTab = ({ exams, onDeleteExam }: PreviousExamsTabProps) => {
                           className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
                         >
                           <Trash className="h-4 w-4" />
-                          <span className="sr-only">Delete</span>
+                          <span className="sr-only md:not-sr-only md:ml-1">Delete</span>
                         </Button>
                       )}
                     </td>
