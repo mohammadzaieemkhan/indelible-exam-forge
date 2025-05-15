@@ -1,785 +1,178 @@
+import { ParsedQuestion } from '../exam/types/examTypes';
 
-import { IExam } from '@/components/ExamTabs';
-import { ParsedQuestion } from '@/components/exam/types/examTypes';
+/**
+ * Parse questions from the exam text
+ * @param examText - The full exam text to parse
+ * @returns Array of parsed questions
+ */
+export const parseQuestions = (examText: string): ParsedQuestion[] => {
+  if (!examText) return [];
 
-// Parse questions from text content
-export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
+  // Improved regex patterns for different question types
+  const mcqPattern = /(\d+)\.\s*(?:MCQ:|Multiple\s*Choice:?)\s*(.*?)(?=(?:\d+\.\s*(?:MCQ|Multiple\s*Choice|Short\s*Answer|Essay|True\/False|True\s*\/\s*False):?)|$)/gis;
+  const shortAnswerPattern = /(\d+)\.\s*(?:Short\s*Answer:)\s*(.*?)(?=(?:\d+\.\s*(?:MCQ|Multiple\s*Choice|Short\s*Answer|Essay|True\/False|True\s*\/\s*False):?)|$)/gis;
+  const essayPattern = /(\d+)\.\s*(?:Essay:)\s*(.*?)(?=(?:\d+\.\s*(?:MCQ|Multiple\s*Choice|Short\s*Answer|Essay|True\/False|True\s*\/\s*False):?)|$)/gis;
+  const trueFalsePattern = /(\d+)\.\s*(?:True\/False:|True\s*\/\s*False:)\s*(.*?)(?=(?:\d+\.\s*(?:MCQ|Multiple\s*Choice|Short\s*Answer|Essay|True\/False|True\s*\/\s*False):?)|$)/gis;
+  
+  // If no type-specific patterns, try a generic pattern
+  const genericPattern = /(\d+)\.\s*(.*?)(?=(?:\d+\.)|$)/gis;
+
   const questions: ParsedQuestion[] = [];
-  console.log("Parsing questions from text:", questionsText?.substring(0, 200) + "...");
-  
-  // Split by question numbers (1., 2., etc.)
-  const questionRegex = /(\d+\.)(.*?)(?=\d+\.|$)/gs;
   let match;
-  
-  while ((match = questionRegex.exec(questionsText)) !== null) {
-    const questionNumber = parseInt(match[1]);
-    const questionContent = match[2].trim();
+
+  // Helper function to extract options for MCQs
+  const extractOptions = (text: string): string[] => {
+    const options = [];
+    // Match options formatted as A) or A. followed by text
+    const optionPattern = /([A-D])[).]\s*([^\n]+)(?:\n|$)/g;
+    let optionMatch;
     
-    // Determine question type
-    let type: ParsedQuestion['type'] = 'unknown';
-    let options: string[] = [];
-    let correctAnswer: string | undefined;
-    
-    // Check for multiple choice options (A), B), etc.)
-    const optionMatches = questionContent.match(/([A-D])[).]\s*(.*?)(?=(?:[A-D][).]|Answer:|$))/gs);
-    
-    if (optionMatches && optionMatches.length > 1) {
-      type = 'mcq';
-      options = optionMatches.map(opt => opt.trim());
-      
-      // Look for correct answer
-      const answerMatch = questionContent.match(/Answer:\s*([A-D])/i);
-      if (answerMatch) {
-        correctAnswer = answerMatch[1];
-      }
-    } 
-    // Check for true/false questions
-    else if (questionContent.toLowerCase().includes('true or false') || 
-             questionContent.toLowerCase().includes('true/false')) {
-      type = 'trueFalse';
-      
-      // Look for correct answer
-      const answerMatch = questionContent.match(/Answer:\s*(True|False)/i);
-      if (answerMatch) {
-        correctAnswer = answerMatch[1];
-      }
-    }
-    // Check for short answer questions
-    else if (questionContent.toLowerCase().includes('short answer') || 
-             questionContent.toLowerCase().includes('briefly explain') ||
-             questionContent.toLowerCase().includes('in a few sentences') ||
-             questionContent.toLowerCase().match(/\(\s*\d+\s*words?\s*\)/i)) {
-      type = 'shortAnswer';
-      
-      // Look for correct answer
-      const answerMatch = questionContent.match(/Answer:\s*(.*?)(?=\n|\r|$)/i);
-      if (answerMatch) {
-        correctAnswer = answerMatch[1].trim();
-      }
-    }
-    // Check for essay questions
-    else if (questionContent.toLowerCase().includes('essay') || 
-             questionContent.toLowerCase().includes('write an essay') ||
-             questionContent.toLowerCase().includes('in detail') ||
-             questionContent.toLowerCase().includes('word limit') ||
-             questionContent.toLowerCase().includes('compare and contrast') ||
-             questionContent.toLowerCase().includes('discuss') ||
-             questionContent.toLowerCase().includes('explain') ||
-             questionContent.toLowerCase().includes('describe') ||
-             questionContent.match(/\(\s*\d+\s*words?\s*\)/i)) {
-      type = 'essay';
-      
-      // Look for correct answer or key points
-      const answerMatch = questionContent.match(/Answer:\s*(.*?)(?=\n|\r|$)/i);
-      if (answerMatch) {
-        correctAnswer = answerMatch[1].trim();
-      }
+    while ((optionMatch = optionPattern.exec(text)) !== null) {
+      options.push(`${optionMatch[1]}) ${optionMatch[2].trim()}`);
     }
     
-    // Extract weight if present (e.g., "(5 points)")
-    let weight: number | undefined;
-    const weightMatch = questionContent.match(/\((\d+)\s*points?\)/i);
-    if (weightMatch) {
-      weight = parseInt(weightMatch[1]);
+    return options;
+  };
+
+  // Helper function to extract the correct answer
+  const extractAnswer = (text: string, type: string): string | null => {
+    if (type === 'mcq') {
+      const answerMatch = text.match(/Answer:\s*([A-D])/i);
+      return answerMatch ? answerMatch[1] : null;
+    } else if (type === 'trueFalse') {
+      const answerMatch = text.match(/Answer:\s*(True|False)/i);
+      return answerMatch ? answerMatch[1] : null;
     }
+    return null;
+  };
+
+  // Process MCQs
+  while ((match = mcqPattern.exec(examText)) !== null) {
+    const id = parseInt(match[1]);
+    const text = match[2].trim();
+    const options = extractOptions(text);
+    const correctAnswer = extractAnswer(text, 'mcq');
     
     questions.push({
-      id: questionNumber,
-      text: questionContent,
-      type,
+      id,
+      text,
+      type: 'mcq',
       options,
-      correctAnswer,
-      weight
+      correctAnswer
+    });
+  }
+
+  // Process Short Answer questions
+  while ((match = shortAnswerPattern.exec(examText)) !== null) {
+    const id = parseInt(match[1]);
+    const text = match[2].trim();
+    
+    questions.push({
+      id,
+      text,
+      type: 'shortAnswer',
+      options: [],
+      correctAnswer: null
+    });
+  }
+
+  // Process Essay questions
+  while ((match = essayPattern.exec(examText)) !== null) {
+    const id = parseInt(match[1]);
+    const text = match[2].trim();
+    
+    questions.push({
+      id,
+      text,
+      type: 'essay',
+      options: [],
+      correctAnswer: null
+    });
+  }
+
+  // Process True/False questions
+  while ((match = trueFalsePattern.exec(examText)) !== null) {
+    const id = parseInt(match[1]);
+    const text = match[2].trim();
+    const correctAnswer = extractAnswer(text, 'trueFalse');
+    
+    questions.push({
+      id,
+      text,
+      type: 'trueFalse',
+      options: ['True', 'False'],
+      correctAnswer
+    });
+  }
+
+  // If we didn't find any questions with the specific formats,
+  // try parsing with a generic pattern
+  if (questions.length === 0) {
+    while ((match = genericPattern.exec(examText)) !== null) {
+      const id = parseInt(match[1]);
+      const text = match[2].trim();
+      
+      // Detect question type from content
+      let type = 'mcq'; // Default type
+      let options: string[] = [];
+      let correctAnswer: string | null = null;
+      
+      if (text.match(/Answer:\s*(True|False)/i)) {
+        type = 'trueFalse';
+        options = ['True', 'False'];
+        const answerMatch = text.match(/Answer:\s*(True|False)/i);
+        correctAnswer = answerMatch ? answerMatch[1] : null;
+      } else if (text.match(/([A-D])[).]\s*([^\n]+)/g)) {
+        type = 'mcq';
+        options = extractOptions(text);
+        const answerMatch = text.match(/Answer:\s*([A-D])/i);
+        correctAnswer = answerMatch ? answerMatch[1] : null;
+      } else if (text.toLowerCase().includes('essay') || text.toLowerCase().includes('write an essay')) {
+        type = 'essay';
+      } else {
+        type = 'shortAnswer';
+      }
+      
+      questions.push({
+        id,
+        text,
+        type,
+        options,
+        correctAnswer
+      });
+    }
+  }
+
+  // Sort questions by ID
+  return questions.sort((a, b) => a.id - b.id);
+};
+
+// Helper function to format exam with proper layout
+export const formatExamWithLayout = (exam: any) => {
+  const { name, date, time, duration, numberOfQuestions, topics, difficulty, questionTypes, questions } = exam;
+  
+  let examText = `# ${name}\n\n`;
+  examText += `**Date:** ${date}\n`;
+  examText += `**Time:** ${time}\n`;
+  examText += `**Duration:** ${duration} minutes\n`;
+  examText += `**Number of Questions:** ${numberOfQuestions}\n`;
+  examText += `**Topics:** ${topics.join(', ')}\n`;
+  examText += `**Difficulty:** ${difficulty}\n`;
+  examText += `**Question Types:** ${questionTypes}\n\n`;
+  
+  if (typeof questions === 'string') {
+    examText += questions;
+  } else if (Array.isArray(questions)) {
+    questions.forEach((question, index) => {
+      examText += `${index + 1}. ${question.text}\n`;
+      if (question.options && question.options.length > 0) {
+        question.options.forEach(option => {
+          examText += `  - ${option}\n`;
+        });
+      }
+      examText += '\n';
     });
   }
   
-  console.log(`Parsed ${questions.length} questions with types:`, 
-    questions.map(q => q.type).reduce((acc, type) => {
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>));
-  
-  return questions;
-};
-
-// Format the exam with the new two-panel layout that matches the design
-export const formatExamWithLayout = (exam: IExam): string => {
-  // Parse questions from the exam content
-  const questions = parseQuestions(exam.questions || '');
-  
-  // Calculate exam duration in minutes
-  const durationMinutes = exam.duration ? parseInt(exam.duration) : 60;
-  
-  // Generate the question numbers for the sidebar
-  const questionNumbersHtml = questions.map((question) => {
-    return `
-      <div class="question-number" data-id="${question.id}">
-        ${question.id}
-      </div>
-    `;
-  }).join('');
-  
-  // Generate the question content
-  const questionsHtml = questions.map((question, index) => {
-    let optionsHtml = '';
-    
-    // Clean up the question text by removing the answer part
-    let cleanText = question.text;
-    if (question.correctAnswer) {
-      cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False|.*?)(?=\n|\r|$)/i, '');
-    }
-    
-    // Format based on question type
-    if (question.type === 'mcq' && question.options) {
-      optionsHtml = question.options.map(option => {
-        const optionLetter = option.charAt(0);
-        return `
-          <div class="option">
-            <label>
-              <input type="radio" name="question-${question.id}" id="option-${question.id}-${optionLetter}">
-              <label for="option-${question.id}-${optionLetter}">${option}</label>
-            </label>
-          </div>
-        `;
-      }).join('');
-    } else if (question.type === 'trueFalse') {
-      optionsHtml = `
-        <div class="option">
-          <input type="radio" name="question-${question.id}" id="option-${question.id}-true">
-          <label for="option-${question.id}-true">True</label>
-        </div>
-        <div class="option">
-          <input type="radio" name="question-${question.id}" id="option-${question.id}-false">
-          <label for="option-${question.id}-false">False</label>
-        </div>
-      `;
-    } else if (question.type === 'shortAnswer') {
-      optionsHtml = `<textarea placeholder="Enter your answer here..." rows="3"></textarea>`;
-    } else if (question.type === 'essay') {
-      optionsHtml = `<textarea placeholder="Write your essay here..." rows="8" class="essay-input"></textarea>`;
-    }
-    
-    // Extract just the question part (without instructions like "Select one:" etc.)
-    // Add null check before using replace
-    const questionText = cleanText ? cleanText.replace(/Answer:\s*([A-D]|True|False|.*?)(?=\n|\r|$)/i, '').trim() : `Question ${question.id}`;
-    
-    return `
-      <div class="question-content" id="question-content-${question.id}" ${index > 0 ? 'style="display: none;"' : ''}>
-        <h3>Q${question.id}. ${questionText}</h3>
-        <div class="options-container">
-          ${optionsHtml}
-        </div>
-        <div class="navigation-buttons">
-          ${index > 0 ? '<button class="nav-button back-button" onclick="showQuestion(' + (question.id - 1) + ')">Back</button>' : '<button class="nav-button back-button" disabled>Back</button>'}
-          <button class="nav-button mark-button" onclick="markForReview(${question.id})">Mark For Review</button>
-          ${index < questions.length - 1 ? '<button class="nav-button next-button" onclick="showQuestion(' + (question.id + 1) + ')">Next</button>' : '<button class="nav-button next-button" onclick="confirmSubmit()">Submit</button>'}
-        </div>
-      </div>
-    `;
-  }).join('');
-  
-  // Return the complete HTML for the exam
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${exam.name || 'Exam'}</title>
-      <style>
-        :root {
-          --dark-green: #004d40;
-          --light-green: #00796b;
-          --white: #ffffff;
-          --light-gray: #f5f5f5;
-          --blue: #2196f3;
-          --red: #f44336;
-          --dark-blue: #01579b;
-        }
-        
-        body, html {
-          margin: 0;
-          padding: 0;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-          height: 100%;
-          overflow: hidden;
-          color: var(--white);
-          line-height: 1.5;
-        }
-        
-        #exam-container {
-          display: flex;
-          height: 100vh;
-        }
-        
-        /* Left panel - Question numbers */
-        #questions-panel {
-          width: 20%;
-          min-width: 200px;
-          background-color: var(--dark-green);
-          padding: 20px 10px;
-          display: flex;
-          flex-direction: column;
-          overflow-y: auto;
-        }
-        
-        .panel-heading {
-          text-align: center;
-          margin-bottom: 20px;
-          font-weight: bold;
-          font-size: 1.2rem;
-        }
-        
-        .question-numbers-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 10px;
-          justify-items: center;
-          margin-bottom: 30px;
-        }
-        
-        .question-number {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background-color: var(--white);
-          color: var(--dark-green);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          font-weight: bold;
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-        
-        .question-number:hover {
-          transform: scale(1.05);
-        }
-        
-        .question-number.active {
-          background-color: var(--blue);
-          color: var(--white);
-          box-shadow: 0 0 0 2px var(--white);
-        }
-        
-        .question-number.answered {
-          background-color: var(--blue);
-          color: var(--white);
-        }
-        
-        .question-number.unanswered {
-          background-color: var(--red);
-          color: var(--white);
-        }
-        
-        .question-number.marked {
-          background-color: var(--dark-blue);
-          color: var(--white);
-        }
-        
-        .legend {
-          margin-top: auto;
-          padding-top: 20px;
-        }
-        
-        .legend-item {
-          display: flex;
-          align-items: center;
-          margin-bottom: 10px;
-        }
-        
-        .legend-color {
-          width: 24px;
-          height: 24px;
-          border-radius: 50%;
-          margin-right: 10px;
-        }
-        
-        .answered-color {
-          background-color: var(--blue);
-        }
-        
-        .unanswered-color {
-          background-color: var(--red);
-        }
-        
-        .marked-color {
-          background-color: var(--dark-blue);
-        }
-        
-        .not-visited-color {
-          background-color: var(--white);
-          border: 1px solid var(--light-gray);
-        }
-        
-        .submit-button {
-          margin-top: 20px;
-          background-color: var(--blue);
-          color: var(--white);
-          border: none;
-          border-radius: 20px;
-          padding: 12px 30px;
-          font-size: 1rem;
-          font-weight: bold;
-          cursor: pointer;
-          width: 100%;
-          transition: background-color 0.3s ease;
-        }
-        
-        .submit-button:hover {
-          background-color: #1976d2;
-        }
-        
-        /* Right panel - Question content */
-        #content-panel {
-          flex: 1;
-          padding: 30px;
-          overflow-y: auto;
-          background-color: var(--light-green);
-          position: relative;
-        }
-        
-        .timer {
-          position: absolute;
-          top: 20px;
-          left: 20px;
-          background-color: rgba(255, 255, 255, 0.2);
-          padding: 8px 16px;
-          border-radius: 20px;
-          font-weight: bold;
-        }
-        
-        .question-content {
-          background-color: var(--dark-green);
-          padding: 30px;
-          border-radius: 10px;
-          margin-top: 50px;
-        }
-        
-        .question-content h3 {
-          margin-top: 0;
-          margin-bottom: 20px;
-          font-size: 1.3rem;
-        }
-        
-        .options-container {
-          display: flex;
-          flex-direction: column;
-          gap: 15px;
-          margin-bottom: 30px;
-        }
-        
-        .option {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        
-        .option input[type="radio"] {
-          width: 20px;
-          height: 20px;
-          cursor: pointer;
-        }
-        
-        .option label {
-          cursor: pointer;
-        }
-        
-        textarea {
-          width: 100%;
-          padding: 12px;
-          border-radius: 5px;
-          border: 1px solid var(--light-gray);
-          background-color: var(--white);
-          color: #333;
-          font-size: 1rem;
-          resize: vertical;
-        }
-        
-        .short-answer-container, .essay-container {
-          width: 100%;
-        }
-        
-        .answer-instructions {
-          margin-top: 5px;
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.7);
-          font-style: italic;
-        }
-        
-        .short-answer-input, .essay-input {
-          width: 100%;
-          padding: 12px;
-          border-radius: 5px;
-          border: 1px solid var(--light-gray);
-          background-color: var(--white);
-          color: #333;
-          font-size: 1rem;
-          resize: vertical;
-          margin-bottom: 5px;
-        }
-        
-        .essay-input {
-          min-height: 200px;
-        }
-        
-        textarea:focus {
-          outline: none;
-          border-color: var(--blue);
-          box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.25);
-        }
-        
-        .navigation-buttons {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 20px;
-        }
-        
-        .nav-button {
-          padding: 10px 20px;
-          border: none;
-          border-radius: 5px;
-          font-weight: bold;
-          cursor: pointer;
-          min-width: 120px;
-          transition: all 0.3s ease;
-        }
-        
-        .back-button {
-          background-color: var(--white);
-          color: var(--dark-green);
-        }
-        
-        .mark-button {
-          background-color: var(--dark-blue);
-          color: var(--white);
-        }
-        
-        .next-button {
-          background-color: var(--white);
-          color: var(--dark-green);
-        }
-        
-        .nav-button:hover:not(:disabled) {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .nav-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        
-        /* Responsive styles */
-        @media (max-width: 768px) {
-          #exam-container {
-            flex-direction: column;
-          }
-          
-          #questions-panel {
-            width: 100%;
-            min-width: auto;
-            max-height: 200px;
-            padding: 10px;
-          }
-          
-          .question-numbers-grid {
-            grid-template-columns: repeat(6, 1fr);
-          }
-          
-          .question-number {
-            width: 32px;
-            height: 32px;
-          }
-          
-          .legend {
-            display: none;
-          }
-          
-          #content-panel {
-            padding: 15px;
-          }
-          
-          .timer {
-            top: 10px;
-            left: 10px;
-          }
-          
-          .question-content {
-            padding: 20px;
-            margin-top: 40px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div id="exam-container">
-        <!-- Left panel with question numbers -->
-        <div id="questions-panel">
-          <div class="panel-heading">Question</div>
-          
-          <div class="question-numbers-grid">
-            ${questionNumbersHtml}
-          </div>
-          
-          <div class="legend">
-            <div class="legend-item">
-              <div class="legend-color answered-color"></div>
-              <span>Answered</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color unanswered-color"></div>
-              <span>Unanswered</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color marked-color"></div>
-              <span>Mark for review</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color not-visited-color"></div>
-              <span>Not Visited</span>
-            </div>
-          </div>
-          
-          <button class="submit-button" onclick="confirmSubmit()">Submit</button>
-        </div>
-        
-        <!-- Right panel with question content -->
-        <div id="content-panel">
-          <div class="timer" id="timer">Time Remaining : ${durationMinutes}:00</div>
-          
-          ${questionsHtml}
-        </div>
-      </div>
-      
-      <script>
-        // Track question statuses
-        const questionStatus = {};
-        const allQuestions = ${JSON.stringify(questions.map(q => q.id))};
-        let currentQuestion = 1;
-        
-        // Initialize all questions as not visited
-        allQuestions.forEach(qId => {
-          questionStatus[qId] = 'not-visited';
-        });
-        
-        // Set the first question as the current one
-        questionStatus[1] = 'current';
-        updateQuestionNumbers();
-        
-        // Show a specific question
-        function showQuestion(questionId) {
-          // Hide current question
-          document.getElementById(\`question-content-\${currentQuestion}\`).style.display = 'none';
-          
-          // Show selected question
-          document.getElementById(\`question-content-\${questionId}\`).style.display = 'block';
-          
-          // Update status if this is the first visit
-          if (questionStatus[questionId] === 'not-visited') {
-            questionStatus[questionId] = 'unanswered';
-          }
-          
-          // Update current question tracker
-          currentQuestion = questionId;
-          
-          // Update the visual state of question numbers
-          updateQuestionNumbers();
-        }
-        
-        // Mark a question for review
-        function markForReview(questionId) {
-          questionStatus[questionId] = questionStatus[questionId] === 'marked' ? 'unanswered' : 'marked';
-          updateQuestionNumbers();
-        }
-        
-        // Update the visual state of question numbers
-        function updateQuestionNumbers() {
-          const questionNumberElements = document.querySelectorAll('.question-number');
-          
-          questionNumberElements.forEach(el => {
-            const qId = parseInt(el.getAttribute('data-id'));
-            
-            // Remove all classes first
-            el.classList.remove('active', 'answered', 'unanswered', 'marked');
-            
-            // Add appropriate class based on status
-            if (qId === currentQuestion) {
-              el.classList.add('active');
-            }
-            
-            if (questionStatus[qId]) {
-              el.classList.add(questionStatus[qId]);
-            }
-          });
-        }
-        
-        // Add click event to question numbers
-        document.querySelectorAll('.question-number').forEach(el => {
-          el.addEventListener('click', function() {
-            const qId = parseInt(this.getAttribute('data-id'));
-            showQuestion(qId);
-          });
-        });
-        
-        // Capture radio button changes to track answered questions
-        document.addEventListener('change', function(e) {
-          if (e.target.type === 'radio') {
-            const questionId = parseInt(e.target.name.split('-')[1]);
-            questionStatus[questionId] = 'answered';
-            updateQuestionNumbers();
-          }
-        });
-        
-        // Also listen for input events on textareas
-        document.addEventListener('input', function(e) {
-          if (e.target.tagName.toLowerCase() === 'textarea') {
-            const closestContent = e.target.closest('.question-content');
-            if (closestContent) {
-              const questionId = parseInt(closestContent.id.split('-')[2]);
-              
-              if (e.target.value.trim() !== '') {
-                questionStatus[questionId] = 'answered';
-              } else {
-                questionStatus[questionId] = 'unanswered';
-              }
-              updateQuestionNumbers();
-            }
-          }
-        });
-        
-        // Timer functionality
-        function startTimer(minutes) {
-          let totalSeconds = minutes * 60;
-          const timerElement = document.getElementById('timer');
-          
-          const interval = setInterval(() => {
-            totalSeconds--;
-            if (totalSeconds <= 0) {
-              clearInterval(interval);
-              alert('Time is up! Your exam will be submitted.');
-              submitExam();
-              return;
-            }
-            
-            const mins = Math.floor(totalSeconds / 60);
-            const secs = totalSeconds % 60;
-            timerElement.textContent = \`Time Remaining : \${mins}:\${secs < 10 ? '0' : ''}\${secs}\`;
-            
-            // Change color when time is running low
-            if (totalSeconds < 300) { // Less than 5 minutes
-              timerElement.style.backgroundColor = 'rgba(244, 67, 54, 0.7)';
-            } else if (totalSeconds < 600) { // Less than 10 minutes
-              timerElement.style.backgroundColor = 'rgba(255, 152, 0, 0.7)';
-            }
-          }, 1000);
-        }
-        
-        // Start the timer
-        startTimer(${durationMinutes});
-        
-        // Confirm before submitting
-        function confirmSubmit() {
-          const unansweredCount = Object.values(questionStatus).filter(
-            status => status === 'unanswered' || status === 'not-visited'
-          ).length;
-          
-          if (unansweredCount > 0) {
-            const confirm = window.confirm(
-              \`You have \${unansweredCount} unanswered questions. Are you sure you want to submit?\`
-            );
-            if (confirm) {
-              submitExam();
-            }
-          } else {
-            submitExam();
-          }
-        }
-        
-        // Submit the exam
-        function submitExam() {
-          // Collect all answers
-          const answers = {};
-          
-          // Get all radio button answers (MCQ and true/false questions)
-          document.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
-            const questionId = radio.name.split('-')[1];
-            const value = radio.value;
-            answers[questionId] = value;
-          });
-          
-          // Get all textarea answers (short answer and essay questions)
-          document.querySelectorAll('textarea').forEach(textarea => {
-            const questionContainer = textarea.closest('.question-content');
-            if (questionContainer) {
-              const questionId = questionContainer.id.split('-')[2];
-              answers[questionId] = textarea.value.trim();
-            }
-          });
-          
-          // Prepare exam data for submission
-          const examData = {
-            examId: "${exam.id || ''}",
-            examName: "${exam.name || 'Exam'}",
-            date: new Date().toISOString(),
-            topics: ${JSON.stringify(exam.topics || [])},
-            answers: answers,
-            timeTaken: formatElapsedTime(startTime, Date.now()),
-            questionTypes: ${JSON.stringify(questions.map(q => q.type))}
-          };
-          
-          // Submit the exam data
-          if (window.opener) {
-            try {
-              window.opener.postMessage({ 
-                type: 'examCompleted', 
-                examData 
-              }, '*');
-              console.log('Sent exam completion data to parent window');
-              
-              // Show a success message to the user
-              document.body.innerHTML = \`
-                <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 30px; background-color: #004d40; color: white; border-radius: 10px;">
-                  <h1>Exam Submitted</h1>
-                  <p>Thank you for completing the exam. Your answers have been recorded.</p>
-                  <p>Your exam is being evaluated and results will be available in the Performance tab.</p>
-                  <button onclick="window.close()" style="margin-top: 20px; background-color: white; color: #004d40; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Close Window</button>
-                </div>
-              \`;
-            } catch (e) {
-              console.error('Could not send message to parent window:', e);
-              
-              // Show an error message but note that results are still saved
-              document.body.innerHTML = \`
-                <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 30px; background-color: #004d40; color: white; border-radius: 10px;">
-                  <h1>Exam Submitted</h1>
-                  <p>There was an issue communicating with the parent window, but your answers have been saved.</p>
-                  <p>You can safely close this window.</p>
-                  <button onclick="window.close()" style="margin-top: 20px; background-color: white; color: #004d40; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Close Window</button>
-                </div>
-              \`;
-            }
-          }
-          
-          // Store the data in localStorage as backup
-          localStorage.setItem('lastExamResults', JSON.stringify(examData));
-          localStorage.setItem('completedExamId', examData.examId);
-          
-          // Close the window after a delay
-          setTimeout(() => {
-            window.close();
-          }, 5000);
-        }
-        
-        // Format time function
-        function formatElapsedTime(start, end) {
-          const elapsed = end - start;
-          const minutes = Math.floor(elapsed / 60000);
-          const seconds = Math.floor((elapsed % 60000) / 1000);
-          return \`\${minutes}m \${seconds}s\`;
-        }
-      </script>
-    </body>
-    </html>
-  `;
+  return examText;
 };

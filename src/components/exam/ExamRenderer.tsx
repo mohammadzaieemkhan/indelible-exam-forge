@@ -3,8 +3,9 @@ import React from 'react';
 import { IExam } from '@/components/ExamTabs';
 import { parseQuestions } from './utils/examParser';
 import { ParsedQuestion } from './types/examTypes';
+import ReactMarkdown from 'react-markdown';
 
-// Generate HTML for the exam with the new two-panel layout
+// Generate HTML for the exam with the two-panel layout
 export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): string => {
   // Create question numbers for the left panel
   const questionNumbersHtml = questions.map((question) => {
@@ -29,10 +30,12 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     if (question.type === 'mcq' && question.options) {
       optionsHtml = question.options.map(option => {
         const optionLetter = option.charAt(0);
+        // Clean the option text (remove any markdown artifacts)
+        const cleanOption = option.replace(/^\s*[A-D][).]\s*/, '').trim();
         return `
           <div class="option">
             <input type="radio" name="question-${question.id}" id="option-${question.id}-${optionLetter}" value="${optionLetter}">
-            <label for="option-${question.id}-${optionLetter}">${option}</label>
+            <label for="option-${question.id}-${optionLetter}" class="markdown-content">${cleanOption}</label>
           </div>
         `;
       }).join('');
@@ -67,11 +70,11 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     
     // Extract just the question part (without instructions like "Select one:" etc.)
     // Add null check before using replace
-    const questionText = cleanText ? cleanText.replace(/.*?([A-Za-z0-9].*?\?)/s, '$1').trim() : `Question ${question.id}`;
+    const questionText = cleanText ? cleanText.trim() : `Question ${question.id}`;
     
     return `
       <div class="question-content" id="question-content-${question.id}" ${index > 0 ? 'style="display: none;"' : ''}>
-        <h3>Q${question.id}. ${questionText}</h3>
+        <h3>Q${question.id}. <span class="markdown-content">${questionText}</span></h3>
         <div class="options-container">
           ${optionsHtml}
         </div>
@@ -378,6 +381,56 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           cursor: not-allowed;
         }
         
+        /* Markdown content styling */
+        .markdown-content {
+          line-height: 1.6;
+        }
+        
+        .markdown-content h1, 
+        .markdown-content h2, 
+        .markdown-content h3, 
+        .markdown-content h4 {
+          margin-top: 1em;
+          margin-bottom: 0.5em;
+        }
+        
+        .markdown-content p {
+          margin-bottom: 1em;
+        }
+        
+        .markdown-content ul, 
+        .markdown-content ol {
+          margin-left: 1.5em;
+          margin-bottom: 1em;
+        }
+        
+        .markdown-content code {
+          background-color: rgba(0, 0, 0, 0.1);
+          padding: 0.2em 0.4em;
+          border-radius: 3px;
+          font-family: monospace;
+        }
+        
+        .markdown-content pre {
+          background-color: rgba(0, 0, 0, 0.1);
+          padding: 1em;
+          border-radius: 5px;
+          overflow-x: auto;
+        }
+        
+        .markdown-content table {
+          border-collapse: collapse;
+          width: 100%;
+          margin-bottom: 1em;
+        }
+        
+        .markdown-content th, 
+        .markdown-content td {
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          padding: 0.5em;
+          text-align: left;
+        }
+        
         /* Responsive styles */
         @media (max-width: 768px) {
           #exam-container {
@@ -419,6 +472,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           }
         }
       </style>
+      <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     </head>
     <body>
       <div id="exam-container">
@@ -445,7 +499,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
             </div>
             <div class="legend-item">
               <div class="legend-color not-visited-color"></div>
-              <span>No Visited</span>
+              <span>Not Visited</span>
             </div>
           </div>
           
@@ -474,6 +528,19 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         // Set the first question as the current one
         questionStatus[1] = 'current';
         updateQuestionNumbers();
+        
+        // Parse markdown content on page load
+        document.addEventListener('DOMContentLoaded', function() {
+          // Render all markdown content
+          const markdownElements = document.querySelectorAll('.markdown-content');
+          markdownElements.forEach(element => {
+            try {
+              element.innerHTML = marked.parse(element.textContent || '');
+            } catch (e) {
+              console.error('Error parsing markdown:', e);
+            }
+          });
+        });
         
         // Show a specific question
         function showQuestion(questionId) {
