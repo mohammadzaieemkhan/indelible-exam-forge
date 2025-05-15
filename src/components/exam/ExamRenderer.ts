@@ -4,22 +4,27 @@ import { parseQuestions } from "./utils/examParser";
 import { ParsedQuestion } from "./types/examTypes";
 
 // Function to generate the HTML for the exam
-export const generateExamHtml = (exam: any, questions: any[]) => {
+export const generateExamHtml = (exam, questions) => {
+  // Ensure questions is an array - if not, make it an empty array
+  const questionArray = Array.isArray(questions) ? questions : [];
+  
   // Create a unique ID for this exam session
   const examSessionId = `exam-session-${Date.now()}`;
   
   // Format the current time and convert the duration to milliseconds
   const startTime = Date.now();
-  const durationMs = parseInt(exam.duration) * 60 * 1000;
+  const durationMs = parseInt(exam.duration || "60") * 60 * 1000;
   const endTime = startTime + durationMs;
   
   // Filter out the answer key questions (they usually have the same question number)
   const questionSet = new Set();
-  const uniqueQuestions = questions.filter(q => {
+  const uniqueQuestions = questionArray.filter(q => {
+    if (!q) return false; // Skip null or undefined questions
+    
     // Add null check before accessing question property
-    const questionNumber = q?.question?.match(/^\d+/);
-    if (questionNumber && !questionSet.has(questionNumber[0])) {
-      questionSet.add(questionNumber[0]);
+    const questionId = q.id || questionArray.indexOf(q) + 1;
+    if (!questionSet.has(questionId)) {
+      questionSet.add(questionId);
       return true;
     }
     return false;
@@ -38,8 +43,8 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
   // Group questions by type
   const groupedQuestions = {
     mcq: uniqueQuestions.filter(q => q.type === 'mcq'),
-    truefalse: uniqueQuestions.filter(q => q.type === 'truefalse'),
-    shortanswer: uniqueQuestions.filter(q => q.type === 'shortanswer'),
+    truefalse: uniqueQuestions.filter(q => q.type === 'trueFalse'),
+    shortanswer: uniqueQuestions.filter(q => q.type === 'shortAnswer'),
     essay: uniqueQuestions.filter(q => q.type === 'essay')
   };
 
@@ -50,7 +55,7 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${exam.name} - Exam</title>
+      <title>${exam.name || 'Exam'} - Exam</title>
       <style>
         body {
           font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
@@ -234,6 +239,13 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
         .hidden {
           display: none;
         }
+        .no-questions-message {
+          text-align: center;
+          padding: 30px;
+          background-color: #f9fafb;
+          border-radius: 8px;
+          margin: 20px 0;
+        }
         @media (max-width: 768px) {
           #exam-container {
             flex-direction: column;
@@ -263,12 +275,12 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
     </head>
     <body>
       <div id="exam-container">
-        <div id="timer">Time Remaining: ${exam.duration}:00</div>
+        <div id="timer">Time Remaining: ${exam.duration || '60'}:00</div>
         
         <div class="nav-panel">
           <div class="header">
-            <h2>${exam.name}</h2>
-            <p><strong>Duration:</strong> ${exam.duration} minutes</p>
+            <h2>${exam.name || 'Exam'}</h2>
+            <p><strong>Duration:</strong> ${exam.duration || '60'} minutes</p>
           </div>
           <ul class="nav-list">
             <li class="nav-item active" data-section="mcq">Multiple Choice Questions</li>
@@ -281,11 +293,11 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
         <div class="content-panel">
           <div class="section active" id="mcq-section">
             <h2 class="section-title">Multiple Choice Questions</h2>
-            ${groupedQuestions.mcq.map((q, idx) => `
+            ${groupedQuestions.mcq.length > 0 ? groupedQuestions.mcq.map((q, idx) => `
               <div class="question-container">
-                <div class="question">Q${idx + 1}: ${q.question}</div>
+                <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div class="options">
-                  ${q.options.map((option, optIdx) => `
+                  ${(q.options || []).map((option, optIdx) => `
                     <div class="option">
                       <label>
                         <input type="radio" name="q${idx}" value="${option}" />
@@ -295,14 +307,14 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
                   `).join('')}
                 </div>
               </div>
-            `).join('') || '<p>No multiple choice questions available</p>'}
+            `).join('') : '<div class="no-questions-message">No multiple choice questions available</div>'}
           </div>
           
           <div class="section" id="truefalse-section">
             <h2 class="section-title">True / False Questions</h2>
-            ${groupedQuestions.truefalse.map((q, idx) => `
+            ${groupedQuestions.truefalse.length > 0 ? groupedQuestions.truefalse.map((q, idx) => `
               <div class="question-container">
-                <div class="question">Q${idx + 1}: ${q.question}</div>
+                <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div class="options">
                   <div class="option">
                     <label>
@@ -318,14 +330,14 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
                   </div>
                 </div>
               </div>
-            `).join('') || '<p>No true/false questions available</p>'}
+            `).join('') : '<div class="no-questions-message">No true/false questions available</div>'}
           </div>
           
           <div class="section" id="shortanswer-section">
             <h2 class="section-title">Short Answer Questions</h2>
-            ${groupedQuestions.shortanswer.map((q, idx) => `
+            ${groupedQuestions.shortanswer.length > 0 ? groupedQuestions.shortanswer.map((q, idx) => `
               <div class="question-container">
-                <div class="question">Q${idx + 1}: ${q.question}</div>
+                <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
                   <input type="text" id="sa${idx}" placeholder="Enter your answer here..." />
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('sa${idx}', 'shortanswer')">
@@ -337,14 +349,14 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
                   </button>
                 </div>
               </div>
-            `).join('') || '<p>No short answer questions available</p>'}
+            `).join('') : '<div class="no-questions-message">No short answer questions available</div>'}
           </div>
           
           <div class="section" id="essay-section">
             <h2 class="section-title">Essay Type Questions</h2>
-            ${groupedQuestions.essay.map((q, idx) => `
+            ${groupedQuestions.essay.length > 0 ? groupedQuestions.essay.map((q, idx) => `
               <div class="question-container">
-                <div class="question">Q${idx + 1}: ${q.question}</div>
+                <div class="question">Q${idx + 1}: ${q.text || `Question ${idx + 1}`}</div>
                 <div>
                   <textarea id="essay${idx}" placeholder="Write your answer here..."></textarea>
                   <button type="button" class="upload-btn" onclick="initiateImageUpload('essay${idx}', 'essay')">
@@ -356,7 +368,7 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
                   </button>
                 </div>
               </div>
-            `).join('') || '<p>No essay questions available</p>'}
+            `).join('') : '<div class="no-questions-message">No essay questions available</div>'}
           </div>
           
           <div class="actions">
@@ -368,20 +380,23 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
       <input type="file" id="image-upload-input" accept="image/*" style="display: none;">
       
       <script>
+        // Log the exam data to help with debugging
+        console.log("Exam questions loaded:", ${JSON.stringify(uniqueQuestions.length)} + " questions");
+        
         // Store exam information
         const examData = {
-          examId: "${exam.id}",
-          examName: "${exam.name}",
+          examId: "${exam.id || ''}",
+          examName: "${exam.name || 'Exam'}",
           date: new Date().toISOString(),
           answers: {},
           timeTaken: "",
           questionTypes: ${JSON.stringify(questionTypes)},
           questionWeights: ${JSON.stringify(questionWeights)},
           questions: ${JSON.stringify(uniqueQuestions.map(q => ({
-            question: q.question,
+            question: q.text || '',
             type: q.type || 'unknown',
             options: q.options || [],
-            answer: q.answer || ''
+            answer: q.correctAnswer || ''
           })))}
         };
         
@@ -540,7 +555,7 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
           document.body.innerHTML = \`
             <div style="max-width: 600px; margin: 100px auto; text-align: center; padding: 20px;">
               <h1>Exam Submitted</h1>
-              <p>Thank you for completing the exam "${exam.name}".</p>
+              <p>Thank you for completing the exam "${exam.name || 'Exam'}".</p>
               <p>Time taken: \${timeTaken}</p>
               \${autoSubmit ? '<p><strong>Note:</strong> The exam was automatically submitted as the time limit was reached.</p>' : ''}
               <p>Your responses have been recorded. You can close this window now.</p>
@@ -579,3 +594,4 @@ export const generateExamHtml = (exam: any, questions: any[]) => {
 
 // Export functions for use in other modules
 export { parseQuestions };
+

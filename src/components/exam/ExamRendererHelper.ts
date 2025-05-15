@@ -1,6 +1,7 @@
 import { formatExamWithLayout } from "./utils/examParser";
 import { parseQuestions } from "./utils/examParser";
 import { ParsedQuestion, ExamSubmissionData } from "./types/examTypes";
+import { generateExamHtml } from "./ExamRenderer";
 
 // This function will be used instead of the original ExamRenderer
 // when we want the two-panel layout
@@ -58,14 +59,15 @@ export const renderExamWithNumbersPanel = (exam) => {
     parsedQuestions = [];
   }
   
-  const examHtml = formatExamWithLayout(examWithoutAnswers);
-  
   // Keep original questions for evaluation
   // If we parsed them from a string, use the parsed questions
   // Otherwise, use the original questions array
   const originalQuestions = typeof exam.questions === 'string' 
     ? parseQuestions(exam.questions)
     : exam.questions;
+  
+  // Use the enhanced ExamRenderer to generate HTML with the two-panel layout
+  const examHtml = generateExamHtml(examWithoutAnswers, examWithoutAnswers.questions || []);
   
   // This function mimics what handleViewExam does but uses our enhanced renderer
   const openExamWindow = () => {
