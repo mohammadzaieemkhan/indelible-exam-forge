@@ -41,8 +41,8 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
   // Filter exams based on subject and date
   const filteredExams = useMemo(() => {
     return exams.filter(exam => {
-      const matchesSubject = !filterSubject || exam.topics.includes(filterSubject);
-      const matchesDate = !filterDate || exam.date === filterDate;
+      const matchesSubject = filterSubject === "" || filterSubject === "all-subjects" || exam.topics.includes(filterSubject);
+      const matchesDate = filterDate === "" || filterDate === "all-dates" || exam.date === filterDate;
       return matchesSubject && matchesDate;
     });
   }, [exams, filterSubject, filterDate]);
@@ -246,7 +246,7 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
                   <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Subjects</SelectItem>
+                  <SelectItem value="all-subjects">All Subjects</SelectItem>
                   {uniqueSubjects.map(subject => (
                     <SelectItem key={subject} value={subject}>{subject}</SelectItem>
                   ))}
@@ -261,7 +261,7 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
                   <SelectValue placeholder="Select date" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Dates</SelectItem>
+                  <SelectItem value="all-dates">All Dates</SelectItem>
                   {uniqueDates.map(date => (
                     <SelectItem key={date} value={date}>{date}</SelectItem>
                   ))}
