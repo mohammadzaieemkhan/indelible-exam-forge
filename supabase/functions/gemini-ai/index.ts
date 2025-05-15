@@ -72,17 +72,17 @@ serve(async (req) => {
         // Check if we have sections defined
         if (sections && sections.length > 0) {
           // Build a structured prompt for sections
-          let sectionsPrompt = "Create the following exam sections with clearly numbered questions:\n";
+          let sectionsPrompt = "Create the following exam sections with clearly separated and numbered questions:\n\n";
           
           sections.forEach((section, index) => {
-            sectionsPrompt += `\nSECTION ${index + 1}: ${section.title || 'Untitled Section'}\n`;
+            sectionsPrompt += `SECTION ${index + 1}: ${section.title || 'Untitled Section'}\n`;
             sectionsPrompt += `- ${section.numberOfQuestions || 5} questions\n`;
             sectionsPrompt += `- Question types: ${section.questionTypes.join(", ")}\n`;
             sectionsPrompt += `- Topics: ${section.topics.length > 0 ? section.topics.join(", ") : "General Knowledge"}\n`;
-            sectionsPrompt += `- Difficulty: ${section.difficulty || "medium"}\n`;
+            sectionsPrompt += `- Difficulty: ${section.difficulty || "medium"}\n\n`;
           });
           
-          sectionsPrompt += "\nIMPORTANT: ALL questions MUST be related to the specified topics. Do NOT include questions on any other topics. Format the questions clearly and ensure that each question is properly labeled with its section.";
+          sectionsPrompt += "\nIMPORTANT: ALL questions MUST be related to the specified topics. Do NOT include questions on any other topics. Format the questions clearly and ensure that each question is properly labeled with its section and section number (e.g. 'SECTION 1: [title]', followed by questions 1.1, 1.2, etc.)";
           sectionsPrompt += "\n" + mcqFormatInstructions;
           
           userPrompt = sectionsPrompt + "\n" + (userPrompt || "");

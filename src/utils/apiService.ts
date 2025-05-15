@@ -178,8 +178,32 @@ export const useGeminiAI = async (
         }
       }
       
+      // Enhanced prompt for better question generation by sections
+      if (params.sections && params.sections.length > 0) {
+        // Create a structured prompt for organized sections
+        let sectionsPrompt = "Create the following organized exam sections with clearly labeled and numbered questions:\n\n";
+        
+        params.sections.forEach((section, index) => {
+          sectionsPrompt += `SECTION ${index + 1}: ${section.title || 'Untitled Section'}\n`;
+          sectionsPrompt += `- Number of questions: ${section.numberOfQuestions || 5}\n`;
+          sectionsPrompt += `- Question types: ${section.questionTypes.join(", ")}\n`;
+          sectionsPrompt += `- Topics: ${section.topics.join(", ")}\n`;
+          sectionsPrompt += `- Difficulty: ${section.difficulty || "medium"}\n\n`;
+        });
+        
+        sectionsPrompt += "\nIMPORTANT FORMATTING INSTRUCTIONS:\n";
+        sectionsPrompt += "- Clearly label each section with its name\n";
+        sectionsPrompt += "- Number questions sequentially within each section\n";
+        sectionsPrompt += "- For multiple choice questions, format each option on a SEPARATE LINE with clear labels (A, B, C, D)\n";
+        sectionsPrompt += "- Clearly indicate the correct answer for each question\n";
+        sectionsPrompt += "- ALL questions MUST be directly related to the specified topics\n";
+        
+        // Update or create the prompt
+        const basePrompt = params.prompt || "";
+        params.prompt = basePrompt + "\n\n" + sectionsPrompt;
+      }
       // Enhanced prompt for better question type distribution with specific counts
-      if (params.questionTypes && params.questionTypes.length > 0) {
+      else if (params.questionTypes && params.questionTypes.length > 0) {
         // Calculate how many questions of each type
         const typeCount = params.questionTypes.length;
         const totalQuestions = params.numberOfQuestions || 10;

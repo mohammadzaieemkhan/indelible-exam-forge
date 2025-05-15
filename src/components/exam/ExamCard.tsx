@@ -28,7 +28,7 @@ const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
   const isToday = examDate !== 0 && 
                  new Date(examDate).toDateString() === new Date().toDateString();
 
-  // Get the description and total questions using type-safe property access
+  // Get the description and total questions with safe type checking
   const description = 
     'description' in exam && exam.description ? 
       String(exam.description) : 
@@ -81,7 +81,7 @@ const ExamCard = ({ exam, onView, onTake, onRefresh }: ExamCardProps) => {
           {totalQuestions !== undefined && (
             <div className="mt-2">
               <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                {totalQuestions} questions
+                {String(totalQuestions)} questions
               </span>
             </div>
           )}
