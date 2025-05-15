@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +14,30 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Check if already logged in
-  if (localStorage.getItem("userData")) {
-    navigate("/dashboard");
-  }
+  useEffect(() => {
+    // Check if already logged in
+    if (localStorage.getItem("userData")) {
+      navigate("/dashboard");
+    }
+
+    // Check if we need to create a default account for testing
+    const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
+    if (accounts.length === 0) {
+      // Create a default test account
+      const defaultAccount = {
+        name: "Test User",
+        email: "test@example.com",
+        password: "password",
+        role: "Student"
+      };
+      
+      localStorage.setItem("accounts", JSON.stringify([defaultAccount]));
+      toast({
+        title: "Test Account Created",
+        description: "Email: test@example.com, Password: password"
+      });
+    }
+  }, [navigate, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,6 +113,9 @@ const LoginPage = () => {
           <h1 className="text-3xl font-bold">Welcome back</h1>
           <p className="text-gray-500 dark:text-gray-400">
             Enter your credentials to sign in to your account
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Use email: <strong>test@example.com</strong> and password: <strong>password</strong>
           </p>
         </div>
         <div className="space-y-4">
