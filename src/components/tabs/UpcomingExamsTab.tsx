@@ -1,7 +1,7 @@
 
 import React from "react";
 import { IExam } from "@/components/ExamTabs";
-import { DeleteExamDialog } from "@/components/exam/DeleteExamDialog";
+import DeleteExamDialog from "@/components/exam/DeleteExamDialog"; // Fix import
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit, Copy } from "lucide-react";
@@ -17,7 +17,7 @@ interface UpcomingExamsTabProps {
 const UpcomingExamsTab = ({ exams, onDeleteExam, onEditExam, onDuplicateExam }: UpcomingExamsTabProps) => {
   // Use our custom ExamCardWithHandwritten component instead of ExamCard
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
       {exams.length > 0 ? (
         exams.map((exam) => (
           <ExamCardWithHandwritten

@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { ExamCard } from './ExamCard';
+import ExamCard from './ExamCard';  // Fix import
 import { IExam } from '@/components/ExamTabs';
 import ExamHandwrittenUploadHandler from './ExamHandwrittenUploadHandler';
 import ExamRendererWithHandwritten from './ExamRendererWithHandwritten';
@@ -22,11 +22,19 @@ const ExamCardWithHandwritten: React.FC<ExamCardWithHandwrittenProps> = (props) 
   
   // Custom view handler that uses our ExamRendererWithHandwritten
   const handleView = () => {
-    const renderer = new ExamRendererWithHandwritten({
+    // Create the renderer instance without using 'new'
+    const renderer = ExamRendererWithHandwritten({
       exam: props.exam,
       onExamWindowOpen: handleExamWindowOpen
     });
-    renderer.handleViewExam();
+    
+    // If onView is provided, use it, otherwise use the renderer's handleViewExam
+    if (props.onView) {
+      props.onView();
+    } else {
+      // Call the function directly instead of using new keyword
+      renderer.handleViewExam();
+    }
   };
   
   return (

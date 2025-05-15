@@ -53,7 +53,10 @@ const ExamRendererWithHandwritten = ({ exam, onExamWindowOpen }: ExamRendererWit
     examWindow.document.close();
   };
 
-  return null; // This component doesn't render anything directly
+  // Return an object with the function instead of rendering a component
+  return {
+    handleViewExam,
+  };
 };
 
 export { parseQuestions };
