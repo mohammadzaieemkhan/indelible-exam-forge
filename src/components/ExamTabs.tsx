@@ -147,7 +147,7 @@ const ExamTabs = () => {
     }, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [upcomingExams]);
+  }, [upcomingExams, toast, phoneNumber]);
   
   // Listen for exam completion events from the exam window
   useEffect(() => {
@@ -169,7 +169,7 @@ const ExamTabs = () => {
         if (lastExamResults) {
           try {
             console.log("Found last exam results in localStorage:", lastExamResults);
-            const examData = JSON.parse(lastExamResults);
+            const examData = JSON.parse(lastExamResults) as IExamResult;
             await processCompletedExam(examData);
             localStorage.removeItem('completedExamId');
             localStorage.removeItem('lastExamResults');
@@ -190,9 +190,8 @@ const ExamTabs = () => {
   }, [upcomingExams]);
   
   // Process a completed exam
-  const processCompletedExam = async (examData: any) => {
+  const processCompletedExam = async (examData: IExamResult) => {
     console.log("Processing completed exam:", examData);
-    
     // Find the exam in upcoming exams
     const examIndex = upcomingExams.findIndex(exam => exam.id === examData.examId);
     console.log("Found exam at index:", examIndex, "out of", upcomingExams.length, "exams");
@@ -218,17 +217,6 @@ const ExamTabs = () => {
     try {
       console.log("Starting AI evaluation for exam:", completedExam.name);
       
-      // Prepare questions and answers for evaluation
-      const questions = examData.questions.map((q: any, idx: number) => {
-        return {
-          id: q.id,
-          question: q.text,
-          type: q.type,
-          answer: q.correctAnswer,
-          options: q.options || []
-        };
-      });
-      
       // Evaluate the exam using Gemini AI
       const evaluationPrompt = `Evaluate the following exam responses:
         
@@ -237,10 +225,10 @@ const ExamTabs = () => {
       Difficulty: ${completedExam.difficulty}
       
       Questions and Responses:
-      ${questions.map((q: any, idx: number) => {
+      ${examData.questions.map((q, idx) => {
         const questionNumber = idx + 1;
         const questionType = q.type;
-        const userAnswer = examData.answers[q.id] || 'Not answered';
+        const userAnswer = examData.answers[`q${idx}`] || 'Not answered';
         const correctAnswer = q.answer || 'N/A';
         const weight = examData.questionWeights[idx] || 1;
         
@@ -551,30 +539,6 @@ const ExamTabs = () => {
     }
   };
   
-  // Handle deleting an exam from Previous Exams tab
-  const handleDeletePreviousExam = (examId: string) => {
-    console.log("Deleting previous exam with ID:", examId);
-    
-    // Remove from previous exams state
-    const updatedPreviousExams = previousExams.filter(exam => exam.id !== examId);
-    setPreviousExams(updatedPreviousExams);
-    
-    // Update localStorage
-    localStorage.setItem('previousExams', JSON.stringify(updatedPreviousExams));
-    
-    // Also remove any associated results
-    const savedResults = localStorage.getItem('examResults');
-    if (savedResults) {
-      try {
-        const examResults = JSON.parse(savedResults);
-        const updatedResults = examResults.filter((result: any) => result.examId !== examId);
-        localStorage.setItem('examResults', JSON.stringify(updatedResults));
-      } catch (error) {
-        console.error('Error deleting exam result:', error);
-      }
-    }
-  };
-  
   return (
     <>
       <Tabs defaultValue="generate" className="space-y-6" value={activeTab} onValueChange={handleTabChange}>
@@ -612,10 +576,7 @@ const ExamTabs = () => {
         
         {/* Previous Exams Tab */}
         <TabsContent value="previous" className="space-y-6 animate-fade-in">
-          <PreviousExamsTab 
-            exams={previousExams} 
-            onDeleteExam={handleDeletePreviousExam}
-          />
+          <PreviousExamsTab exams={previousExams} />
         </TabsContent>
         
         {/* Upcoming Exams Tab */}

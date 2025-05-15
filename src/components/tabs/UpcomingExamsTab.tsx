@@ -10,7 +10,6 @@ import ExamCard from "@/components/exam/ExamCard";
 import DeleteExamDialog from "@/components/exam/DeleteExamDialog";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { isExamActive, getTimeRemaining } from "@/lib/utils";
-import { renderExamWithNumbersPanel } from "@/components/exam/ExamRendererHelper";
 
 interface UpcomingExamsTabProps {
   exams: IExam[];
@@ -46,7 +45,7 @@ const UpcomingExamsTab = ({
     setExamToDelete(null);
   };
   
-  // Open exam in a new window with the two-panel layout
+  // Open exam in a new window
   const handleViewExam = (exam: IExam) => {
     // Check if the exam should be available based on current time
     const isAvailable = isExamActive(exam.date, exam.time);
@@ -61,47 +60,50 @@ const UpcomingExamsTab = ({
       return;
     }
     
-    // Check if exam has questions
-    if (!exam.questions || exam.questions.trim() === '') {
+    // Create a new window for the exam
+    const examWindow = window.open('', '_blank', 'width=1024,height=768,scrollbars=yes');
+    
+    if (!examWindow) {
       toast({
-        title: "Exam Content Missing",
-        description: "This exam doesn't have any questions. Please contact your instructor.",
+        title: "Popup Blocked",
+        description: "Please allow popups for this site to take the exam.",
         variant: "destructive"
       });
       return;
     }
     
-    try {
-      // Use the renderer helper to open the exam with the two-panel layout
-      const { openExamWindow } = renderExamWithNumbersPanel(exam);
+    console.log("Opening exam:", exam.name, "with ID:", exam.id);
+    
+    // Import the necessary functions from ExamRenderer
+    import('@/components/exam/utils/examParser').then(module => {
+      const { formatExamWithLayout } = module;
+      const examHtml = formatExamWithLayout(exam);
       
-      if (!openExamWindow()) {
-        toast({
-          title: "Popup Blocked",
-          description: "Please allow popups for this site to take the exam.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Exam Started",
-          description: "Your exam has opened in a new window."
-        });
-      }
-    } catch (error) {
-      console.error("Error opening exam:", error);
-      toast({
-        title: "Error Opening Exam",
-        description: "There was a problem opening the exam. Please try again.",
-        variant: "destructive"
-      });
-    }
+      // Write content to the new window
+      examWindow.document.open();
+      examWindow.document.write(examHtml);
+      examWindow.document.close();
+      
+      // Request fullscreen after a short delay
+      setTimeout(() => {
+        try {
+          const examElement = examWindow.document.getElementById('exam-container');
+          if (examElement && examElement.requestFullscreen) {
+            examElement.requestFullscreen().catch(err => {
+              console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+          }
+        } catch (error) {
+          console.error("Could not enter fullscreen mode:", error);
+        }
+      }, 1000);
+    });
   };
   
   const handleSendReminder = (exam: IExam) => {
     onSendReminder(exam);
   };
 
-  // Fix: Update handleDelete to accept examId as string
   const handleDelete = (examId: string) => {
     // Find the exam to delete
     const exam = exams.find(e => e.id === examId);

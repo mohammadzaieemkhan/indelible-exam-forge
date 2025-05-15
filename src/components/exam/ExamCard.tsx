@@ -28,12 +28,10 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
 
   // Determine exam status (past, present, future)
   const now = new Date().getTime();
-  const examDate = exam.date && exam.time ? new Date(`${exam.date}T${exam.time}`).getTime() : 0;
+  const examDate = exam.date ? new Date(exam.date).getTime() : 0;
   const isPast = examDate < now && examDate !== 0;
   const isToday = examDate !== 0 && 
                  new Date(examDate).toDateString() === new Date().toDateString();
-  const isActive = examDate <= now; // Correctly determine if exam is active (now >= exam time)
-
   const formattedTime = exam.time || "No time set";
 
   // Get the description and total questions with safe type checking
@@ -68,20 +66,12 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
     if (isPast) {
       return "This exam has already passed";
     }
-    if (isActive) {
-      return "This exam is available now";
+    if (isToday) {
+      return "This exam is available today";
     }
     if (examDate !== 0) {
       const daysLeft = Math.ceil((examDate - now) / (1000 * 60 * 60 * 24));
-      const hoursLeft = Math.ceil((examDate - now) / (1000 * 60 * 60));
-      
-      if (daysLeft > 1) {
-        return `Available in ${daysLeft} days`;
-      } else if (daysLeft === 1) {
-        return `Available in ${daysLeft} day`;
-      } else {
-        return `Available in ${hoursLeft} hours`;
-      }
+      return `Available in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`;
     }
     return "No date set for this exam";
   };
@@ -96,12 +86,12 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
   return (
     <Card className={`overflow-hidden border ${
       isPast ? 'border-gray-200' : 
-      isActive ? 'border-primary' : 
+      isToday ? 'border-primary' : 
       'border-blue-200'
     }`}>
       <CardHeader className={`pb-3 ${
         isPast ? '' : 
-        isActive ? 'bg-primary/5 border-b border-primary/20' : 
+        isToday ? 'bg-primary/5 border-b border-primary/20' : 
         'bg-blue-50 dark:bg-blue-950/20'
       }`}>
         <div className="flex justify-between items-start">
@@ -152,11 +142,11 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
             )}
             
             <span className={`text-xs px-2 py-1 rounded-full ${
-              isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 
+              isToday ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 
               isPast ? 'bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-400' :
               'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
             }`}>
-              {isActive ? 'Available now' : isPast ? 'Past exam' : 'Upcoming'}
+              {isToday ? 'Available now' : isPast ? 'Past exam' : 'Upcoming'}
             </span>
             
             {exam.difficulty && (
@@ -193,10 +183,10 @@ const ExamCard = ({ exam, onView, onTake, onRefresh, onSendReminder, onDelete }:
         
         {onTake && (
           <Button 
-            onClick={isActive ? onTake : undefined} 
-            disabled={!isActive} 
+            onClick={onTake} 
+            disabled={!isToday} 
             className="gap-1"
-            variant={isActive ? "default" : "outline"}
+            variant={isToday ? "default" : "outline"}
           >
             <span>Take Exam</span>
             <ArrowRight className="h-4 w-4" />

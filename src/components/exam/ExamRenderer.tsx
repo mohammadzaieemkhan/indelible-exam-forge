@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { IExam } from '@/components/ExamTabs';
 import { parseQuestions } from './utils/examParser';
@@ -28,7 +29,7 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
     let optionsHtml = '';
     
     // Clean up the question text by removing the answer part
-    let cleanText = question.text || '';
+    let cleanText = question.text;
     if (question.correctAnswer) {
       cleanText = cleanText.replace(/Answer:\s*([A-D]|True|False)/i, '');
     }
@@ -55,18 +56,14 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           <label for="option-${question.id}-false">False</label>
         </div>
       `;
-    } else if (question.type === 'shortAnswer' || question.type === 'short answer' || question.type.includes('short')) {
-      optionsHtml = `<textarea class="short-answer-textarea" placeholder="Enter your answer here..." rows="3" name="textarea-${question.id}"></textarea>`;
-    } else if (question.type === 'essay' || question.type.includes('essay')) {
-      optionsHtml = `<textarea class="essay-textarea" placeholder="Write your essay here..." rows="8" name="textarea-${question.id}"></textarea>`;
+    } else if (question.type === 'shortAnswer') {
+      optionsHtml = `<textarea placeholder="Enter your answer here..." rows="3"></textarea>`;
+    } else if (question.type === 'essay') {
+      optionsHtml = `<textarea placeholder="Write your essay here..." rows="8"></textarea>`;
     }
     
     // Extract just the question part (without instructions like "Select one:" etc.)
-    // Add a null check for cleanText
-    let questionText = cleanText;
-    if (cleanText) {
-      questionText = cleanText.replace(/.*?([A-Za-z0-9].*?\?)/s, '$1').trim();
-    }
+    const questionText = cleanText.replace(/.*?([A-Za-z0-9].*?\?)/s, '$1').trim();
     
     return `
       <div class="question-content" id="question-content-${question.id}" ${index > 0 ? 'style="display: none;"' : ''}>
@@ -303,23 +300,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           resize: vertical;
         }
         
-        textarea.short-answer-textarea, textarea.essay-textarea {
-          width: 100%;
-          padding: 12px;
-          border-radius: 5px;
-          border: 1px solid var(--light-gray);
-          background-color: var(--white);
-          color: #333;
-          font-size: 1rem;
-          resize: vertical;
-          min-height: 80px;
-          margin-bottom: 10px;
-        }
-        
-        textarea.essay-textarea {
-          min-height: 150px;
-        }
-        
         .navigation-buttons {
           display: flex;
           justify-content: space-between;
@@ -448,10 +428,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         const questionStatus = {};
         const allQuestions = ${JSON.stringify(questions.map(q => q.id))};
         let currentQuestion = 1;
-        const examStartTime = new Date();
-        const examId = "${exam.id || ''}";
-        const examName = "${exam.name || 'Exam'}";
-        const examDate = "${exam.date || new Date().toISOString().split('T')[0]}";
         
         // Initialize all questions as not visited
         allQuestions.forEach(qId => {
@@ -526,31 +502,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           }
         });
         
-        // Capture input changes for textarea questions (short answer and essay)
-        document.addEventListener('input', function(e) {
-          if (e.target.tagName === 'TEXTAREA') {
-            // Check if the textarea has content
-            if (e.target.value.trim().length > 0) {
-              // Find the question number from the textarea name or closest container
-              let questionId;
-              if (e.target.name && e.target.name.startsWith('textarea-')) {
-                questionId = parseInt(e.target.name.split('-')[1]);
-              } else {
-                // Find the closest question container to get the ID
-                const questionContent = e.target.closest('.question-content');
-                if (questionContent) {
-                  questionId = parseInt(questionContent.id.split('-')[2]);
-                }
-              }
-              
-              if (questionId) {
-                questionStatus[questionId] = 'answered';
-                updateQuestionNumbers();
-              }
-            }
-          }
-        });
-        
         // Timer functionality
         function startTimer(minutes) {
           let totalSeconds = minutes * 60;
@@ -601,10 +552,6 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
         
         // Submit the exam
         function submitExam() {
-          // Calculate time taken
-          const endTime = new Date();
-          const timeTaken = Math.floor((endTime - examStartTime) / 1000 / 60); // in minutes
-          
           // Collect all answers
           const answers = {};
           
@@ -615,59 +562,18 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
           });
           
           document.querySelectorAll('textarea').forEach(textarea => {
-            if (textarea.value.trim()) {
-              let questionId;
-              if (textarea.name && textarea.name.startsWith('textarea-')) {
-                questionId = textarea.name.split('-')[1];
-              } else {
-                // Find the closest question container to get the ID
-                const questionContent = textarea.closest('.question-content');
-                if (questionContent) {
-                  questionId = questionContent.id.split('-')[2];
-                }
-              }
-              
-              if (questionId) {
-                answers[questionId] = textarea.value.trim();
+            // Find the closest question container to get the ID
+            const questionContent = textarea.closest('.question-content');
+            if (questionContent) {
+              const questionId = questionContent.id.split('-')[2];
+              if (textarea.value.trim()) {
+                answers[questionId] = textarea.value;
               }
             }
           });
           
-          // Create exam data for evaluation
-          const examData = {
-            examId: examId,
-            examName: examName,
-            date: examDate,
-            answers: answers,
-            questions: ${JSON.stringify(questions)},
-            timeTaken: timeTaken + ' minutes',
-            questionWeights: ${JSON.stringify(exam.questionWeights || {})}
-          };
-          
+          // You would typically send these answers to a server
           console.log('Exam submitted with answers:', answers);
-          console.log('Complete exam data:', examData);
-          
-          // Try to send the data to the parent window
-          try {
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'examCompleted',
-                examData: examData
-              }, '*');
-              
-              console.log('Posted message to parent window');
-            } else {
-              console.log('No parent window found, saving to localStorage');
-              // If no parent window, save to localStorage as fallback
-              localStorage.setItem('completedExamId', examId);
-              localStorage.setItem('lastExamResults', JSON.stringify(examData));
-            }
-          } catch (e) {
-            console.error('Error sending exam data:', e);
-            // Fallback to localStorage
-            localStorage.setItem('completedExamId', examId);
-            localStorage.setItem('lastExamResults', JSON.stringify(examData));
-          }
           
           // Show completion message
           document.body.innerHTML = \`
@@ -677,6 +583,15 @@ export const generateExamHtml = (exam: IExam, questions: ParsedQuestion[]): stri
               <p>You will be redirected to the results page shortly.</p>
             </div>
           \`;
+          
+          // Notify the parent window that the exam is complete
+          if (window.opener) {
+            try {
+              window.opener.postMessage({ type: 'examCompleted', answers }, '*');
+            } catch (e) {
+              console.error('Could not send message to parent window:', e);
+            }
+          }
           
           // Close the window after a delay
           setTimeout(() => {

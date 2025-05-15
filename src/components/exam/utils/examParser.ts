@@ -1,15 +1,6 @@
 
 import { IExam } from '@/components/ExamTabs';
-
-// Define the ParsedQuestion interface locally
-export interface ParsedQuestion {
-  id: number;
-  text: string;
-  type: 'mcq' | 'shortAnswer' | 'essay' | 'trueFalse' | 'unknown';
-  options?: string[];
-  correctAnswer?: string;
-  weight?: number;
-}
+import { ParsedQuestion } from '@/components/exam/ExamRenderer';
 
 // Parse questions from text content
 export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
@@ -52,13 +43,10 @@ export const parseQuestions = (questionsText: string): ParsedQuestion[] => {
         correctAnswer = answerMatch[1];
       }
     }
-    // Check for short answer questions - expanded keywords detection
+    // Check for short answer questions
     else if (questionContent.toLowerCase().includes('short answer') || 
              questionContent.toLowerCase().includes('briefly explain') ||
-             questionContent.toLowerCase().includes('in a few sentences') ||
-             questionContent.toLowerCase().includes('brief response') ||
-             questionContent.toLowerCase().includes('explain briefly') ||
-             questionContent.toLowerCase().includes('short response')) {
+             questionContent.toLowerCase().includes('in a few sentences')) {
       type = 'shortAnswer';
     }
     // Check for essay questions
