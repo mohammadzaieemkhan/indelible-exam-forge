@@ -1,6 +1,4 @@
 
-import { useGeminiAI } from "./apiService";
-
 /**
  * Extract text from an image using Gemini AI
  */
