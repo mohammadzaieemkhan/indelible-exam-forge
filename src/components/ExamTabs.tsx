@@ -539,6 +539,30 @@ const ExamTabs = () => {
     }
   };
   
+  // Handle deleting an exam from Previous Exams tab
+  const handleDeletePreviousExam = (examId: string) => {
+    console.log("Deleting previous exam with ID:", examId);
+    
+    // Remove from previous exams state
+    const updatedPreviousExams = previousExams.filter(exam => exam.id !== examId);
+    setPreviousExams(updatedPreviousExams);
+    
+    // Update localStorage
+    localStorage.setItem('previousExams', JSON.stringify(updatedPreviousExams));
+    
+    // Also remove any associated results
+    const savedResults = localStorage.getItem('examResults');
+    if (savedResults) {
+      try {
+        const examResults = JSON.parse(savedResults);
+        const updatedResults = examResults.filter((result: any) => result.examId !== examId);
+        localStorage.setItem('examResults', JSON.stringify(updatedResults));
+      } catch (error) {
+        console.error('Error deleting exam result:', error);
+      }
+    }
+  };
+  
   return (
     <>
       <Tabs defaultValue="generate" className="space-y-6" value={activeTab} onValueChange={handleTabChange}>
@@ -576,7 +600,10 @@ const ExamTabs = () => {
         
         {/* Previous Exams Tab */}
         <TabsContent value="previous" className="space-y-6 animate-fade-in">
-          <PreviousExamsTab exams={previousExams} />
+          <PreviousExamsTab 
+            exams={previousExams} 
+            onDeleteExam={handleDeletePreviousExam}
+          />
         </TabsContent>
         
         {/* Upcoming Exams Tab */}

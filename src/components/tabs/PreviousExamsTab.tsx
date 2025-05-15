@@ -1,6 +1,6 @@
 
 import { useState, useMemo } from "react";
-import { Filter, Eye } from "lucide-react";
+import { Filter, Eye, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,17 +8,20 @@ import { IExam } from "@/components/ExamTabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface PreviousExamsTabProps {
   exams: IExam[];
+  onDeleteExam?: (examId: string) => void;
 }
 
-const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
+const PreviousExamsTab = ({ exams, onDeleteExam }: PreviousExamsTabProps) => {
   const [selectedExam, setSelectedExam] = useState<IExam | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState<boolean>(false);
   const [filterSubject, setFilterSubject] = useState<string>("");
   const [filterDate, setFilterDate] = useState<string>("");
   const [showFilters, setShowFilters] = useState<boolean>(false);
+  const { toast } = useToast();
   
   // Extract unique subjects from all exams
   const uniqueSubjects = useMemo(() => {
@@ -57,6 +60,20 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
   const handleViewExam = (exam: IExam) => {
     setSelectedExam(exam);
     setViewDialogOpen(true);
+  };
+  
+  // Handle deleting an exam
+  const handleDeleteExam = (examId: string) => {
+    if (onDeleteExam) {
+      // Confirm before deleting
+      if (window.confirm('Are you sure you want to delete this exam and its results?')) {
+        onDeleteExam(examId);
+        toast({
+          title: "Exam Deleted",
+          description: "The exam and its results have been removed"
+        });
+      }
+    }
   };
   
   // Simple function to convert markdown to HTML for preview
@@ -343,6 +360,16 @@ const PreviousExamsTab = ({ exams }: PreviousExamsTabProps) => {
                       {examScore && (
                         <Button variant="outline" size="sm" onClick={() => handleDownloadReport(exam.id || '')}>
                           Report
+                        </Button>
+                      )}
+                      {onDeleteExam && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleDeleteExam(exam.id || '')}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/20"
+                        >
+                          <Trash className="h-4 w-4 mr-1" /> Delete
                         </Button>
                       )}
                     </td>
